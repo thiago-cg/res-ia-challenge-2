@@ -157,6 +157,8 @@ def build_chunks(
 
     for device in devices_by_id.values():
         for version in versions_by_device[device.id]:
+            if not version.texto_literal.strip():
+                continue
             index_text = version.contexto + "\n" + version.texto_literal
             estimated = estimate_tokens(index_text, tokenizer)
             if estimated <= max_tokens:

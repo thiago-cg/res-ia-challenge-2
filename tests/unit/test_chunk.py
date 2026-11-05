@@ -177,6 +177,28 @@ def test_long_parent_with_uncovered_literal_raises_instead_of_losing_text() -> N
     assert excinfo.value.device_id == "lmp/art96"
 
 
+def test_empty_literal_device_is_not_emitted_as_empty_chunk() -> None:
+    devices = [
+        make_device("lmp/art95", tipo="artigo", artigo_id="lmp/art95"),
+        make_device(
+            "lmp/art95/cpt",
+            parent_id="lmp/art95",
+            artigo_id="lmp/art95",
+            tipo="caput",
+            ordem=2,
+        ),
+    ]
+    versions = [
+        make_version("lmp/art95", "", contexto="Art. 95"),
+        make_version("lmp/art95/cpt", "texto do caput", contexto="Art. 95, caput"),
+    ]
+
+    chunk_set = build_chunks(devices, versions)
+
+    assert [chunk.device_id for chunk in chunk_set.chunks] == ["lmp/art95/cpt"]
+    assert all(chunk.texto_literal for chunk in chunk_set.chunks)
+
+
 def test_long_leaf_without_children_raises_instead_of_truncating() -> None:
     long_literal = " ".join(["palavra"] * 2_000)
     devices = [make_device("lmp/art98", tipo="artigo", artigo_id="lmp/art98")]
