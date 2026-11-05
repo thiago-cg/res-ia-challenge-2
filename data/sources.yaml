@@ -1,0 +1,88 @@
+sources:
+  - id: lmp
+    title: "Lei nº 11.340/2006 (Lei Maria da Penha)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2006/lei/l11340.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: cp
+    title: "Código Penal"
+    url: "https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: cpp
+    title: "Código de Processo Penal"
+    url: "https://www.planalto.gov.br/ccivil_03/decreto-lei/del3689compilado.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: lei-15438-2026
+    title: "Lei nº 15.438/2026"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/l15438.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: lei-14994-2024
+    title: "Lei nº 14.994/2024"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2024/lei/l14994.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: cf
+    title: "Constituição Federal de 1988"
+    url: "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm"
+    parser: planalto
+    priority: P0
+    tipo: constituicao
+    enabled: true
+
+  - id: lgpd
+    title: "Lei nº 13.709/2018 (LGPD)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/L13709.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: lda
+    title: "Lei nº 9.610/1998 (Lei de Direitos Autorais)"
+    url: "https://www.planalto.gov.br/ccivil_03/leis/l9610.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: cnj-rc-5-2020
+    title: "Resolução Conjunta CNJ/CNMP nº 5/2020"
+    url: "https://atos.cnj.jus.br/atos/detalhar/3218"
+    parser: cnj
+    priority: P0
+    tipo: ato_cnj
+    enabled: true
+
+  - id: stj-sumulas
+    title: "Súmulas do STJ"
+    url: "https://scon.stj.jus.br/SCON/getFile?url=/docs_internet/jurisprudencia/tematica/download/SU/Verbetes/VerbetesSTJ_asc.pdf"
+    parser: sumulas_pdf
+    priority: P0
+    tipo: sumula
+    enabled: true
+
+  - id: cnj-portaria-6-2025
+    title: "Portaria Conjunta nº 6/2025"
+    url: "https://atos.cnj.jus.br/atos/detalhar/6242"
+    parser: cnj
+    priority: P1
+    tipo: ato_cnj
+    enabled: true
