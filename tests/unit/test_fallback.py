@@ -214,6 +214,30 @@ def test_no_silent_citation_loss_for_known_and_unknown_vigencia() -> None:
     )
 
 
+def test_cross_source_dedupe_keeps_citable_duplicate() -> None:
+    explicit = make_retrieved("lmp/art22/cpt/inc3/ali-b", 0.0, source="explicit", vigencia=None)
+    known = make_retrieved("lmp/art22/cpt/inc3/ali-c", 0.9, vigencia="vigente")
+
+    answer = build_safe_answer([explicit, known], "falha")
+
+    assert len(answer.citacoes) == 1
+    assert answer.citacoes[0].device_id == "lmp/art22/cpt/inc3/ali-c"
+    assert answer.citacoes[0].vigencia == "vigente"
+    assert "vigência não verificada" not in answer.resposta
+
+
+def test_cross_source_dedupe_prefers_known_explicit_without_duplicate() -> None:
+    explicit = make_retrieved(
+        "lmp/art22/cpt/inc3/ali-b", 0.0, source="explicit", vigencia="vigente"
+    )
+    unknown = make_retrieved("lmp/art22/cpt/inc3/ali-c", 0.9, vigencia=None)
+
+    answer = build_safe_answer([explicit, unknown], "falha")
+
+    assert [citation.device_id for citation in answer.citacoes] == ["lmp/art22/cpt/inc3/ali-b"]
+    assert "vigência não verificada" not in answer.resposta
+
+
 def test_explicit_devices_are_included_before_score_cap() -> None:
     non_explicit = [make_retrieved(f"lmp/art{index}", 0.9) for index in range(1, 11)]
     explicit = make_retrieved("lmp/explicit", 0.0, source="explicit")

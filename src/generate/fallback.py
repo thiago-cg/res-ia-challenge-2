@@ -72,25 +72,25 @@ def _select_devices(
     max_devices: int,
 ) -> list[RetrievedDevice]:
     devices = list(retrieved or [])
-    explicit = [device for device in devices if device.source == "explicit"]
-    non_explicit = [
-        device for device in devices if device.source != "explicit" and device.score > min_score
+    candidates = [
+        device for device in devices if device.source == "explicit" or device.score > min_score
     ]
+    explicit_artigos = {
+        _artigo_id(device.device_id) for device in candidates if device.source == "explicit"
+    }
 
-    explicit_selected = sorted(
-        _dedupe_by_artigo(explicit), key=lambda device: device.score, reverse=True
-    )[:max_devices]
-    seen = {_artigo_id(device.device_id) for device in explicit_selected}
+    reserved: list[RetrievedDevice] = []
+    others: list[RetrievedDevice] = []
+    for device in _dedupe_by_artigo(candidates):
+        if _artigo_id(device.device_id) in explicit_artigos:
+            reserved.append(device)
+        else:
+            others.append(device)
 
-    non_explicit_selected = [
-        device
-        for device in _dedupe_by_artigo(non_explicit)
-        if _artigo_id(device.device_id) not in seen
-    ]
-    non_explicit_selected.sort(key=lambda device: device.score, reverse=True)
+    reserved.sort(key=lambda device: device.score, reverse=True)
+    others.sort(key=lambda device: device.score, reverse=True)
 
-    remaining = max(0, max_devices - len(explicit_selected))
-    return explicit_selected + non_explicit_selected[:remaining]
+    return (reserved + others)[:max_devices]
 
 
 def insufficient_evidence(
