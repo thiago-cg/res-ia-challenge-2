@@ -274,3 +274,75 @@ def test_bracketed_citation_matches_hydrated_metadata() -> None:
     )
 
     assert result.ok is True
+
+
+def test_judge_with_text_signature_receives_response_string() -> None:
+    seen: dict[str, object] = {}
+
+    def judge(resposta: str, retrieved: list[RetrievedDevice]) -> list[str]:
+        seen["resposta"] = resposta
+        return []
+
+    result = verify(
+        answer(resposta="A lei permite requerer medida protetiva."),
+        [retrieved()],
+        repo=FakeRepo({("lmp/art22", 1): row()}),
+        judge=judge,
+    )
+
+    assert result.ok is True
+    assert seen["resposta"] == "A lei permite requerer medida protetiva."
+
+
+def test_judge_with_answer_signature_receives_answer_object() -> None:
+    seen: dict[str, object] = {}
+
+    def judge(answer: Answer, retrieved: list[RetrievedDevice]) -> list[str]:
+        seen["answer"] = answer
+        return []
+
+    result = verify(
+        answer(),
+        [retrieved()],
+        repo=FakeRepo({("lmp/art22", 1): row()}),
+        judge=judge,
+    )
+
+    assert result.ok is True
+    assert isinstance(seen["answer"], Answer)
+
+
+def test_judge_with_one_text_parameter_receives_response_string() -> None:
+    seen: dict[str, object] = {}
+
+    def judge(resposta: str) -> list[str]:
+        seen["resposta"] = resposta
+        return []
+
+    result = verify(
+        answer(resposta="Texto da resposta."),
+        [retrieved()],
+        repo=FakeRepo({("lmp/art22", 1): row()}),
+        judge=judge,
+    )
+
+    assert result.ok is True
+    assert seen["resposta"] == "Texto da resposta."
+
+
+def test_ambiguous_judge_signature_raises_before_calling() -> None:
+    calls: list[int] = []
+
+    def judge(thing: object, retrieved: list[RetrievedDevice]) -> list[str]:
+        calls.append(1)
+        return []
+
+    with pytest.raises(TypeError, match="ambiguous judge signature"):
+        verify(
+            answer(),
+            [retrieved()],
+            repo=FakeRepo({("lmp/art22", 1): row()}),
+            judge=judge,
+        )
+
+    assert calls == []

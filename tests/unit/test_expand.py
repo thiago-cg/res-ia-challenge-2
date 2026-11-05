@@ -155,3 +155,29 @@ def test_lookup_body_type_error_propagates_without_retry() -> None:
         expand_to_article([device("lmp/art22/cpt/inc3", 0.8)], article_lookup=lookup)
 
     assert calls == [1]
+
+
+def test_lookup_with_one_parameter_receives_artigo_id() -> None:
+    seen: list[str] = []
+
+    def lookup(artigo_id: str) -> dict[str, str]:
+        seen.append(artigo_id)
+        return {"texto_literal": "artigo completo"}
+
+    result = expand_to_article([device("lmp/art22/cpt/inc3", 0.8)], article_lookup=lookup)
+
+    assert seen == ["lmp/art22"]
+    assert result.devices[0].contexto == "artigo completo"
+
+
+def test_ambiguous_lookup_signature_raises_before_calling() -> None:
+    calls: list[int] = []
+
+    def lookup(thing: object, version: int) -> dict[str, str] | None:
+        calls.append(1)
+        return None
+
+    with pytest.raises(TypeError, match="ambiguous article_lookup signature"):
+        expand_to_article([device("lmp/art22/cpt/inc3", 0.8)], article_lookup=lookup)
+
+    assert calls == []

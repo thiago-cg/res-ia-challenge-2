@@ -109,37 +109,82 @@ def _document_vectors(encoder: MultiVectorEncoder, texts: Sequence[str]) -> list
     return [[_as_vector(vector) for vector in matrix] for matrix in matrices]
 
 
+_QUERY_PARAMS = frozenset({"pergunta", "question", "query", "q", "subquestion", "consulta"})
+_CANDIDATE_PARAMS = frozenset(
+    {"candidates", "candidatos", "items", "devices", "docs", "cands", "c"}
+)
+_TOPK_PARAMS = frozenset({"top_k", "k", "limit", "n"})
+
+
 def _call_rescore(
     rescore: Rescore, pergunta: str, candidates: list[RetrievedDevice]
 ) -> list[RetrievedDevice]:
-    # Inspect the signature once instead of retrying calls: a ``TypeError`` raised
-    # inside the callable must not be mistaken for a signature mismatch.
-    arity, varargs = _positional_arity(rescore)
-    if arity is None or arity == 2:
-        return list(rescore(pergunta, candidates))
-    if varargs or arity >= 3:
-        return list(rescore(pergunta, candidates, DEFAULT_TOP_K))  # type: ignore[call-arg]
-    if arity == 1:
-        return list(rescore(pergunta))  # type: ignore[call-arg]
-    return list(rescore())  # type: ignore[call-arg]
+    # Inspect once and dispatch by parameter name.  A ``TypeError`` raised inside
+    # the callable propagates; ambiguous shapes fail before any call.
+    names, varargs = _signature_shape(rescore)
+    if names is None:
+        raise TypeError(
+            "cannot inspect rescore signature; declare it as "
+            "rescore(pergunta, candidates) or rescore(pergunta, candidates, top_k)"
+        )
+    if varargs:
+        raise TypeError(
+            "ambiguous rescore signature: variadic callables are not supported; "
+            "declare rescore(pergunta, candidates) or rescore(pergunta, candidates, top_k)"
+        )
+
+    call: Any = rescore
+    first = names[0] if names else ""
+    if first in _QUERY_PARAMS:
+        if len(names) == 1:
+            return list(call(pergunta))
+        if len(names) == 2 and names[1] in _CANDIDATE_PARAMS:
+            return list(call(pergunta, candidates))
+        if len(names) == 3 and names[1] in _CANDIDATE_PARAMS and names[2] in _TOPK_PARAMS:
+            return list(call(pergunta, candidates, DEFAULT_TOP_K))
+        raise _ambiguous_rescore(names)
+
+    if first in _CANDIDATE_PARAMS:
+        if len(names) == 1:
+            return list(call(candidates))
+        second = names[1] if len(names) > 1 else ""
+        if len(names) == 2 and second in _TOPK_PARAMS:
+            return list(call(candidates, DEFAULT_TOP_K))
+        if len(names) == 2 and second in _QUERY_PARAMS:
+            return list(call(candidates, pergunta))
+        if len(names) == 3 and second in _QUERY_PARAMS and names[2] in _TOPK_PARAMS:
+            return list(call(candidates, pergunta, DEFAULT_TOP_K))
+        raise _ambiguous_rescore(names)
+
+    if not names:
+        return list(call())
+    raise _ambiguous_rescore(names)
 
 
-def _positional_arity(func: Any) -> tuple[int | None, bool]:
+def _ambiguous_rescore(names: list[str]) -> TypeError:
+    return TypeError(
+        "ambiguous rescore signature: positional parameters are "
+        f"{names!r}; name the first 'pergunta'/'query' or "
+        "'candidates'/'items' and the second 'candidates'/'items' or 'top_k'"
+    )
+
+
+def _signature_shape(func: Any) -> tuple[list[str] | None, bool]:
     try:
         signature = inspect.signature(func)
     except (TypeError, ValueError):
         return None, False
-    positional = 0
+    names: list[str] = []
     varargs = False
     for parameter in signature.parameters.values():
         if parameter.kind in (
             inspect.Parameter.POSITIONAL_ONLY,
             inspect.Parameter.POSITIONAL_OR_KEYWORD,
         ):
-            positional += 1
+            names.append(parameter.name)
         elif parameter.kind is inspect.Parameter.VAR_POSITIONAL:
             varargs = True
-    return positional, varargs
+    return names, varargs
 
 
 def _sorted_cap(candidates: list[RetrievedDevice], top_k: int) -> list[RetrievedDevice]:

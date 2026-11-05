@@ -172,39 +172,76 @@ def _check_claim_has_citation(answer: Answer) -> list[str]:
     return []
 
 
+_JUDGE_TEXT_PARAMS = frozenset({"resposta", "text", "texto", "claim", "afirmacao", "statement"})
+_JUDGE_ANSWER_PARAMS = frozenset({"answer", "resposta_obj", "answer_obj"})
+
+
 def _run_judge(
     judge: Judge,
     answer: Answer,
     retrieved: list[RetrievedDevice],
 ) -> list[str]:
-    # Inspect once: a ``TypeError`` raised inside the judge must propagate, never
-    # be reinterpreted as a signature mismatch or trigger a second call.
-    arity, varargs = _positional_arity(judge)
-    if arity is None or varargs or arity >= 2:
-        result = judge(answer, retrieved)
-    elif arity == 1:
-        result = judge(answer.resposta)
-    else:
+    # Inspect once and dispatch by parameter name: ``TypeError`` raised inside
+    # the judge propagates, and an ambiguous shape fails before any call.
+    names, varargs = _signature_shape(judge)
+    if names is None:
+        raise TypeError(
+            "cannot inspect judge signature; declare it as judge(answer, retrieved) "
+            "or judge(resposta, retrieved)"
+        )
+    if varargs:
+        raise TypeError(
+            "ambiguous judge signature: variadic judges are not supported; declare "
+            "judge(answer, retrieved) or judge(resposta, retrieved)"
+        )
+
+    if not names:
         result = judge()
+    elif len(names) == 1:
+        if names[0] in _JUDGE_TEXT_PARAMS:
+            result = judge(answer.resposta)
+        elif names[0] in _JUDGE_ANSWER_PARAMS:
+            result = judge(answer)
+        else:
+            raise _ambiguous_judge(names[0])
+    elif len(names) == 2:
+        if names[0] in _JUDGE_TEXT_PARAMS:
+            result = judge(answer.resposta, retrieved)
+        elif names[0] in _JUDGE_ANSWER_PARAMS:
+            result = judge(answer, retrieved)
+        else:
+            raise _ambiguous_judge(names[0])
+    else:
+        raise TypeError(
+            f"ambiguous judge signature: expected at most 2 positional arguments, got {len(names)}"
+        )
     return _normalize_judge_result(result)
 
 
-def _positional_arity(func: Any) -> tuple[int | None, bool]:
+def _ambiguous_judge(first_parameter: str) -> TypeError:
+    return TypeError(
+        "ambiguous judge signature: first parameter is "
+        f"{first_parameter!r}; name it 'answer' to receive the Answer object or "
+        "'resposta'/'text'/'claim' to receive the response text"
+    )
+
+
+def _signature_shape(func: Any) -> tuple[list[str] | None, bool]:
     try:
         signature = inspect.signature(func)
     except (TypeError, ValueError):
         return None, False
-    positional = 0
+    names: list[str] = []
     varargs = False
     for parameter in signature.parameters.values():
         if parameter.kind in (
             inspect.Parameter.POSITIONAL_ONLY,
             inspect.Parameter.POSITIONAL_OR_KEYWORD,
         ):
-            positional += 1
+            names.append(parameter.name)
         elif parameter.kind is inspect.Parameter.VAR_POSITIONAL:
             varargs = True
-    return positional, varargs
+    return names, varargs
 
 
 def _normalize_judge_result(result: Any) -> list[str]:

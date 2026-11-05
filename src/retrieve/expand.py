@@ -89,6 +89,10 @@ def _is_better(candidate: RetrievedDevice, current: RetrievedDevice) -> bool:
     return candidate.device_id < current.device_id
 
 
+_ARTICLE_PARAMS = frozenset({"artigo_id", "artigo", "article_id", "article"})
+_VERSION_PARAMS = frozenset({"norm_version_id", "version", "versao", "norm_version", "v"})
+
+
 def _lookup(
     lookup: ArticleLookup | Callable[..., Any],
     artigo: str,
@@ -96,30 +100,54 @@ def _lookup(
 ) -> Any | None:
     method = getattr(lookup, "lookup", None)
     target = method if method is not None else cast(Callable[..., Any], lookup)
-    arity, varargs = _positional_arity(target)
-    if arity is None or varargs or arity >= 2:
-        return target(artigo, norm_version_id)
-    if arity == 1:
-        return target(artigo)
-    return target()
+    names, varargs = _signature_shape(target)
+    if names is None:
+        raise TypeError(
+            "cannot inspect article_lookup signature; declare it as "
+            "lookup(artigo_id, norm_version_id) or lookup(artigo_id)"
+        )
+    if varargs:
+        raise TypeError(
+            "ambiguous article_lookup signature: variadic callables are not supported; "
+            "declare lookup(artigo_id, norm_version_id) or lookup(artigo_id)"
+        )
+
+    if not names:
+        return target()
+    first = names[0]
+    if first in _ARTICLE_PARAMS:
+        if len(names) == 1:
+            return target(artigo)
+        if len(names) == 2 and names[1] in _VERSION_PARAMS:
+            return target(artigo, norm_version_id)
+        raise _ambiguous_lookup(names)
+    raise _ambiguous_lookup(names)
 
 
-def _positional_arity(func: Any) -> tuple[int | None, bool]:
+def _ambiguous_lookup(names: list[str]) -> TypeError:
+    return TypeError(
+        "ambiguous article_lookup signature: positional parameters are "
+        f"{names!r}; name the first 'artigo_id'/'artigo' and the second "
+        "'norm_version_id'/'version'"
+    )
+
+
+def _signature_shape(func: Any) -> tuple[list[str] | None, bool]:
     try:
         signature = inspect.signature(func)
     except (TypeError, ValueError):
         return None, False
-    positional = 0
+    names: list[str] = []
     varargs = False
     for parameter in signature.parameters.values():
         if parameter.kind in (
             inspect.Parameter.POSITIONAL_ONLY,
             inspect.Parameter.POSITIONAL_OR_KEYWORD,
         ):
-            positional += 1
+            names.append(parameter.name)
         elif parameter.kind is inspect.Parameter.VAR_POSITIONAL:
             varargs = True
-    return positional, varargs
+    return names, varargs
 
 
 def _field(row: Any, name: str) -> Any:

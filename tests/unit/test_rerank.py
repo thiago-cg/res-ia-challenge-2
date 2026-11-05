@@ -161,3 +161,30 @@ def test_rescore_body_type_error_propagates_without_retry() -> None:
         rerank("p", [candidate("d")], rescore=rescore)
 
     assert calls == [1]
+
+
+def test_rescore_candidates_first_shape_receives_candidates_and_top_k() -> None:
+    seen: dict[str, object] = {}
+
+    def rescore(candidates: list[RetrievedDevice], top_k: int) -> list[RetrievedDevice]:
+        seen["count"] = len(candidates)
+        seen["top_k"] = top_k
+        return candidates
+
+    result = rerank("p", [candidate("only")], rescore=rescore)
+
+    assert seen == {"count": 1, "top_k": 10}
+    assert [item.device_id for item in result] == ["only"]
+
+
+def test_ambiguous_rescore_signature_raises_before_calling() -> None:
+    calls: list[int] = []
+
+    def rescore(left: object, right: object) -> list[RetrievedDevice]:
+        calls.append(1)
+        return []
+
+    with pytest.raises(TypeError, match="ambiguous rescore signature"):
+        rerank("p", [candidate("d")], rescore=rescore)
+
+    assert calls == []
