@@ -15,7 +15,7 @@ check uses whitespace-normalized words.  Otherwise ``ChunkTooLong`` is raised.
 from __future__ import annotations
 
 import math
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date
@@ -198,17 +198,24 @@ def _descendant_literals(
 
 
 def _covers(parent_literal: str, descendant_literals: list[str]) -> bool:
-    """True when descendants cover every word of the parent, including counts.
+    """True when descendants cover every parent word, in order and by count.
 
-    Extra words in descendants are legitimate (they may add labels or context),
-    but a word repeated N times in the parent must appear at least N times in the
-    union of descendant literals.
+    This is a greedy subsequence match: the parent's normalized word list is
+    matched against the concatenated descendant literals in structural order.
+    Each parent occurrence consumes one descendant occurrence, so repeated
+    words are not lost and reordering is rejected. Extra words in descendants
+    are legitimate (they may add labels or context).
     """
-    parent_counts = Counter(parent_literal.split())
-    if not parent_counts:
+    parent_words = parent_literal.split()
+    if not parent_words:
         return True
-    descendant_counts = Counter(" ".join(descendant_literals).split())
-    return not (parent_counts - descendant_counts)
+    position = 0
+    for word in " ".join(descendant_literals).split():
+        if word == parent_words[position]:
+            position += 1
+            if position == len(parent_words):
+                return True
+    return False
 
 
 def _build_article_contexts(

@@ -199,6 +199,36 @@ def test_parent_split_requires_multiset_word_coverage() -> None:
     assert excinfo.value.device_id == "lmp/art94"
 
 
+def test_parent_split_rejects_out_of_order_descendant_coverage() -> None:
+    devices = [
+        make_device("lmp/art91", tipo="artigo", artigo_id="lmp/art91"),
+        make_device(
+            "lmp/art91/cpt/inc1",
+            parent_id="lmp/art91",
+            artigo_id="lmp/art91",
+            tipo="inciso",
+            ordem=2,
+        ),
+        make_device(
+            "lmp/art91/cpt/inc2",
+            parent_id="lmp/art91",
+            artigo_id="lmp/art91",
+            tipo="inciso",
+            ordem=3,
+        ),
+    ]
+    versions = [
+        make_version("lmp/art91", "b a", contexto="x x"),
+        make_version("lmp/art91/cpt/inc1", "a", contexto=""),
+        make_version("lmp/art91/cpt/inc2", "b", contexto=""),
+    ]
+
+    with pytest.raises(ChunkTooLong) as excinfo:
+        build_chunks(devices, versions, max_tokens=4)
+
+    assert excinfo.value.device_id == "lmp/art91"
+
+
 def test_parent_split_allows_legitimate_extra_child_words() -> None:
     devices = [
         make_device("lmp/art93", tipo="artigo", artigo_id="lmp/art93"),
