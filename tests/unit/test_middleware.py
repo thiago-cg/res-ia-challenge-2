@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from src.api.middleware import (
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
+    install_error_handlers,
     redact_exception,
 )
 from src.obs.logging import JsonFormatter
@@ -33,6 +34,7 @@ def build_app() -> FastAPI:
     def chat_error() -> dict[str, str]:
         raise RuntimeError("falha com CPF 123.456.789-09")
 
+    install_error_handlers(app)
     return app
 
 
@@ -58,7 +60,7 @@ def capture_json_events() -> Iterator[io.StringIO]:
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(build_app())
+    return TestClient(build_app(), raise_server_exceptions=False)
 
 
 def test_request_id_header_is_echoed(client: TestClient) -> None:
@@ -120,6 +122,8 @@ def test_error_response_keeps_context_and_security_headers(
         response = client.get("/chat/error", headers={"X-Request-ID": "req-500"})
 
     assert response.status_code == 500
+    assert response.headers["Content-Type"].startswith("application/json")
+    assert response.json() == {"detail": "Internal Server Error"}
     assert response.headers["X-Request-ID"] == "req-500"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["Referrer-Policy"] == "no-referrer"
@@ -132,7 +136,11 @@ def test_error_response_keeps_context_and_security_headers(
     assert events[0].status == 500
     assert events[0].path == "/chat/error"
     assert events[0].request_id == "req-500"
+    assert "Traceback" in caplog.text
+    assert "RuntimeError" in caplog.text
+    assert "[CPF]" in caplog.text
     assert "123.456.789-09" not in caplog.text
+    assert "Internal Server Error" in response.text
 
 
 def test_access_log_fields(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:

@@ -6,11 +6,13 @@ import logging
 import re
 import time
 
+from fastapi import FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse, Response
+from starlette.responses import JSONResponse, Response
 
 from src.obs.logging import (
+    SERVICE_LOGGER_NAME,
     bind_request_context,
     log_event,
     new_request_id,
@@ -19,6 +21,8 @@ from src.obs.logging import (
 
 REQUEST_ID_HEADER = "X-Request-ID"
 SESSION_ID_HEADER = "X-Session-ID"
+
+_LOGGER = logging.getLogger(SERVICE_LOGGER_NAME)
 
 _SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9._:\[\]-]{1,128}$")
 
@@ -69,25 +73,26 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             _sanitize_header_identifier(request.headers.get(REQUEST_ID_HEADER)) or new_request_id()
         )
         session_id = _sanitize_header_identifier(request.headers.get(SESSION_ID_HEADER))
+        request.state.request_id = request_id
+        request.state.session_id = session_id
         start = time.perf_counter()
         with bind_request_context(request_id=request_id, session_id=session_id):
             try:
                 response = await call_next(request)
             except Exception as exc:
-                log_event(
-                    "http.access",
-                    level=logging.ERROR,
-                    method=request.method,
-                    path=request.url.path,
-                    status=500,
-                    duration_ms=_elapsed_ms(start),
-                    request_id=request_id,
-                    error=redact_exception(exc),
+                _LOGGER.exception(
+                    "http.access: %s",
+                    redact_exception(exc),
+                    extra={
+                        "event": "http.access",
+                        "method": request.method,
+                        "path": request.url.path,
+                        "status": 500,
+                        "duration_ms": _elapsed_ms(start),
+                        "request_id": request_id,
+                    },
                 )
-                response = PlainTextResponse("Internal Server Error", status_code=500)
-                response.headers[REQUEST_ID_HEADER] = request_id
-                _apply_security_headers(response, request.url.path)
-                return response
+                raise
             response.headers[REQUEST_ID_HEADER] = request_id
             log_event(
                 "http.access",
@@ -98,6 +103,22 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 request_id=request_id,
             )
             return response
+
+
+def install_error_handlers(app: FastAPI) -> None:
+    """Register a safe 500 handler that preserves correlation/security headers."""
+
+    async def internal_error_handler(request: Request, _exc: Exception) -> Response:
+        stored_id = getattr(request.state, "request_id", None)
+        request_id = (
+            _sanitize_header_identifier(str(stored_id)) if stored_id is not None else None
+        ) or new_request_id()
+        response = JSONResponse({"detail": "Internal Server Error"}, status_code=500)
+        response.headers[REQUEST_ID_HEADER] = request_id
+        _apply_security_headers(response, request.url.path)
+        return response
+
+    app.add_exception_handler(Exception, internal_error_handler)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

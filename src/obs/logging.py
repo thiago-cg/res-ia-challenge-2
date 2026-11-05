@@ -34,6 +34,21 @@ session_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 
 _LOGGER = logging.getLogger(SERVICE_LOGGER_NAME)
 
+
+class _RedactExceptionFilter(logging.Filter):
+    """Replace tracebacks with a PII-redacted text before any handler formats."""
+
+    _formatter = logging.Formatter()
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.exc_info:
+            record.exc_text = redact_pii(self._formatter.formatException(record.exc_info))
+            record.exc_info = None
+        return True
+
+
+_LOGGER.addFilter(_RedactExceptionFilter())
+
 _EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _CPF_RE = re.compile(r"(?<!\d)\d{3}[ .-]?\d{3}[ .-]?\d{3}[ .-]?\d{2}(?!\d)")
 _PHONE_RE = re.compile(r"(?<!\d)\(?\d{2}\)?\s?9?\d{4}-?\d{4}(?!\d)")
@@ -403,9 +418,18 @@ class JsonFormatter(logging.Formatter):
             "event": _redact_optional_text(getattr(record, "event", None)),
         }
         payload.update(_record_extras(record))
-        if record.exc_info:
-            payload["exception"] = redact_pii(self.formatException(record.exc_info))
+        exception_text = _exception_text(record, self)
+        if exception_text:
+            payload["exception"] = exception_text
         return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+def _exception_text(record: logging.LogRecord, formatter: logging.Formatter) -> str | None:
+    if record.exc_info:
+        return redact_pii(formatter.formatException(record.exc_info))
+    if record.exc_text:
+        return redact_pii(record.exc_text)
+    return None
 
 
 def _render_extra_value(value: Any) -> str:
@@ -435,8 +459,9 @@ class TextFormatter(logging.Formatter):
         for key, value in _record_extras(record).items():
             parts.append(f"{key}={_render_extra_value(value)}")
         line = " ".join(parts) + " " + redact_pii(record.getMessage())
-        if record.exc_info:
-            line += "\n" + redact_pii(self.formatException(record.exc_info))
+        exception_text = _exception_text(record, self)
+        if exception_text:
+            line += "\n" + exception_text
         return line
 
 
