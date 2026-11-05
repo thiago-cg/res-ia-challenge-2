@@ -4,6 +4,10 @@ The app is wired through dependency injection so tests can run without a
 database, Qdrant or an external LLM.  ``create_app`` receives an optional
 pipeline, source repository and health probe; the module-level ``app`` only
 builds lazy adapters that connect on first use.
+
+Serve with ``uvicorn --no-access-log``: request correlation and a body-free
+access event are already emitted by ``RequestContextMiddleware``, while
+uvicorn's access log would record query strings.
 """
 
 from __future__ import annotations
@@ -18,6 +22,11 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request
 
+from src.api.middleware import (
+    RequestContextMiddleware,
+    SecurityHeadersMiddleware,
+    install_error_handlers,
+)
 from src.api.schemas import (
     ChatRequest,
     ChatResponse,
@@ -42,6 +51,7 @@ from src.generate.schemas import LLMOutput, LLMOutputError, parse_llm_output
 from src.generate.verify import verify
 from src.index.embed import Encoder, get_encoder
 from src.index.pgvector import dense_search, fts_search
+from src.obs.logging import configure_logging
 from src.retrieve.citations import CitationCatalog, resolve_explicit_citation
 from src.retrieve.expand import dedupe_by_artigo, expand_to_article
 from src.retrieve.hybrid import DenseSearcher, FtsSearcher, QdrantSearcher, hybrid_search
@@ -655,6 +665,7 @@ def create_app(
     data_atualizacao_base: str | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
+    configure_logging(level=settings.log_level)
     repo: Any = source_repo or PostgresRepo(settings.database_url)
     probe = health_probe or SettingsHealthProbe(
         settings,
@@ -675,6 +686,10 @@ def create_app(
     app.state.source_repo = repo
     app.state.health_probe = probe
     app.state.data_atualizacao_base = data_atualizacao_base
+
+    install_error_handlers(app)
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestContextMiddleware)
 
     @app.post("/chat", response_model=ChatResponse)
     def chat(payload: ChatRequest, http_request: Request) -> ChatResponse:
