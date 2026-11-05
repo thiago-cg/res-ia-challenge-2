@@ -146,6 +146,13 @@ def test_gguf_paths_are_rejected_with_actionable_message(encoder_class) -> None:
     assert LOCAL_06B_GGUF in message
 
 
+def test_pplx_direct_9b_gguf_uses_9b_config_field_label() -> None:
+    with pytest.raises(ModelFormatError) as excinfo:
+        PPLXEncoder(r"C:\models\pplx-embed-v2-late-9b.gguf")
+
+    assert "ppx_9b_model_path" in str(excinfo.value)
+
+
 def test_revision_is_recorded() -> None:
     assert HarrierEncoder("/models/harrier", revision="abc123").revision == "abc123"
     assert PPLXEncoder("/models/pplx", revision="def456").revision == "def456"

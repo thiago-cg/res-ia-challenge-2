@@ -27,7 +27,6 @@ from src.index.chunk import Chunk
 DEFAULT_HARRIER_MODEL = "microsoft/harrier-oss-v1-0.6b"
 DEFAULT_PPLX_06B_MODEL = "perplexity-ai/pplx-embed-v2-late-0.6b"
 DEFAULT_PPLX_9B_MODEL = "perplexity-ai/pplx-embed-v2-late-9b"
-DEFAULT_REVISION = ""
 DEFAULT_DIMENSION = 1024
 
 HARRIER_INSTRUCTION = (
@@ -159,9 +158,10 @@ class PPLXEncoder(_SentenceTransformerEncoder):
         dimension: int = DEFAULT_DIMENSION,
         model: Any | None = None,
         batch_size: int = 32,
-        settings_field: str = "ppx_06b_model_path",
+        settings_field: str | None = None,
     ) -> None:
-        _reject_gguf(settings_field, model_path)
+        field = settings_field or _pplx_field_for(model_path)
+        _reject_gguf(field, model_path)
         super().__init__(
             model_path or DEFAULT_PPLX_06B_MODEL,
             revision=revision,
@@ -175,6 +175,10 @@ class PPLXEncoder(_SentenceTransformerEncoder):
 
     def encode_query(self, text: str) -> list[float]:
         return self._encode([text])[0]
+
+
+def _pplx_field_for(model_path: str) -> str:
+    return "ppx_9b_model_path" if "9b" in model_path.lower() else "ppx_06b_model_path"
 
 
 def _require_revision(revision: str | None) -> str:

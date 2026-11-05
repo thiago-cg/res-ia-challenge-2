@@ -15,7 +15,7 @@ check uses whitespace-normalized words.  Otherwise ``ChunkTooLong`` is raised.
 from __future__ import annotations
 
 import math
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date
@@ -198,18 +198,17 @@ def _descendant_literals(
 
 
 def _covers(parent_literal: str, descendant_literals: list[str]) -> bool:
-    """True when every whitespace-normalized parent word appears in order."""
-    parent_words = parent_literal.split()
-    if not parent_words:
+    """True when descendants cover every word of the parent, including counts.
+
+    Extra words in descendants are legitimate (they may add labels or context),
+    but a word repeated N times in the parent must appear at least N times in the
+    union of descendant literals.
+    """
+    parent_counts = Counter(parent_literal.split())
+    if not parent_counts:
         return True
-    descendant_words = " ".join(descendant_literals).split()
-    position = 0
-    for word in descendant_words:
-        if position < len(parent_words) and word == parent_words[position]:
-            position += 1
-            if position == len(parent_words):
-                return True
-    return False
+    descendant_counts = Counter(" ".join(descendant_literals).split())
+    return not (parent_counts - descendant_counts)
 
 
 def _build_article_contexts(
@@ -226,21 +225,16 @@ def _build_article_contexts(
             )
 
     contexts: list[ArticleContext] = []
-    for (artigo_id, norm_version_id), (leaf_device, leaf_version) in groups.items():
-        article = devices_by_id.get(artigo_id)
-        reference: Device
-        version: DeviceVersion
-
-        if article is not None and (
-            article_version := _version_for(versions_by_device.get(article.id, []), norm_version_id)
-        ):
-            reference, version = article, article_version
-        elif (caput := _find_caput(devices_by_id, artigo_id)) is not None and (
-            caput_version := _version_for(versions_by_device.get(caput.id, []), norm_version_id)
-        ):
-            reference, version = caput, caput_version
-        else:
-            reference, version = leaf_device, leaf_version
+    for artigo_id, norm_version_id in groups:
+        chosen = _choose_article_reference(
+            artigo_id,
+            norm_version_id,
+            devices_by_id,
+            versions_by_device,
+        )
+        if chosen is None:
+            continue
+        reference, version = chosen
 
         leaf_ids = [
             chunk.device_id
@@ -251,6 +245,38 @@ def _build_article_contexts(
         ]
         contexts.append(_make_article_context(artigo_id, reference, version, leaf_ids=leaf_ids))
     return contexts
+
+
+def _choose_article_reference(
+    artigo_id: str,
+    norm_version_id: int,
+    devices_by_id: dict[str, Device],
+    versions_by_device: dict[str, list[DeviceVersion]],
+) -> tuple[Device, DeviceVersion] | None:
+    """Prefer article, then caput, then descendants; never return empty text."""
+    ordered: list[Device] = []
+    seen: set[str] = set()
+
+    article = devices_by_id.get(artigo_id)
+    if article is not None:
+        ordered.append(article)
+        seen.add(article.id)
+
+    caput = _find_caput(devices_by_id, artigo_id)
+    if caput is not None and caput.id not in seen:
+        ordered.append(caput)
+        seen.add(caput.id)
+
+    for device in sorted(devices_by_id.values(), key=lambda item: item.ordem):
+        if device.artigo_id == artigo_id and device.id not in seen:
+            ordered.append(device)
+            seen.add(device.id)
+
+    for device in ordered:
+        version = _version_for(versions_by_device.get(device.id, []), norm_version_id)
+        if version is not None and version.texto_literal.strip():
+            return device, version
+    return None
 
 
 def _find_caput(devices_by_id: dict[str, Device], artigo_id: str) -> Device | None:

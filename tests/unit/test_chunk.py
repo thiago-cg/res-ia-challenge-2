@@ -177,6 +177,82 @@ def test_long_parent_with_uncovered_literal_raises_instead_of_losing_text() -> N
     assert excinfo.value.device_id == "lmp/art96"
 
 
+def test_parent_split_requires_multiset_word_coverage() -> None:
+    devices = [
+        make_device("lmp/art94", tipo="artigo", artigo_id="lmp/art94"),
+        make_device(
+            "lmp/art94/cpt",
+            parent_id="lmp/art94",
+            artigo_id="lmp/art94",
+            tipo="caput",
+            ordem=2,
+        ),
+    ]
+    versions = [
+        make_version("lmp/art94", "a a", contexto="x x"),
+        make_version("lmp/art94/cpt", "a", contexto=""),
+    ]
+
+    with pytest.raises(ChunkTooLong) as excinfo:
+        build_chunks(devices, versions, max_tokens=4)
+
+    assert excinfo.value.device_id == "lmp/art94"
+
+
+def test_parent_split_allows_legitimate_extra_child_words() -> None:
+    devices = [
+        make_device("lmp/art93", tipo="artigo", artigo_id="lmp/art93"),
+        make_device(
+            "lmp/art93/cpt/inc1",
+            parent_id="lmp/art93",
+            artigo_id="lmp/art93",
+            tipo="inciso",
+            ordem=2,
+        ),
+        make_device(
+            "lmp/art93/cpt/inc2",
+            parent_id="lmp/art93",
+            artigo_id="lmp/art93",
+            tipo="inciso",
+            ordem=3,
+        ),
+    ]
+    versions = [
+        make_version("lmp/art93", "a b", contexto="x x"),
+        make_version("lmp/art93/cpt/inc1", "a x", contexto=""),
+        make_version("lmp/art93/cpt/inc2", "b", contexto=""),
+    ]
+
+    chunk_set = build_chunks(devices, versions, max_tokens=4)
+    literals = [chunk.texto_literal for chunk in chunk_set.chunks]
+
+    assert "a b" not in literals
+    assert set(literals) == {"a x", "b"}
+
+
+def test_article_parent_fully_covered_by_caput_is_split_losslessly() -> None:
+    devices = [
+        make_device("lmp/art92", tipo="artigo", artigo_id="lmp/art92"),
+        make_device(
+            "lmp/art92/cpt",
+            parent_id="lmp/art92",
+            artigo_id="lmp/art92",
+            tipo="caput",
+            ordem=2,
+        ),
+    ]
+    versions = [
+        make_version("lmp/art92", "a b", contexto="x x"),
+        make_version("lmp/art92/cpt", "a b", contexto=""),
+    ]
+
+    chunk_set = build_chunks(devices, versions, max_tokens=4)
+
+    assert [chunk.device_id for chunk in chunk_set.chunks] == ["lmp/art92/cpt"]
+    assert chunk_set.chunks[0].texto_literal == "a b"
+    assert chunk_set.article_contexts[0].texto_literal == "a b"
+
+
 def test_empty_literal_device_is_not_emitted_as_empty_chunk() -> None:
     devices = [
         make_device("lmp/art95", tipo="artigo", artigo_id="lmp/art95"),
@@ -197,6 +273,9 @@ def test_empty_literal_device_is_not_emitted_as_empty_chunk() -> None:
 
     assert [chunk.device_id for chunk in chunk_set.chunks] == ["lmp/art95/cpt"]
     assert all(chunk.texto_literal for chunk in chunk_set.chunks)
+    assert len(chunk_set.article_contexts) == 1
+    assert chunk_set.article_contexts[0].texto_literal == "texto do caput"
+    assert chunk_set.article_contexts[0].texto_literal.strip()
 
 
 def test_long_leaf_without_children_raises_instead_of_truncating() -> None:
