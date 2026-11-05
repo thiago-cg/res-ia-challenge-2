@@ -10,7 +10,7 @@ norm_version_id)`` so different versions of the same device are never merged.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Hashable, Sequence
 from datetime import date
 from typing import Any, Protocol
 
@@ -22,7 +22,6 @@ TARGET_BM25_LIMIT = 100
 DEFAULT_MAX_CANDIDATES = 150
 
 PairKey = tuple[str, int]
-Ranked = list[tuple[str, float]]
 
 
 class DenseSearcher(Protocol):
@@ -39,7 +38,9 @@ class QdrantSearcher(Protocol):
     ) -> Sequence[Any]: ...
 
 
-def rrf(rank_lists: Sequence[Sequence[str]], k: int = DEFAULT_RRF_K) -> Ranked:
+def rrf[Key: Hashable](
+    rank_lists: Sequence[Sequence[Key]], k: int = DEFAULT_RRF_K
+) -> list[tuple[Key, float]]:
     """Reciprocal Rank Fusion exactly as in docs/05 §6.
 
     Each list contributes ``1 / (k + position)`` with ``position`` starting at
@@ -49,7 +50,7 @@ def rrf(rank_lists: Sequence[Sequence[str]], k: int = DEFAULT_RRF_K) -> Ranked:
     if k < 0:
         raise ValueError("k must be non-negative")
 
-    scores: dict[str, float] = {}
+    scores: dict[Key, float] = {}
     for ranks in rank_lists:
         for position, key in enumerate(ranks, start=1):
             scores[key] = scores.get(key, 0.0) + 1.0 / (k + position)
