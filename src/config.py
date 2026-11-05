@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     retrieval_path: Literal["fallback", "target"] = "fallback"
     embedding_provider: Literal["harrier", "pplx"] = "harrier"
+    embedding_model_revision: str = ""
     llm_provider: Literal["mock", "local", "api"] = "mock"
 
     max_devices: int = Field(default=10, gt=0)
