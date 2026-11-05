@@ -74,8 +74,11 @@ def test_get_encoder_selects_harrier_and_pplx_paths_by_retrieval_path() -> None:
         _env_file=None,
         embedding_provider="harrier",
         harrier_model_path="/models/harrier",
+        embedding_model_revision="rev-harrier",
     )
-    assert get_encoder(harrier).model_name == "/models/harrier"
+    harrier_encoder = get_encoder(harrier)
+    assert harrier_encoder.model_name == "/models/harrier"
+    assert harrier_encoder.revision == "rev-harrier"
 
     target = Settings(
         _env_file=None,
@@ -83,6 +86,7 @@ def test_get_encoder_selects_harrier_and_pplx_paths_by_retrieval_path() -> None:
         retrieval_path="target",
         ppx_9b_model_path="/models/pplx-9b",
         ppx_06b_model_path="/models/pplx-06b",
+        embedding_model_revision="rev-9b",
     )
     encoder = get_encoder(target)
     assert isinstance(encoder, PPLXEncoder)
@@ -94,13 +98,39 @@ def test_get_encoder_selects_harrier_and_pplx_paths_by_retrieval_path() -> None:
         retrieval_path="fallback",
         ppx_9b_model_path="/models/pplx-9b",
         ppx_06b_model_path="/models/pplx-06b",
+        embedding_model_revision="rev-06b",
     )
     assert get_encoder(fallback).model_name == "/models/pplx-06b"
 
 
-def test_get_encoder_allows_mock_only_when_asked_explicitly() -> None:
+def test_get_encoder_rejects_mock_provider() -> None:
     fake = SimpleNamespace(embedding_provider="mock", retrieval_path="fallback")
-    assert isinstance(get_encoder(fake), MockEncoder)
+    with pytest.raises(ValueError, match="unsupported embedding_provider"):
+        get_encoder(fake)
+
+
+def test_get_encoder_requires_pinned_revision() -> None:
+    settings = Settings(
+        _env_file=None,
+        embedding_provider="harrier",
+        harrier_model_path="/models/harrier",
+    )
+    with pytest.raises(ValueError, match="revision must be pinned"):
+        get_encoder(settings)
+
+
+def test_get_encoder_gguf_uses_matching_config_field_name() -> None:
+    fake = SimpleNamespace(
+        embedding_provider="pplx",
+        retrieval_path="target",
+        ppx_9b_model_path="/models/pplx-9b.gguf",
+        ppx_06b_model_path="",
+        embedding_model_revision="rev-9b",
+    )
+    with pytest.raises(ModelFormatError) as excinfo:
+        get_encoder(fake)
+
+    assert "ppx_9b_model_path" in str(excinfo.value)
 
 
 @pytest.mark.parametrize("encoder_class", [HarrierEncoder, PPLXEncoder])
@@ -121,9 +151,16 @@ def test_revision_is_recorded() -> None:
     assert PPLXEncoder("/models/pplx", revision="def456").revision == "def456"
 
 
+@pytest.mark.parametrize("encoder_class", [HarrierEncoder, PPLXEncoder])
+@pytest.mark.parametrize("revision", [None, "", "  ", "main", "MAIN"])
+def test_encoders_reject_unpinned_revisions(encoder_class, revision) -> None:
+    with pytest.raises(ValueError, match="revision must be pinned"):
+        encoder_class("/models/embed", revision=revision)
+
+
 def test_harrier_puts_instruction_on_query_only() -> None:
     fake = FakeSentenceTransformer(dimension=4)
-    encoder = HarrierEncoder("/models/harrier", model=fake, dimension=4)
+    encoder = HarrierEncoder("/models/harrier", revision="rev-1", model=fake, dimension=4)
 
     encoder.encode_documents(["documento literal"])
     encoder.encode_query("pergunta da vítima")
@@ -134,7 +171,7 @@ def test_harrier_puts_instruction_on_query_only() -> None:
 
 def test_pplx_does_not_add_harrier_instruction() -> None:
     fake = FakeSentenceTransformer(dimension=4)
-    encoder = PPLXEncoder("/models/pplx", model=fake, dimension=4)
+    encoder = PPLXEncoder("/models/pplx", revision="rev-1", model=fake, dimension=4)
 
     encoder.encode_documents(["documento"])
     encoder.encode_query("pergunta")

@@ -65,30 +65,44 @@ def test_article_context_is_produced_once_per_article() -> None:
         )
     )
 
-    chunks = build_chunks(devices, versions)
-    article_chunks = [chunk for chunk in chunks if chunk.device_id == "lmp/art22"]
+    chunk_set = build_chunks(devices, versions)
+    article_chunks = [chunk for chunk in chunk_set.chunks if chunk.device_id == "lmp/art22"]
 
     assert len(article_chunks) == 1
     assert article_chunks[0].artigo_id == "lmp/art22"
-    assert len([chunk for chunk in chunks if chunk.device_id.startswith("lmp/art22/cpt")]) == 4
+    assert (
+        len([chunk for chunk in chunk_set.chunks if chunk.device_id.startswith("lmp/art22/cpt")])
+        == 4
+    )
+    assert len(chunk_set.article_contexts) == 1
+    assert set(chunk_set.article_contexts[0].leaf_device_ids) == {
+        "lmp/art22/cpt",
+        "lmp/art22/cpt/inc3",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art22/cpt/inc4",
+    }
 
 
 def test_article_context_is_synthesized_when_article_node_is_missing() -> None:
     devices = [device for device in lmp_art22_devices() if device.id != "lmp/art22"]
     versions = [version for version in lmp_art22_versions() if version.device_id != "lmp/art22"]
 
-    chunks = build_chunks(devices, versions)
-    article_chunks = [chunk for chunk in chunks if chunk.device_id == "lmp/art22"]
+    chunk_set = build_chunks(devices, versions)
 
-    assert len(article_chunks) == 1
-    assert article_chunks[0].texto_literal == LMP_ART22_CAPUT
-    assert article_chunks[0].texto_indexacao == (
-        article_chunks[0].contexto + "\n" + article_chunks[0].texto_literal
-    )
+    assert [chunk for chunk in chunk_set.chunks if chunk.device_id == "lmp/art22"] == []
+    assert len(chunk_set.article_contexts) == 1
+    context = chunk_set.article_contexts[0]
+    assert context.artigo_id == "lmp/art22"
+    assert context.texto_literal == LMP_ART22_CAPUT
+    assert context.texto_indexacao == context.contexto + "\n" + context.texto_literal
+    assert context.leaf_device_ids
+    assert all(chunk.device_id in {device.id for device in devices} for chunk in chunk_set.chunks)
 
 
-def test_long_parent_is_split_into_structural_children_without_truncation() -> None:
-    long_literal = " ".join(["palavra"] * 2_000)
+def test_long_parent_is_split_losslessly_into_structural_children() -> None:
+    first = " ".join(["alfa"] * 50)
+    second = " ".join(["beta"] * 50)
+    long_literal = f"{first} {second}"
     devices = [
         make_device("lmp/art99", tipo="artigo", rotulo="Art. 99", artigo_id="lmp/art99"),
         make_device(
@@ -97,19 +111,70 @@ def test_long_parent_is_split_into_structural_children_without_truncation() -> N
             artigo_id="lmp/art99",
             tipo="inciso",
             rotulo="inciso I",
+            ordem=2,
+        ),
+        make_device(
+            "lmp/art99/cpt/inc2",
+            parent_id="lmp/art99",
+            artigo_id="lmp/art99",
+            tipo="inciso",
+            rotulo="inciso II",
+            ordem=3,
         ),
     ]
     versions = [
         make_version("lmp/art99", long_literal, contexto="Art. 99"),
-        make_version("lmp/art99/cpt/inc1", "texto curto do inciso", contexto="Art. 99, I"),
+        make_version("lmp/art99/cpt/inc1", first, contexto="Art. 99, I"),
+        make_version("lmp/art99/cpt/inc2", second, contexto="Art. 99, II"),
     ]
 
-    chunks = build_chunks(devices, versions, max_tokens=100)
-    by_id = {chunk.device_id: chunk for chunk in chunks}
+    chunk_set = build_chunks(devices, versions, max_tokens=100)
+    by_id = {chunk.device_id: chunk for chunk in chunk_set.chunks}
 
-    assert by_id["lmp/art99"].texto_literal == ""
-    assert by_id["lmp/art99/cpt/inc1"].texto_literal == "texto curto do inciso"
-    assert all(chunk.texto_literal != long_literal for chunk in chunks)
+    assert "lmp/art99" not in by_id
+    assert by_id["lmp/art99/cpt/inc1"].texto_literal == first
+    assert by_id["lmp/art99/cpt/inc2"].texto_literal == second
+    assert all(chunk.texto_literal for chunk in chunk_set.chunks)
+    covered_words = " ".join(
+        [by_id["lmp/art99/cpt/inc1"].texto_literal, by_id["lmp/art99/cpt/inc2"].texto_literal]
+    ).split()
+    assert covered_words == long_literal.split()
+    assert len(chunk_set.article_contexts) == 1
+
+
+def test_long_parent_with_uncovered_literal_raises_instead_of_losing_text() -> None:
+    first = " ".join(["alfa"] * 50)
+    second = " ".join(["beta"] * 50)
+    long_literal = f"introducao ausente {first} {second}"
+    devices = [
+        make_device("lmp/art96", tipo="artigo", rotulo="Art. 96", artigo_id="lmp/art96"),
+        make_device(
+            "lmp/art96/cpt/inc1",
+            parent_id="lmp/art96",
+            artigo_id="lmp/art96",
+            tipo="inciso",
+            rotulo="inciso I",
+            ordem=2,
+        ),
+        make_device(
+            "lmp/art96/cpt/inc2",
+            parent_id="lmp/art96",
+            artigo_id="lmp/art96",
+            tipo="inciso",
+            rotulo="inciso II",
+            ordem=3,
+        ),
+    ]
+    versions = [
+        make_version("lmp/art96", long_literal, contexto="Art. 96"),
+        make_version("lmp/art96/cpt/inc1", first, contexto="Art. 96, I"),
+        make_version("lmp/art96/cpt/inc2", second, contexto="Art. 96, II"),
+    ]
+
+    with pytest.raises(ChunkTooLong) as excinfo:
+        build_chunks(devices, versions, max_tokens=100)
+
+    assert excinfo.value.device_id == "lmp/art96"
 
 
 def test_long_leaf_without_children_raises_instead_of_truncating() -> None:

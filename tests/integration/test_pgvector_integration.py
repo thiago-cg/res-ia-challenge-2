@@ -11,6 +11,7 @@ from src.index.pgvector import dense_search, fts_search, update_embedding
 
 ROOT = Path(__file__).resolve().parents[2]
 DIMENSION = 1024
+REQUIRED_TABLES = {"norms", "norm_versions", "devices", "device_versions"}
 
 
 def _connect():
@@ -35,9 +36,19 @@ def _vector(active: int) -> list[float]:
 
 def _ensure_schema(conn) -> None:
     with conn.cursor() as cur:
-        cur.execute("SELECT to_regclass('public.device_versions')")
-        if cur.fetchone()[0] is not None:
-            return
+        cur.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_name = ANY(%s)",
+            (sorted(REQUIRED_TABLES),),
+        )
+        present = {row[0] for row in cur.fetchall()}
+
+    missing = REQUIRED_TABLES - present
+    if not missing:
+        return
+    if present:
+        pytest.skip(f"pgvector schema incomplete; missing tables: {sorted(missing)}")
+
     from scripts.apply_migrations import apply_migrations
 
     conn.rollback()
@@ -123,7 +134,6 @@ def test_dense_and_fts_pick_the_version_that_was_in_force_on_the_fact_date() -> 
                 texto="medida protetiva nova",
                 embedding=_vector(1),
             )
-        conn.commit()
 
         old_hits = [
             hit
@@ -155,7 +165,6 @@ def test_dense_and_fts_pick_the_version_that_was_in_force_on_the_fact_date() -> 
             "rev-test",
             "hash-test",
         )
-        conn.commit()
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT embedding_model, embedding_model_revision, embedding_text_hash "

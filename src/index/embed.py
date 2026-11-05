@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+from collections.abc import Iterable
 from typing import Any, Protocol
 
 from pydantic import BaseModel
@@ -26,7 +27,7 @@ from src.index.chunk import Chunk
 DEFAULT_HARRIER_MODEL = "microsoft/harrier-oss-v1-0.6b"
 DEFAULT_PPLX_06B_MODEL = "perplexity-ai/pplx-embed-v2-late-0.6b"
 DEFAULT_PPLX_9B_MODEL = "perplexity-ai/pplx-embed-v2-late-9b"
-DEFAULT_REVISION = "main"
+DEFAULT_REVISION = ""
 DEFAULT_DIMENSION = 1024
 
 HARRIER_INSTRUCTION = (
@@ -103,7 +104,7 @@ class _SentenceTransformerEncoder:
         if dimension <= 0:
             raise ValueError("dimension must be positive")
         self.model_name = model_name
-        self.revision = revision or DEFAULT_REVISION
+        self.revision = _require_revision(revision)
         self.dimension = dimension
         self.batch_size = batch_size
         self._model = model
@@ -158,8 +159,9 @@ class PPLXEncoder(_SentenceTransformerEncoder):
         dimension: int = DEFAULT_DIMENSION,
         model: Any | None = None,
         batch_size: int = 32,
+        settings_field: str = "ppx_06b_model_path",
     ) -> None:
-        _reject_gguf("ppx_model_path", model_path)
+        _reject_gguf(settings_field, model_path)
         super().__init__(
             model_path or DEFAULT_PPLX_06B_MODEL,
             revision=revision,
@@ -173,6 +175,16 @@ class PPLXEncoder(_SentenceTransformerEncoder):
 
     def encode_query(self, text: str) -> list[float]:
         return self._encode([text])[0]
+
+
+def _require_revision(revision: str | None) -> str:
+    value = (revision or "").strip()
+    if not value or value.lower() == "main":
+        raise ValueError(
+            "embedding model revision must be pinned to a commit/tag other than 'main'; "
+            f"got {revision!r}. Set EMBEDDING_MODEL_REVISION in Settings/config."
+        )
+    return value
 
 
 def _reject_gguf(field: str, path: str) -> None:
@@ -203,22 +215,19 @@ def get_encoder(settings: Any) -> Encoder:
 
     if provider == "pplx":
         if settings.retrieval_path == "target":
-            path = getattr(settings, "ppx_9b_model_path", "") or DEFAULT_PPLX_9B_MODEL
+            field_name = "ppx_9b_model_path"
+            path = getattr(settings, field_name, "") or DEFAULT_PPLX_9B_MODEL
         else:
-            path = getattr(settings, "ppx_06b_model_path", "") or DEFAULT_PPLX_06B_MODEL
-        return PPLXEncoder(path, revision=revision)
-
-    if provider == "mock":
-        return MockEncoder()
+            field_name = "ppx_06b_model_path"
+            path = getattr(settings, field_name, "") or DEFAULT_PPLX_06B_MODEL
+        return PPLXEncoder(path, revision=revision, settings_field=field_name)
 
     raise ValueError(f"unsupported embedding_provider={provider!r}")
 
 
 def _revision(settings: Any) -> str:
-    return (
-        getattr(settings, "embedding_model_revision", None)
-        or getattr(settings, "model_revision", None)
-        or DEFAULT_REVISION
+    return getattr(settings, "embedding_model_revision", "") or getattr(
+        settings, "model_revision", ""
     )
 
 
@@ -227,16 +236,17 @@ def embedding_text_hash(contexto: str, texto_literal: str) -> str:
 
 
 def embed_chunks(
-    chunks: list[Chunk],
+    chunks: Iterable[Chunk],
     encoder: Encoder,
     batch_size: int = 32,
 ) -> list[EmbeddedChunk]:
     if batch_size <= 0:
         raise ValueError("batch_size must be positive")
 
+    items = list(chunks)
     embedded: list[EmbeddedChunk] = []
-    for start in range(0, len(chunks), batch_size):
-        batch = chunks[start : start + batch_size]
+    for start in range(0, len(items), batch_size):
+        batch = items[start : start + batch_size]
         vectors = encoder.encode_documents([chunk.texto_indexacao for chunk in batch])
         if len(vectors) != len(batch):
             raise ValueError(f"encoder returned {len(vectors)} vectors for {len(batch)} chunks")

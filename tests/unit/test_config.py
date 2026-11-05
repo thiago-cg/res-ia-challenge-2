@@ -25,6 +25,7 @@ def test_defaults_match_plan() -> None:
     settings = Settings(_env_file=None)
     assert settings.retrieval_path == "fallback"
     assert settings.embedding_provider == "harrier"
+    assert settings.embedding_model_revision == ""
     assert settings.llm_provider == "mock"
     assert settings.max_devices == 10
     assert settings.max_context_tokens == 6000

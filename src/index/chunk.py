@@ -2,23 +2,26 @@
 
 The unit of retrieval is the device (artigo/caput/inciso/alinea/item), never a
 fixed token window.  ``build_chunks`` joins identity (``Device``) with text
-(``DeviceVersion``) by ``device_id`` and produces one chunk per
-``(device_id, norm_version_id)``.  Article-level context chunks are produced
-once per article and linked to the leaves by ``artigo_id``.
+(``DeviceVersion``) by ``device_id`` and produces one persistable chunk per
+``(device_id, norm_version_id)``.  Article-level contexts are in-memory
+``ArticleContext`` objects: they are not rows in ``devices`` and must never be
+persisted as a device.
 
-Literal text is never truncated.  Oversized structural parents are split into
-their children (same ``artigo_id``); an oversized leaf raises ``ChunkTooLong``.
+Literal text is never truncated.  An oversized parent may only be omitted when
+every word of its literal is covered, in order, by descendant literals; the
+check uses whitespace-normalized words.  Otherwise ``ChunkTooLong`` is raised.
 """
 
 from __future__ import annotations
 
 import math
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from datetime import date
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.contracts import Device, DeviceType, DeviceVersion, VigenciaStatus
 
@@ -27,15 +30,16 @@ Tokenizer = Callable[[str], int]
 
 
 class ChunkTooLong(Exception):
-    """Raised when a literal leaf cannot fit in ``max_tokens``."""
+    """Raised when a literal cannot be split without losing any of its text."""
 
     def __init__(self, device_id: str, estimated_tokens: int, max_tokens: int) -> None:
         self.device_id = device_id
         self.estimated_tokens = estimated_tokens
         self.max_tokens = max_tokens
         super().__init__(
-            f"device {device_id!r} needs ~{estimated_tokens} tokens (limit {max_tokens}); "
-            "split it by structural subnodes or raise max_tokens. Literal text was not truncated."
+            f"device {device_id!r} needs ~{estimated_tokens} tokens (limit {max_tokens}) and "
+            "its literal is not fully covered by descendant devices; split it structurally "
+            "or raise max_tokens. Literal text was not truncated."
         )
 
 
@@ -71,6 +75,47 @@ class Chunk(BaseModel):
     content_hash: str
 
 
+class ArticleContext(BaseModel):
+    """In-memory article header context for the LLM.
+
+    It deliberately has no ``device_id``/``qdrant_point_id``: an article may have
+    no row in ``devices``, so this object must never be persisted as a device.
+    """
+
+    artigo_id: str
+    norm_id: str
+    norm_version_id: int
+    rotulo: str
+    caminho: str
+    texto_literal: str
+    contexto: str
+    citacao: str
+    vigencia_status: VigenciaStatus
+    vigencia_inicio: date
+    vigencia_fim: date | None
+    search_text: str
+    texto_indexacao: str
+    content_hash: str
+    leaf_device_ids: list[str] = Field(default_factory=list)
+
+
+@dataclass
+class ChunkSet:
+    """Persistable chunks plus non-persistable article contexts."""
+
+    chunks: list[Chunk]
+    article_contexts: list[ArticleContext]
+
+    def __iter__(self) -> Iterator[Chunk]:
+        return iter(self.chunks)
+
+    def __len__(self) -> int:
+        return len(self.chunks)
+
+    def __getitem__(self, index: int) -> Chunk:
+        return self.chunks[index]
+
+
 def estimate_tokens(text: str, tokenizer: Tokenizer | None = None) -> int:
     """Estimate tokens without importing a model tokenizer.
 
@@ -90,7 +135,7 @@ def build_chunks(
     *,
     max_tokens: int = 8192,
     tokenizer: Tokenizer | None = None,
-) -> list[Chunk]:
+) -> ChunkSet:
     if max_tokens <= 0:
         raise ValueError("max_tokens must be positive")
 
@@ -109,82 +154,101 @@ def build_chunks(
             children_by_parent[device.parent_id].append(device)
 
     chunks: dict[tuple[str, int], Chunk] = {}
-    skipped: dict[tuple[str, int], tuple[Device, DeviceVersion]] = {}
 
     for device in devices_by_id.values():
         for version in versions_by_device[device.id]:
             index_text = version.contexto + "\n" + version.texto_literal
-            if estimate_tokens(index_text, tokenizer) <= max_tokens:
+            estimated = estimate_tokens(index_text, tokenizer)
+            if estimated <= max_tokens:
                 chunks[(device.id, version.norm_version_id)] = _make_chunk(device, version)
                 continue
 
-            children = [
-                child
-                for child in children_by_parent.get(device.id, [])
-                if child.artigo_id == device.artigo_id
-            ]
-            if not children:
-                raise ChunkTooLong(
-                    device.id,
-                    estimate_tokens(index_text, tokenizer),
-                    max_tokens,
-                )
-            skipped[(device.id, version.norm_version_id)] = (device, version)
+            descendants = _descendant_literals(
+                device,
+                version.norm_version_id,
+                versions_by_device,
+                children_by_parent,
+            )
+            if not _covers(version.texto_literal, descendants):
+                raise ChunkTooLong(device.id, estimated, max_tokens)
 
-    _ensure_article_contexts(devices_by_id, versions_by_device, chunks, skipped)
-    return list(chunks.values())
+    article_contexts = _build_article_contexts(devices_by_id, versions_by_device, chunks)
+    return ChunkSet(chunks=list(chunks.values()), article_contexts=article_contexts)
 
 
-def _ensure_article_contexts(
+def _descendant_literals(
+    device: Device,
+    norm_version_id: int,
+    versions_by_device: dict[str, list[DeviceVersion]],
+    children_by_parent: dict[str, list[Device]],
+) -> list[str]:
+    literals: list[str] = []
+    for child in sorted(children_by_parent.get(device.id, []), key=lambda item: item.ordem):
+        if child.artigo_id != device.artigo_id:
+            continue
+        version = _version_for(versions_by_device.get(child.id, []), norm_version_id)
+        if version is not None:
+            literals.append(version.texto_literal)
+        literals.extend(
+            _descendant_literals(child, norm_version_id, versions_by_device, children_by_parent)
+        )
+    return literals
+
+
+def _covers(parent_literal: str, descendant_literals: list[str]) -> bool:
+    """True when every whitespace-normalized parent word appears in order."""
+    parent_words = parent_literal.split()
+    if not parent_words:
+        return True
+    descendant_words = " ".join(descendant_literals).split()
+    position = 0
+    for word in descendant_words:
+        if position < len(parent_words) and word == parent_words[position]:
+            position += 1
+            if position == len(parent_words):
+                return True
+    return False
+
+
+def _build_article_contexts(
     devices_by_id: dict[str, Device],
     versions_by_device: dict[str, list[DeviceVersion]],
     chunks: dict[tuple[str, int], Chunk],
-    skipped: dict[tuple[str, int], tuple[Device, DeviceVersion]],
-) -> None:
+) -> list[ArticleContext]:
     groups: dict[tuple[str, int], tuple[Device, DeviceVersion]] = {}
     for device in devices_by_id.values():
-        for version in versions_by_device.get(device.id, []):
-            groups.setdefault((device.artigo_id, version.norm_version_id), (device, version))
+        for device_version in versions_by_device.get(device.id, []):
+            groups.setdefault(
+                (device.artigo_id, device_version.norm_version_id),
+                (device, device_version),
+            )
 
+    contexts: list[ArticleContext] = []
     for (artigo_id, norm_version_id), (leaf_device, leaf_version) in groups.items():
-        key = (artigo_id, norm_version_id)
-        if key in chunks:
-            continue
-
         article = devices_by_id.get(artigo_id)
-        skipped_entry = skipped.get(key)
-        if skipped_entry is not None:
-            reference, version, include_literal = (
-                article or skipped_entry[0],
-                skipped_entry[1],
-                False,
-            )
-        elif article is not None:
-            reference = article
-            version = (
-                _version_for(versions_by_device.get(article.id, []), norm_version_id)
-                or leaf_version
-            )
-            include_literal = True
-        else:
-            caput = _find_caput(devices_by_id, artigo_id)
-            caput_version = (
-                _version_for(versions_by_device.get(caput.id, []), norm_version_id)
-                if caput is not None
-                else None
-            )
-            if caput is not None and caput_version is not None:
-                reference, version, include_literal = caput, caput_version, True
-            else:
-                reference, version, include_literal = leaf_device, leaf_version, False
+        reference: Device
+        version: DeviceVersion
 
-        chunks[key] = _make_article_context(
-            article,
-            reference,
-            artigo_id,
-            version,
-            include_literal=include_literal,
-        )
+        if article is not None and (
+            article_version := _version_for(versions_by_device.get(article.id, []), norm_version_id)
+        ):
+            reference, version = article, article_version
+        elif (caput := _find_caput(devices_by_id, artigo_id)) is not None and (
+            caput_version := _version_for(versions_by_device.get(caput.id, []), norm_version_id)
+        ):
+            reference, version = caput, caput_version
+        else:
+            reference, version = leaf_device, leaf_version
+
+        leaf_ids = [
+            chunk.device_id
+            for chunk in chunks.values()
+            if chunk.artigo_id == artigo_id
+            and chunk.norm_version_id == norm_version_id
+            and chunk.device_id != artigo_id
+        ]
+        contexts.append(_make_article_context(artigo_id, reference, version, leaf_ids=leaf_ids))
+    return contexts
 
 
 def _find_caput(devices_by_id: dict[str, Device], artigo_id: str) -> Device | None:
@@ -225,23 +289,19 @@ def _make_chunk(device: Device, version: DeviceVersion) -> Chunk:
 
 
 def _make_article_context(
-    article: Device | None,
-    reference: Device,
     artigo_id: str,
+    reference: Device,
     version: DeviceVersion,
     *,
-    include_literal: bool,
-) -> Chunk:
-    texto_literal = version.texto_literal if include_literal else ""
-    return Chunk(
-        device_id=artigo_id,
-        parent_id=article.parent_id if article is not None else None,
-        norm_version_id=version.norm_version_id,
-        norm_id=reference.norm_id,
+    leaf_ids: list[str],
+) -> ArticleContext:
+    texto_literal = version.texto_literal
+    return ArticleContext(
         artigo_id=artigo_id,
-        tipo="artigo",
-        rotulo=article.rotulo if article is not None else _article_label(artigo_id),
-        caminho=article.caminho if article is not None else reference.caminho,
+        norm_id=reference.norm_id,
+        norm_version_id=version.norm_version_id,
+        rotulo=reference.rotulo,
+        caminho=reference.caminho,
         texto_literal=texto_literal,
         contexto=version.contexto,
         citacao=version.citacao,
@@ -250,13 +310,6 @@ def _make_article_context(
         vigencia_fim=version.vigencia_fim,
         search_text=version.search_text,
         texto_indexacao=version.contexto + "\n" + texto_literal,
-        qdrant_point_id=uuid5(NAMESPACE_URL, f"{artigo_id}@{version.norm_version_id}#context"),
         content_hash=version.content_hash,
+        leaf_device_ids=leaf_ids,
     )
-
-
-def _article_label(artigo_id: str) -> str:
-    tail = artigo_id.rsplit("/", 1)[-1]
-    if tail.startswith("art"):
-        return "Art. " + tail[3:]
-    return tail
