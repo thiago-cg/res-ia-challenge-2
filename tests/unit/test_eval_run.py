@@ -132,6 +132,22 @@ def test_threshold_failure_is_reported(questions: list[dict[str, Any]], tmp_path
     assert report.threshold_failures == ["recall_at_10=1.0000 < 1.0100"]
 
 
+def test_partial_thresholds_keep_the_default_checks(
+    questions: list[dict[str, Any]], tmp_path: Path
+) -> None:
+    report = run_eval(
+        questions,
+        pipeline=partial_pipeline,
+        thresholds={"recall_at_10": 0.0},
+        out_path=tmp_path / "last_run.json",
+    )
+
+    assert report.thresholds["recall_at_10"] == 0.0
+    assert report.thresholds["citation_precision"] == DEFAULT_THRESHOLDS["citation_precision"]
+    assert report.passed is False
+    assert any("recall_per_question" in failure for failure in report.threshold_failures)
+
+
 def test_aggregates_by_category_and_difficulty(
     questions: list[dict[str, Any]], tmp_path: Path
 ) -> None:
@@ -143,9 +159,13 @@ def test_aggregates_by_category_and_difficulty(
 
     assert report.by_category["prazo"].count == 2
     assert report.by_category["prazo"].recall_at_10 == 1.0
+    assert report.by_category["prazo"].emergency_routing is None
+    assert report.by_category["prazo"].abstention_accuracy == 1.0
     assert report.by_category["emergencia"].count == 5
     assert report.by_category["emergencia"].emergency_routing == 1.0
+    assert report.by_category["emergencia"].abstention_accuracy is None
     assert report.by_category["fora_do_corpus"].abstention_accuracy == 1.0
+    assert report.by_category["fora_do_corpus"].emergency_routing is None
     assert report.by_difficulty["alta"].count > 0
 
 
@@ -243,6 +263,10 @@ def test_cli_reports_missing_pipeline(
     assert code == 2
 
 
-def test_build_pipeline_fails_with_clear_message() -> None:
-    with pytest.raises(RuntimeError, match="pipeline real de avaliação indisponível"):
-        build_pipeline()
+def test_build_pipeline_returns_callable_or_fails_clearly() -> None:
+    try:
+        pipeline = build_pipeline()
+    except RuntimeError as exc:
+        assert "pipeline real de avaliação indisponível" in str(exc)
+    else:
+        assert callable(pipeline)

@@ -9,6 +9,7 @@ from src.eval.run import is_canonical_device_id, load_questions
 DATA = Path(__file__).resolve().parents[2] / "data" / "eval"
 REGRESSIONS = DATA / "regressions.jsonl"
 QUESTIONS = DATA / "questions.jsonl"
+STF_SEED = DATA.parent / "seed" / "stf-adi-4424.json"
 
 REQUIRED_BASES = (
     "15.438/2026",
@@ -66,6 +67,25 @@ def test_every_required_base_appears() -> None:
     bases = " ".join(row["base_legal"] for row in _rows())
     missing = [base for base in REQUIRED_BASES if base not in bases]
     assert missing == []
+
+
+def test_r2_and_r6_use_the_docs_device_ids() -> None:
+    rows = {row["id"]: row for row in _rows()}
+    assert rows["r002"]["device_ids"] == ["stj-sum-542", "stf-adi-4424"]
+    assert rows["r006"]["device_ids"] == [
+        "cnj-rc-5-2020/art1",
+        "cnj-portaria-6-2025/art1",
+    ]
+
+
+def test_stf_adi_seed_is_curated_and_pending_load() -> None:
+    payload = json.loads(STF_SEED.read_text(encoding="utf-8"))
+    assert payload["device_id"] == "stf-adi-4424"
+    assert "curad" in payload["proveniencia"].casefold()
+    assert "não é scraping" in payload["proveniencia"].casefold()
+    assert payload["status"] == "pendente_de_carga"
+    assert payload["revisao_juridica"] == "pendente"
+    assert payload["fonte_url"].startswith("https://portal.stf.jus.br/")
 
 
 def test_device_ids_are_canonical() -> None:

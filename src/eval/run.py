@@ -59,6 +59,7 @@ CANONICAL_DEVICE_ID_RE = re.compile(
     r"/art\d+(?:-[a-z])?"
     r"(?:/(?:cpt|par-unico|par\d+|inc\d+|ali-[a-z]|item-\d+))*"
     r"|stj-sum-\d+"
+    r"|stf-adi-\d+"
     r")$"
 )
 
@@ -87,6 +88,7 @@ class EvalQuestion(BaseModel):
     fonte: str
     dificuldade: Dificuldade
     split: Split
+    revisao: Literal["pendente", "revisada"] | None = None
 
 
 @dataclass(frozen=True)
@@ -113,8 +115,8 @@ class MetricSet(BaseModel):
     citation_precision: float = 0.0
     citation_coverage: float = 0.0
     groundedness: float = 0.0
-    abstention_accuracy: float = 0.0
-    emergency_routing: float = 0.0
+    abstention_accuracy: float | None = 0.0
+    emergency_routing: float | None = 0.0
     latency_p50_ms: float = 0.0
     latency_p95_ms: float = 0.0
 
@@ -256,6 +258,22 @@ def _aggregate(questions: Sequence[EvalQuestion], results: Sequence[PipelineResu
     ]
     latencies = [result.latency_ms for result in results]
     percentiles = latency_percentiles(latencies)
+    abstention_value = (
+        abstention_accuracy(
+            [result.abstained for _, result in non_emergency],
+            [_expects_abstention(question) for question, _ in non_emergency],
+        )
+        if non_emergency
+        else None
+    )
+    emergency_value = (
+        emergency_routing(
+            [result.emergency for _, result in emergency],
+            [True for _ in emergency],
+        )
+        if emergency
+        else None
+    )
 
     return Aggregate(
         count=len(questions),
@@ -266,14 +284,8 @@ def _aggregate(questions: Sequence[EvalQuestion], results: Sequence[PipelineResu
         citation_precision=_mean([item["citation_precision"] for item in answerable]),
         citation_coverage=_mean([item["citation_coverage"] for item in answerable]),
         groundedness=_mean([item["groundedness"] for item in answerable]),
-        abstention_accuracy=abstention_accuracy(
-            [result.abstained for _, result in non_emergency],
-            [_expects_abstention(question) for question, _ in non_emergency],
-        ),
-        emergency_routing=emergency_routing(
-            [result.emergency for _, result in emergency],
-            [True for _ in emergency],
-        ),
+        abstention_accuracy=abstention_value,
+        emergency_routing=emergency_value,
         latency_p50_ms=percentiles["p50"],
         latency_p95_ms=percentiles["p95"],
     )
@@ -331,12 +343,18 @@ def run_eval(
         normalized.append(question)
         results.append(_coerce_result(pipeline(payload)))
 
-    active_thresholds = dict(DEFAULT_THRESHOLDS if thresholds is None else thresholds)
+    overall = _aggregate(normalized, results)
+    active_thresholds = dict(DEFAULT_THRESHOLDS)
+    if thresholds is not None:
+        active_thresholds.update(thresholds)
+
     report = EvalReport(
         run_id=run_id or datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S"),
         n_questions=len(normalized),
         thresholds=active_thresholds,
-        **_aggregate(normalized, results).model_dump(exclude={"count"}),
+        **overall.model_dump(exclude={"count", "abstention_accuracy", "emergency_routing"}),
+        abstention_accuracy=overall.abstention_accuracy or 0.0,
+        emergency_routing=overall.emergency_routing or 0.0,
         failures=[
             question.id
             for question, result in zip(normalized, results, strict=True)

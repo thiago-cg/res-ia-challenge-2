@@ -49,6 +49,41 @@ def test_synthetic_additions_are_marked() -> None:
         assert question.fonte == "sintetica", question.id
 
 
+def test_synthetic_entries_are_pending_human_review() -> None:
+    questions = load_questions(QUESTIONS_150)
+    for question in questions[20:]:
+        assert question.revisao == "pendente", question.id
+
+
+def test_known_inversions_answer_the_actual_question() -> None:
+    questions = {question.id: question for question in load_questions(QUESTIONS_150)}
+
+    # 542: these questions ask whether the MP acts / whether the action is public.
+    for question_id in ("q035", "q037", "q040"):
+        answer = questions[question_id].resposta_esperada.casefold()
+        assert not answer.startswith("não"), questions[question_id].pergunta
+
+    # 600: these questions ask whether the law applies without cohabitation.
+    for question_id in ("q061", "q062", "q063", "q064", "q065", "q066", "q067", "q069"):
+        answer = questions[question_id].resposta_esperada.casefold()
+        assert not answer.startswith("não"), questions[question_id].pergunta
+
+    # 19 §§ 5º/6º: these ask whether a protective measure can be requested.
+    for question_id in ("q042", "q044", "q047", "q049"):
+        answer = questions[question_id].resposta_esperada.casefold()
+        assert not answer.startswith("não"), questions[question_id].pergunta
+
+    # These explicitly deny a requirement, so they must start with "Não".
+    for question_id in ("q068", "q070"):
+        answer = questions[question_id].resposta_esperada.casefold()
+        assert answer.startswith("não"), questions[question_id].pergunta
+
+    # FONAR definition/how questions are not yes/no questions.
+    for question_id in ("q072", "q073", "q078"):
+        answer = questions[question_id].resposta_esperada.casefold()
+        assert not answer.startswith("sim"), questions[question_id].pergunta
+
+
 def test_schema_enums_and_text_are_valid() -> None:
     for question in load_questions(QUESTIONS_150):
         assert question.categoria in VALID_CATEGORIES

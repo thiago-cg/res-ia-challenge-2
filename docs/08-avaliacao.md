@@ -303,7 +303,7 @@ Saída:
 - **Métricas pendentes de execução com Postgres/Qdrant.** Nenhum valor de recall, citação, groundedness, abstenção ou latência foi produzido neste ciclo; os números de §3 e §10 continuam metas, não resultados.
 - **Revisão jurídica humana PENDENTE.** Não houve revisão por advogada, defensora ou pessoa da rede de atendimento. As perguntas e as respostas esperadas são hipóteses de avaliação, não parecer jurídico.
 - O adaptador real (`src.api.main.build_eval_pipeline`) ainda não existe neste branch; a CLI falha com mensagem clara e o harness só roda com pipeline injetado.
-- Todos os `device_ids` usados são canônicos (docs/04 §3) e limitados ao corpus de `data/sources.yaml`; emergência e fora do corpus não têm `device_ids`. `stf-adi-4424` foi omitido por não ser uma fonte ingerida, e não foi criada pergunta de violência vicária porque não há dispositivo verificado no corpus.
+- Todos os `device_ids` usados são canônicos (docs/04 §3). Emergência e fora do corpus não têm `device_ids`. `stf-adi-4424` vem de uma semente curada em `data/seed/stf-adi-4424.json` (não raspada; precisa ser carregada no corpus). Não foi criada pergunta de violência vicária porque não há dispositivo verificado no corpus.
 - O checklist de aceite do MVP (§10) permanece intocado: nenhuma caixa deve ser marcada sem execução real e revisão humana.
 
 ### Como executar quando houver Postgres/Qdrant
@@ -315,4 +315,12 @@ uv run python -m src.eval.run --questions data/eval/questions_150.jsonl --out da
 ```
 
 O relatório gerado em `data/eval/last_run.json` deve ser tratado como rascunho técnico até a revisão jurídica humana.
+
+### Correções da rodada 1 (B9)
+
+- As 130 entradas sintéticas tiveram `resposta_esperada` reescrita para responder à pergunta concreta, sem inverter o sim/não; todas receberam `revisao: "pendente"` e testes semânticos cobrem as inversões conhecidas (Súmula 542, Súmula 600, art. 19, §§ 5º e 6º, e FONAR).
+- R2 agora cita `stf-adi-4424`; R6 cita `cnj-portaria-6-2025/art1`. A semente `data/seed/stf-adi-4424.json` é curada manualmente, traz proveniência e `status: "pendente_de_carga"`; não é scraping e precisa ser carregada no Postgres/Qdrant antes de executar as regressões.
+- Agregados por categoria usam `null` para abstenção/emergência quando a categoria não tem esses casos.
+- Thresholds parciais são mesclados aos padrões, em vez de substituí-los.
+- Métricas continuam pendentes de execução e a revisão jurídica humana continua PENDENTE.
 
