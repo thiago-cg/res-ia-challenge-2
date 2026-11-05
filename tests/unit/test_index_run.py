@@ -164,6 +164,29 @@ def test_index_fallback_commits_once_when_requested() -> None:
     assert conn.closed is False
 
 
+def test_index_fallback_commits_and_closes_a_self_owned_connection(monkeypatch) -> None:
+    conn = FakeConnection()
+    monkeypatch.setattr(run, "_connect", lambda url: conn)
+
+    report = run.index_fallback(chunks(), encoder=FakeEncoder())
+
+    assert report.indexed == len(chunks())
+    assert conn.committed is True
+    assert conn.closed is True
+
+
+def test_index_fallback_self_owned_commit_failure_reports_nothing_indexed(monkeypatch) -> None:
+    conn = FakeConnection(commit_fail=True)
+    monkeypatch.setattr(run, "_connect", lambda url: conn)
+
+    report = run.index_fallback(chunks(), encoder=FakeEncoder())
+
+    assert report.indexed == 0
+    assert report.skipped == len(chunks())
+    assert any("commit failed" in error for error in report.errors)
+    assert conn.closed is True
+
+
 def test_index_fallback_commit_failure_does_not_report_indexed() -> None:
     conn = FakeConnection(commit_fail=True)
 

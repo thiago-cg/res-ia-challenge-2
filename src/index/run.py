@@ -91,10 +91,10 @@ def index_fallback(
 ) -> IndexReport:
     """Embed chunks and write ``device_versions.embedding``.
 
-    ``commit=False`` leaves the transaction to the caller (useful for tests and
-    for callers that own the unit of work).  The CLI passes ``commit=True`` so
-    the writes are committed exactly once; a failed commit is reported and no
-    rows are counted as indexed.
+    When the function opens its own connection, it commits exactly once before
+    closing.  A caller-supplied connection is left to the caller unless
+    ``commit=True``.  A failed commit is reported and no rows are counted as
+    indexed.
     """
 
     encoder = encoder or get_encoder(get_settings())
@@ -135,7 +135,7 @@ def index_fallback(
             else:
                 report.indexed += 1
 
-        if commit:
+        if commit or owned:
             try:
                 conn.commit()
             except Exception as exc:
