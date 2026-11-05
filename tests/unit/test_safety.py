@@ -69,6 +69,10 @@ def test_historical_threat_is_not_immediate() -> None:
         "Ele me estuprou há dois anos.",
         "Ele me ameaçou de me matar anos atrás.",
         "Ele me estuprou no passado.",
+        "Ele me ameaçou de me matar ontem.",
+        "Ele me estuprou há 3 dias.",
+        "Ele me bateu há duas semanas.",
+        "Ele me agrediu dias atrás.",
     ],
 )
 def test_remote_threat_and_sexual_violence_are_not_immediate(phrase: str) -> None:

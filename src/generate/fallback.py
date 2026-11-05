@@ -4,7 +4,7 @@ from typing import cast
 
 from src.contracts import Answer, Citation, RetrievedDevice, VigenciaStatus
 
-MIN_SCORE = 0.1
+MIN_SCORE = 0.0
 MAX_FALLBACK_DEVICES = 10
 
 _ARTIGO_RE = re.compile(r"^(.*?/art[^/]+)")
@@ -51,21 +51,18 @@ def _select_devices(
     min_score: float,
     max_devices: int,
 ) -> list[RetrievedDevice]:
-    selected: list[RetrievedDevice] = []
-    seen: set[str] = set()
+    best_by_artigo: dict[str, RetrievedDevice] = {}
 
     for device in retrieved or []:
-        if device.score < min_score:
+        if device.source != "explicit" and device.score < min_score:
             continue
         key = _artigo_id(device.device_id)
-        if key in seen:
-            continue
-        seen.add(key)
-        selected.append(device)
-        if len(selected) >= max_devices:
-            break
+        current = best_by_artigo.get(key)
+        if current is None or device.score > current.score:
+            best_by_artigo[key] = device
 
-    return selected
+    ranked = sorted(best_by_artigo.values(), key=lambda device: device.score, reverse=True)
+    return ranked[:max_devices]
 
 
 def insufficient_evidence(
@@ -74,6 +71,8 @@ def insufficient_evidence(
 ) -> bool:
     if not retrieved:
         return True
+    if any(device.source == "explicit" for device in retrieved):
+        return False
     return not any(device.score >= min_score for device in retrieved)
 
 

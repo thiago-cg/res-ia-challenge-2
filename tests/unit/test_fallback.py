@@ -64,8 +64,18 @@ def test_insufficient_evidence_without_retrieval() -> None:
 
 def test_insufficient_evidence_with_low_score() -> None:
     assert insufficient_evidence([make_retrieved(score=-0.1)]) is True
-    assert insufficient_evidence([make_retrieved(score=0.0)]) is True
-    assert MIN_SCORE > 0.0
+    assert insufficient_evidence([make_retrieved(score=0.0)]) is False
+    assert MIN_SCORE == 0.0
+
+
+def test_explicit_device_is_never_abstained_on_score() -> None:
+    explicit = make_retrieved(score=0.0, source="explicit")
+
+    assert insufficient_evidence([explicit]) is False
+    assert insufficient_evidence([explicit], min_score=0.9) is False
+
+    answer = build_safe_answer([explicit], "falha", min_score=0.9)
+    assert len(answer.citacoes) == 1
 
 
 def test_insufficient_evidence_threshold_is_injectable() -> None:
@@ -159,6 +169,41 @@ def test_build_safe_answer_dedupes_by_artigo_id() -> None:
         "lmp/art22/cpt/inc3/ali-b",
         "lmp/art24",
     ]
+
+
+def test_dedupe_keeps_highest_score_per_artigo_id() -> None:
+    answer = build_safe_answer(
+        [
+            make_retrieved("lmp/art22/cpt/inc3/ali-b", 0.3),
+            make_retrieved("lmp/art24", 0.9),
+            make_retrieved("lmp/art22/cpt/inc3/ali-c", 0.8),
+        ],
+        "falha",
+    )
+
+    by_artigo = {citation.device_id: citation for citation in answer.citacoes}
+    assert "lmp/art22/cpt/inc3/ali-c" in by_artigo
+    assert "lmp/art22/cpt/inc3/ali-b" not in by_artigo
+    assert [citation.device_id for citation in answer.citacoes] == [
+        "lmp/art24",
+        "lmp/art22/cpt/inc3/ali-c",
+    ]
+
+
+def test_no_silent_citation_loss_for_known_and_unknown_vigencia() -> None:
+    known = make_retrieved("lmp/art22", 0.9, vigencia="vigente")
+    unknown = make_retrieved("lmp/art24", 0.8, vigencia=None)
+
+    answer = build_safe_answer([known, unknown], "falha")
+
+    assert [citation.device_id for citation in answer.citacoes] == ["lmp/art22"]
+    assert all(citation.device_id != "lmp/art24" for citation in answer.citacoes)
+    assert "lmp/art24" in answer.resposta
+    assert "vigência não verificada" in answer.resposta
+    assert any(
+        "Vigência não verificada" in premise and "lmp/art24" in premise
+        for premise in answer.premissas
+    )
 
 
 def test_build_safe_answer_caps_citations() -> None:

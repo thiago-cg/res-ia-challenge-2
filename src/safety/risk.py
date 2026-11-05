@@ -110,9 +110,12 @@ _CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
 _HISTORICAL_RE = re.compile(
     r"\bha\s+"
     r"(?:(?:\d+|um|uma|dois|duas|tres|quatro|cinco|seis|dez|muitos|muitas|alguns|algumas)\s+)?"
-    r"(?:ano|anos|mes|meses)\b"
+    r"(?:ano|anos|mes|meses|dia|dias|semana|semanas)\b"
     r"|\banos\s+atras\b"
     r"|\bmeses\s+atras\b"
+    r"|\bdias\s+atras\b"
+    r"|\bsemanas\s+atras\b"
+    r"|\bontem\b"
     r"|\bno\s+passado\b"
     r"|\bano\s+passado\b"
     r"|\bantigamente\b"

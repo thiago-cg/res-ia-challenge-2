@@ -245,6 +245,27 @@ def test_accepts_retrieved_device() -> None:
     assert "Texto literal da lei." in prompt
 
 
+def test_unknown_vigencia_is_rendered_as_unverified() -> None:
+    retrieved = RetrievedDevice(
+        device_id="lmp/art22",
+        norm_version_id=42,
+        score=0.9,
+        source="dense",
+        texto_literal="Texto literal da lei.",
+        citacao="Lei nº 11.340/2006, art. 22",
+    )
+
+    prompt = build_user_prompt(
+        pergunta="pergunta",
+        fatos=make_facts(),
+        subperguntas=[],
+        devices=[retrieved],
+    )
+
+    assert 'vigencia="vigência não verificada"' in prompt
+    assert 'vigencia="vigente"' not in prompt
+
+
 def test_attributes_are_escaped() -> None:
     device = make_device(citacao='Lei "maliciosa" <x>')
 

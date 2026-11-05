@@ -43,7 +43,7 @@ class PromptDevice(BaseModel):
     device_id: str
     citacao: str
     texto_literal: str
-    vigencia: str = "vigente"
+    vigencia: str | None = None
     contexto: str = ""
     explicacao: str = ""
 
@@ -116,7 +116,7 @@ def _coerce_device(device: RetrievedDevice | PromptDevice) -> PromptDevice:
         device_id=device.device_id,
         citacao=device.citacao,
         texto_literal=device.texto_literal,
-        vigencia=str(getattr(device, "vigencia", None) or "não verificada"),
+        vigencia=getattr(device, "vigencia", None),
         contexto=str(getattr(device, "contexto", None) or ""),
         explicacao=str(getattr(device, "explicacao", None) or ""),
     )
@@ -146,10 +146,11 @@ def _render_document(device: PromptDevice, optional_token_budget: int) -> str:
     context_clipped = _clip_to_tokens(context, context_budget)
     explanation_clipped = _clip_to_tokens(explanation, explanation_budget)
 
+    vigencia = device.vigencia or "vigência não verificada"
     attributes = (
         f'id="{html.escape(device.device_id, quote=True)}" '
         f'citacao="{html.escape(device.citacao, quote=True)}" '
-        f'vigencia="{html.escape(device.vigencia, quote=True)}"'
+        f'vigencia="{html.escape(vigencia, quote=True)}"'
     )
 
     lines = [f"<documento {attributes}>"]
