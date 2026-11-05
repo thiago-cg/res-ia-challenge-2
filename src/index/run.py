@@ -16,13 +16,14 @@ from typing import Any, Protocol, runtime_checkable
 from uuid import NAMESPACE_URL, uuid5
 
 from src.config import get_settings
-from src.contracts import DeviceVersion, IndexReport
+from src.contracts import DeviceVersion, IndexReport, ModelFormatError
 from src.index.chunk import Chunk
 from src.index.embed import embed_chunks, get_encoder
 from src.index.pgvector import update_embedding
 from src.index.qdrant import (
     ALIAS_NAME,
     COLLECTION_PHYSICAL_NAME,
+    LATE_SIZE,
     IndexedChunk,
     ensure_collection,
     point_id,
@@ -86,8 +87,15 @@ def index_fallback(
     conn: Any | None = None,
     encoder: Any | None = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
+    commit: bool = False,
 ) -> IndexReport:
-    """Embed chunks and write ``device_versions.embedding``."""
+    """Embed chunks and write ``device_versions.embedding``.
+
+    ``commit=False`` leaves the transaction to the caller (useful for tests and
+    for callers that own the unit of work).  The CLI passes ``commit=True`` so
+    the writes are committed exactly once; a failed commit is reported and no
+    rows are counted as indexed.
+    """
 
     encoder = encoder or get_encoder(get_settings())
     chunks, skipped, prep_errors = _prepare(versions)
@@ -103,35 +111,39 @@ def index_fallback(
         owned = False
 
     try:
-        embedded = embed_chunks(chunks, encoder, batch_size=batch_size)
-    except Exception as exc:
-        report.errors.append(f"embedding failed: {exc}")
-        report.skipped += len(chunks)
-        if owned:
-            conn.close()
-        return report
-
-    for item in embedded:
         try:
-            update_embedding(
-                conn,
-                item.chunk.device_id,
-                item.chunk.norm_version_id,
-                item.embedding,
-                item.model,
-                item.revision,
-                item.text_hash,
-            )
+            embedded = embed_chunks(chunks, encoder, batch_size=batch_size)
         except Exception as exc:
-            report.errors.append(_error(item.chunk, exc))
-            report.skipped += 1
-        else:
-            report.indexed += 1
+            report.errors.append(f"embedding failed: {exc}")
+            report.skipped += len(chunks)
+            return report
 
-    if owned:
-        try:
-            conn.commit()
-        finally:
+        for item in embedded:
+            try:
+                update_embedding(
+                    conn,
+                    item.chunk.device_id,
+                    item.chunk.norm_version_id,
+                    item.embedding,
+                    item.model,
+                    item.revision,
+                    item.text_hash,
+                )
+            except Exception as exc:
+                report.errors.append(_error(item.chunk, exc))
+                report.skipped += 1
+            else:
+                report.indexed += 1
+
+        if commit:
+            try:
+                conn.commit()
+            except Exception as exc:
+                report.errors.append(f"commit failed: {exc}")
+                report.skipped += report.indexed
+                report.indexed = 0
+    finally:
+        if owned:
             conn.close()
     return report
 
@@ -213,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     conn = None
+    client = None
     try:
         settings = get_settings()
         database_url = args.database_url or settings.database_url
@@ -225,6 +238,7 @@ def main(argv: list[str] | None = None) -> int:
                 versions,
                 conn=conn,
                 batch_size=args.batch_size,
+                commit=True,
             )
         else:
             client = make_client(args.qdrant_url or settings.qdrant_url)
@@ -239,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if conn is not None:
             conn.close()
+        if client is not None:
+            client.close()
 
     revision = report.model_revision or "-"
     print(
@@ -275,6 +291,9 @@ def _prepare(versions: Iterable[Any]) -> tuple[list[Chunk], int, list[str]]:
             continue
         if not chunk.texto_indexacao.strip():
             skipped += 1
+            errors.append(
+                f"{chunk.device_id}@{chunk.norm_version_id}: blank texto_indexacao; skipped"
+            )
             continue
         chunks.append(chunk)
     return chunks, skipped, errors
@@ -340,15 +359,24 @@ def _chunk_from_row(row: Any) -> Chunk:
 
 def _late_vectors(encoder: Any, text: str) -> list[list[float]]:
     multivector = getattr(encoder, "encode_multivectors", None)
-    if callable(multivector):
-        return _matrix(multivector([text])[0])
+    if not callable(multivector):
+        raise ModelFormatError(
+            f"encoder {type(encoder).__name__} is dense; the Qdrant target needs "
+            "token multivectors. Use a multivector encoder exposing "
+            "encode_multivectors(text) -> list[list[float]] with 128-dim token "
+            "vectors (e.g. MultiVectorEncoder on the pplx safetensors checkpoint)."
+        )
 
-    document = getattr(encoder, "encode_document", None)
-    if callable(document):
-        return _matrix(document([text])[0])
-
-    vector = encoder.encode_documents([text])[0]
-    return _matrix(vector)
+    matrix = _matrix(multivector(text))
+    if not matrix:
+        raise ModelFormatError("multivector encoder returned no token vectors")
+    if any(len(row) != LATE_SIZE for row in matrix):
+        dimensions = sorted({len(row) for row in matrix})
+        raise ModelFormatError(
+            f"multivector encoder returned dimensions {dimensions}; "
+            f"Qdrant 'late' requires {LATE_SIZE}-dim token vectors"
+        )
+    return matrix
 
 
 def _matrix(value: Any) -> list[list[float]]:

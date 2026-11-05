@@ -31,9 +31,16 @@ class FakeCursor:
 
 
 class FakeConnection:
-    def __init__(self, rows: list[tuple] | None = None, *, fail: bool = False) -> None:
+    def __init__(
+        self,
+        rows: list[tuple] | None = None,
+        *,
+        fail: bool = False,
+        commit_fail: bool = False,
+    ) -> None:
         self.rows = rows or []
         self.fail = fail
+        self.commit_fail = commit_fail
         self.executions: list[tuple[str, object]] = []
         self.committed = False
         self.closed = False
@@ -42,6 +49,8 @@ class FakeConnection:
         return FakeCursor(self)
 
     def commit(self) -> None:
+        if self.commit_fail:
+            raise RuntimeError("commit rolled back")
         self.committed = True
 
     def close(self) -> None:
@@ -62,8 +71,25 @@ class FakeEncoder:
         self.calls.append(list(texts))
         return [[float(index)] * 4 for index, _ in enumerate(texts)]
 
+    def encode_multivectors(self, text: str):
+        if self.fail:
+            raise RuntimeError("encoder exploded")
+        self.calls.append([text])
+        return [[float(index)] * 128 for index in range(2)]
+
     def encode_query(self, text):
         return [1.0, 0.0, 0.0, 0.0]
+
+
+class DenseOnlyEncoder:
+    model_name = "dense-only"
+    revision = "rev-1"
+
+    def encode_documents(self, texts):
+        return [[1.0, 0.0] for _ in texts]
+
+    def encode_query(self, text):
+        return [1.0, 0.0]
 
 
 class FakeClient:
@@ -72,6 +98,10 @@ class FakeClient:
         self.collections: set[str] = set()
         self.aliases: list[SimpleNamespace] = []
         self.upserts: list[dict] = []
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
 
     def collection_exists(self, name: str) -> bool:
         if self.fail_exists:
@@ -121,6 +151,27 @@ def test_index_fallback_embeds_and_updates_each_version() -> None:
     assert len(conn.executions) == len(chunks())
     assert all("UPDATE device_versions" in sql for sql, _ in conn.executions)
     assert conn.executions[0][1][4] == chunks()[0].device_id
+    assert conn.committed is False
+
+
+def test_index_fallback_commits_once_when_requested() -> None:
+    conn = FakeConnection()
+
+    report = run.index_fallback(chunks(), conn=conn, encoder=FakeEncoder(), commit=True)
+
+    assert report.indexed == len(chunks())
+    assert conn.committed is True
+    assert conn.closed is False
+
+
+def test_index_fallback_commit_failure_does_not_report_indexed() -> None:
+    conn = FakeConnection(commit_fail=True)
+
+    report = run.index_fallback(chunks(), conn=conn, encoder=FakeEncoder(), commit=True)
+
+    assert report.indexed == 0
+    assert report.skipped == len(chunks())
+    assert any("commit failed" in error for error in report.errors)
 
 
 def test_index_fallback_records_update_errors_and_never_silently_skips() -> None:
@@ -143,6 +194,7 @@ def test_index_fallback_skips_blank_literal_and_counts_it() -> None:
     assert report.indexed == 0
     assert report.skipped == 2
     assert conn.executions == []
+    assert all("blank texto_indexacao" in error for error in report.errors)
 
 
 def test_index_fallback_accounts_for_invalid_versions() -> None:
@@ -181,8 +233,20 @@ def test_index_target_upserts_into_qdrant_without_text() -> None:
     points = client.upserts[0]["points"]
     assert len(points) == len(chunks())
     assert all("late" in point.vector and "bm25" in point.vector for point in points)
+    assert all(len(row) == 128 for point in points for row in point.vector["late"])
     assert all("device_id" in point.payload for point in points)
     assert all("texto_literal" not in point.payload for point in points)
+
+
+def test_index_target_rejects_dense_encoder_before_upsert() -> None:
+    client = FakeClient()
+
+    report = run.index_target(chunks(), client=client, encoder=DenseOnlyEncoder())
+
+    assert report.indexed == 0
+    assert report.skipped == len(chunks())
+    assert client.upserts == []
+    assert any("dense" in error and "multivector" in error for error in report.errors)
 
 
 def test_index_target_records_encoder_errors_per_chunk() -> None:
@@ -263,6 +327,36 @@ def test_main_returns_one_when_report_has_errors(monkeypatch) -> None:
     )
 
     assert run.main(["--path", "fallback"]) == 1
+
+
+def test_main_commits_the_fallback_transaction(monkeypatch) -> None:
+    conn = FakeConnection()
+    monkeypatch.setattr(run, "_connect", lambda url: conn)
+    monkeypatch.setattr(
+        run.PostgresVersionSource,
+        "fetch_versions",
+        lambda self, source=None: chunks(),
+    )
+    monkeypatch.setattr(run, "get_encoder", lambda settings: FakeEncoder())
+
+    assert run.main(["--path", "fallback"]) == 0
+    assert conn.committed is True
+    assert conn.closed is True
+
+
+def test_main_closes_the_qdrant_client(monkeypatch) -> None:
+    client = FakeClient()
+    monkeypatch.setattr(run, "_connect", lambda url: FakeConnection())
+    monkeypatch.setattr(
+        run.PostgresVersionSource,
+        "fetch_versions",
+        lambda self, source=None: chunks(),
+    )
+    monkeypatch.setattr(run, "get_encoder", lambda settings: FakeEncoder())
+    monkeypatch.setattr(run, "make_client", lambda url: client)
+
+    assert run.main(["--path", "target"]) == 0
+    assert client.closed is True
 
 
 def test_main_prints_compact_report(monkeypatch, capsys) -> None:

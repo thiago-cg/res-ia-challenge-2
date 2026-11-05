@@ -199,6 +199,9 @@ def query_target(
     if limit <= 0:
         raise ValueError("limit must be positive")
 
+    top_k = min(top_k, MAX_RESCORE)
+    limit = min(limit, MAX_RESCORE)
+
     vectors = _coerce_query_vectors(query_vectors)
     vigencia = _vigencia_filter(models, data_fato)
 

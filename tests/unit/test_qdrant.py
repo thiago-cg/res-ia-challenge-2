@@ -246,6 +246,20 @@ def test_query_target_with_data_fato_uses_date_range_and_null_end() -> None:
     assert client.query["prefetch"][0].filter.must[0].key == "vigencia_inicio"
 
 
+def test_query_target_caps_prefetch_and_result_at_max_rescore() -> None:
+    client = FakeClient(points=[])
+
+    query_target(
+        client,
+        QueryVectors(bm25=sparse_vector("x"), late=late_matrix()),
+        top_k=500,
+        limit=500,
+    )
+
+    assert client.query["prefetch"][0].limit == 150
+    assert client.query["limit"] == 150
+
+
 @pytest.mark.parametrize("kwargs", [{"top_k": 0}, {"limit": 0}])
 def test_query_target_rejects_non_positive_limits(kwargs) -> None:
     with pytest.raises(ValueError):
