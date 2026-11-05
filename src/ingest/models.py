@@ -35,6 +35,7 @@ class ParseResult(BaseModel):
     devices: list[Device] = Field(default_factory=list)
     versions: list[DeviceVersion] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    remissoes: list[str] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -46,8 +47,14 @@ class _SourceNorm:
     urn_lexml: str | None
     fonte_url: str
     vigencia_inicio: date
+    data_exata: bool = True
 
 
+# Single source of truth for publication/vigência dates.
+# `data_exata=False` means only the publication year is known, so the date is
+# deliberately conservative: Dec 31 of that year. Never move a placeholder
+# earlier than the publication year end, or an amendment could be exposed
+# before it was published.
 SOURCE_NORMS: dict[str, _SourceNorm] = {
     "lmp": _SourceNorm(
         tipo="lei",
@@ -83,7 +90,8 @@ SOURCE_NORMS: dict[str, _SourceNorm] = {
         apelido=None,
         urn_lexml=None,
         fonte_url="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/l15438.htm",
-        vigencia_inicio=date(2026, 1, 1),
+        vigencia_inicio=date(2026, 12, 31),
+        data_exata=False,
     ),
     "lei-14994-2024": _SourceNorm(
         tipo="lei",
@@ -92,7 +100,8 @@ SOURCE_NORMS: dict[str, _SourceNorm] = {
         apelido=None,
         urn_lexml=None,
         fonte_url="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2024/lei/l14994.htm",
-        vigencia_inicio=date(2024, 1, 1),
+        vigencia_inicio=date(2024, 12, 31),
+        data_exata=False,
     ),
     "cf": _SourceNorm(
         tipo="constituicao",
@@ -128,7 +137,8 @@ SOURCE_NORMS: dict[str, _SourceNorm] = {
         apelido=None,
         urn_lexml=None,
         fonte_url="https://atos.cnj.jus.br/atos/detalhar/3218",
-        vigencia_inicio=date(2020, 1, 1),
+        vigencia_inicio=date(2020, 12, 31),
+        data_exata=False,
     ),
     "cnj-portaria-6-2025": _SourceNorm(
         tipo="portaria_conjunta",
@@ -137,7 +147,8 @@ SOURCE_NORMS: dict[str, _SourceNorm] = {
         apelido=None,
         urn_lexml=None,
         fonte_url="https://atos.cnj.jus.br/atos/detalhar/6242",
-        vigencia_inicio=date(2025, 1, 1),
+        vigencia_inicio=date(2025, 12, 31),
+        data_exata=False,
     ),
     "stj-sumulas": _SourceNorm(
         tipo="sumula",
@@ -147,6 +158,7 @@ SOURCE_NORMS: dict[str, _SourceNorm] = {
         urn_lexml=None,
         fonte_url="https://scon.stj.jus.br/SCON/sumstj/",
         vigencia_inicio=date(1989, 1, 1),
+        data_exata=False,
     ),
 }
 
@@ -206,7 +218,7 @@ def default_vigencia_inicio(source_id: str, *, ano: int | None = None) -> date:
     if meta is not None:
         return meta.vigencia_inicio
     if ano is not None:
-        return date(ano, 1, 1)
+        return date(ano, 12, 31)
     return date(1970, 1, 1)
 
 

@@ -145,15 +145,19 @@ def fetch_source(
     if path.is_file():
         digest = _sha256_file(path)
         pinned = source.sha256.lower() if source.sha256 else None
-        if pinned is not None and digest == pinned:
-            return FetchResult(
-                source_id=source.id,
-                path=path,
-                sha256=digest,
-                unchanged=True,
-                status_code=_sidecar_status(meta_path) or 200,
-            )
-        if _sidecar_status(meta_path) is not None:
+        if pinned is not None:
+            if digest == pinned:
+                return FetchResult(
+                    source_id=source.id,
+                    path=path,
+                    sha256=digest,
+                    unchanged=True,
+                    status_code=_sidecar_status(meta_path) or 200,
+                )
+            # A manifest pin that differs from the local file is authoritative:
+            # ignore the sidecar and force a fresh download.
+
+        elif _sidecar_status(meta_path) is not None:
             try:
                 meta: Any = json.loads(meta_path.read_text(encoding="utf-8"))
             except (OSError, ValueError):

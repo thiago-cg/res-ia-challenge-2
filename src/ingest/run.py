@@ -2,9 +2,28 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
-from src.ingest.fetch import FetchError, Source, fetch_source, load_sources
+from src.ingest.fetch import (
+    FetchError,
+    Source,
+    SourceManifestError,
+    fetch_source,
+    load_sources,
+)
+from src.ingest.models import ParseResult
+from src.ingest.parse_cnj import parse_cnj
+from src.ingest.parse_planalto import parse_source as parse_planalto_source
+from src.ingest.parse_sumulas import parse_sumulas_pdf
+
+ParserFn = Callable[[str, str | Path], ParseResult]
+
+PARSERS: dict[str, ParserFn] = {
+    "planalto": parse_planalto_source,
+    "cnj": parse_cnj,
+    "sumulas_pdf": parse_sumulas_pdf,
+}
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MANIFEST = PROJECT_ROOT / "data" / "sources.yaml"
@@ -38,13 +57,20 @@ def _select(sources: list[Source], args: argparse.Namespace) -> list[Source]:
     return list(sources)
 
 
+def parse_downloaded_source(source: Source, path: str | Path) -> ParseResult:
+    parser = PARSERS.get(source.parser)
+    if parser is None:
+        raise FetchError(f"no parser registered for {source.parser!r}")
+    return parser(source.id, path)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     try:
         sources = load_sources(args.manifest)
         selected = _select(sources, args)
-    except (FetchError, OSError) as exc:
+    except (FetchError, SourceManifestError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 

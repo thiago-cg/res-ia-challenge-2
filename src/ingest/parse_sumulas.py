@@ -19,20 +19,17 @@ from src.ingest.models import (
 )
 
 _SUMULA_RE = re.compile(
-    r"^\s*S[ÚU]MULA\s+(?:N[ºO°]\s*)?(\d+)\b\s*(?:[-–—:]\s*)?(.*)$",
+    r"^\s*S[ÚU]MULA\s+(?:N[.º°]*\s*)?(\d+)\b\s*(?:[-–—:]\s*)?(.*)$",
     re.IGNORECASE,
 )
-_CANCEL_RE = re.compile(r"\(\s*cancelad[ao]\s*\)", re.IGNORECASE)
+_CANCEL_RE = re.compile(
+    r"(?:\(\s*cancelad[ao][^)]*\)|\bcancelad[ao]\b\.?)",
+    re.IGNORECASE,
+)
 _SUMULA_EPOCH = date(1989, 1, 1)
 
 
-def parse_sumulas(source_id: str, path: str | Path) -> ParseResult:
-    document = Path(path)
-    raw = document.read_bytes()
-    if not raw.strip():
-        raise ParseError(f"{source_id}: empty document")
-
-    text = raw.decode(detect_charset(raw), errors="replace")
+def _parse_sumulas_text(source_id: str, text: str, document: Path) -> ParseResult:
     norm = build_norm(source_id)
     vigencia_inicio = default_vigencia_inicio(source_id)
 
@@ -149,3 +146,38 @@ def parse_sumulas(source_id: str, path: str | Path) -> ParseResult:
         )
 
     return ParseResult(norm=norm, devices=devices, versions=versions, warnings=warnings)
+
+
+def _extract_pdf_text(document: Path) -> str:
+    import pymupdf
+
+    try:
+        pdf = pymupdf.open(document)
+    except Exception as exc:  # pragma: no cover - depends on the PDF engine
+        raise ParseError(f"could not open PDF {document}: {exc}") from exc
+    try:
+        pages = (pdf.load_page(index).get_text("text") for index in range(pdf.page_count))
+        return "\n".join(pages)
+    finally:
+        pdf.close()
+
+
+def parse_sumulas(source_id: str, path: str | Path) -> ParseResult:
+    document = Path(path)
+    raw = document.read_bytes()
+    if not raw.strip():
+        raise ParseError(f"{source_id}: empty document")
+
+    if document.suffix.lower() == ".pdf" or raw[:4] == b"%PDF":
+        text = _extract_pdf_text(document)
+    else:
+        text = raw.decode(detect_charset(raw), errors="replace")
+    return _parse_sumulas_text(source_id, text, document)
+
+
+def parse_sumulas_pdf(source_id: str, path: str | Path) -> ParseResult:
+    document = Path(path)
+    if not document.read_bytes().strip():
+        raise ParseError(f"{source_id}: empty document")
+    text = _extract_pdf_text(document)
+    return _parse_sumulas_text(source_id, text, document)

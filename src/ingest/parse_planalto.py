@@ -37,11 +37,46 @@ _ARTICLE_RE = re.compile(r"^Art\.\s*(\d+(?:-[A-Za-z])?)\s*[ºo°]?\s*[.\-–—]
 _PAR_UNICO_RE = re.compile(r"^Par[áa]grafo\s+[úu]nico\b\.?\s*(.*)$", re.IGNORECASE)
 _PAR_RE = re.compile(r"^§\s*(\d+)\s*[ºo°]?\s*[.\-–—]?\s*(.*)$")
 _INCISO_RE = re.compile(r"^([IVXLCDM]+)\s*[-–—]\s*(.*)$", re.IGNORECASE)
-_ALINEA_RE = re.compile(r"^([a-z])\s*[.)]\s+(.*)$")
-_ITEM_RE = re.compile(r"^(\d+)\s*[.)]\s+(.*)$")
+_ALINEA_RE = re.compile(r"^([a-z])\s*[.)]{1,2}\s+(.*)$")
+_ITEM_RE = re.compile(r"^(\d+)\s*[.)]{1,2}\s+(.*)$")
 
 _HEADING_ORDER = ("titulo", "capitulo", "secao")
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+
+_MONTHS = {
+    "janeiro": 1,
+    "fevereiro": 2,
+    "marco": 3,
+    "março": 3,
+    "abril": 4,
+    "maio": 5,
+    "junho": 6,
+    "julho": 7,
+    "agosto": 8,
+    "setembro": 9,
+    "outubro": 10,
+    "novembro": 11,
+    "dezembro": 12,
+}
+_FULL_DATE_RE = re.compile(r"\b(\d{1,2})\s+de\s+([A-Za-zÀ-ÿ]+)\s+de\s+(\d{4})\b", re.IGNORECASE)
+_YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
+
+
+def resolve_annotation_date(annotation: str) -> tuple[date | None, bool]:
+    """Return (date, exact). Year-only dates use Dec 31 as a conservative bound."""
+    full = _FULL_DATE_RE.search(annotation)
+    if full is not None:
+        month = _MONTHS.get(full.group(2).lower())
+        if month is not None:
+            try:
+                return date(int(full.group(3)), month, int(full.group(1))), True
+            except ValueError:
+                pass
+
+    years = [int(match.group(0)) for match in _YEAR_RE.finditer(annotation)]
+    if years:
+        return date(years[-1], 12, 31), False
+    return None, False
 
 
 def roman_to_int(value: str) -> int | None:
@@ -78,6 +113,7 @@ class _Node:
     anterior_parts: list[str] = field(default_factory=list)
     status: str = "vigente"
     redacao: str | None = None
+    vigencia_fim: date | None = None
 
     @property
     def caminho(self) -> str:
@@ -85,13 +121,13 @@ class _Node:
 
 
 class _StructuralParser:
-    def __init__(self, *, norm: Norm, hoje: date, citation_style: CitationStyle) -> None:
+    def __init__(self, *, norm: Norm, citation_style: CitationStyle) -> None:
         self.norm = norm
-        self.hoje = hoje
         self.citation_style = citation_style
         self.nodes: list[_Node] = []
         self.by_id: dict[str, _Node] = {}
         self.warnings: list[str] = []
+        self.remissoes: list[str] = []
         self.headings: dict[str, tuple[str, str]] = {}
         self.current_article: _Node | None = None
         self.current_caput: _Node | None = None
@@ -174,17 +210,42 @@ class _StructuralParser:
                 if struck:
                     parent.anterior_parts.append(struck)
 
+    def _warn_once(self, message: str) -> None:
+        if message not in self.warnings:
+            self.warnings.append(message)
+
     def _apply_status(self, node: _Node, annotation: str) -> None:
         low = annotation.lower()
+        if low.startswith("vide"):
+            if annotation not in self.remissoes:
+                self.remissoes.append(annotation)
+            return
+
+        event_date, exact = resolve_annotation_date(annotation)
         if low.startswith("revogad"):
             node.status = "revogado"
             node.redacao = annotation
-        elif low.startswith("vide"):
+            if event_date is not None:
+                node.vigencia_fim = event_date
+                if not exact:
+                    self._warn_once(
+                        f"{node.id}: revocation note has only a year; "
+                        f"using {event_date.isoformat()}"
+                    )
             return
-        elif low == "nr" or "reda" in low or low.startswith("inclu"):
+
+        if low == "nr" or "reda" in low or low.startswith("inclu"):
             if node.status != "revogado":
                 node.status = "alterado"
             node.redacao = annotation
+            if event_date is not None:
+                node.vigencia_inicio = event_date
+                if not exact:
+                    self._warn_once(
+                        f"{node.id}: amendment note has only a year; using {event_date.isoformat()}"
+                    )
+            elif low != "nr":
+                self._warn_once(f"{node.id}: amendment note has no date; keeping norm start date")
 
     def _annotate(self, node: _Node, annotations: list[str]) -> None:
         targets = [node]
@@ -233,6 +294,9 @@ class _StructuralParser:
         return f"art. {numero}"
 
     def _start_article(self, raw_numero: str, rest: str) -> _Node:
+        # The article-level literal intentionally mirrors the caput literal.
+        # Assembling the full article (caput + incisos) is IDX-01's job; the
+        # parser must not fabricate a combined literal here.
         numero = raw_numero.strip()
         numero_id = numero.lower()
         artigo_id = f"{self.norm.id}/art{numero_id}"
@@ -434,7 +498,7 @@ class _StructuralParser:
                 self.warnings.append(f"{node.id}: empty literal text was not indexed")
                 continue
 
-            vigencia_fim = self.hoje if node.status == "revogado" else None
+            vigencia_fim = node.vigencia_fim
             contexto = "\n".join(
                 [norm_title, *node.headings_display, ", ".join(node.contexto_levels)]
             )
@@ -494,6 +558,7 @@ class _StructuralParser:
             devices=devices,
             versions=versions,
             warnings=self.warnings,
+            remissoes=self.remissoes,
         )
 
 
@@ -515,7 +580,9 @@ def parse_html_document(
     if norm is None:
         norm = build_norm(source_id, title=title)
 
-    parser = _StructuralParser(norm=norm, hoje=hoje or date.today(), citation_style=citation_style)
+    # `hoje` is accepted for API compatibility only. Parse time must never
+    # leak into vigência fields or content_hash.
+    parser = _StructuralParser(norm=norm, citation_style=citation_style)
     for line in lines:
         parser.feed(line)
 

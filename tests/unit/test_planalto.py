@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from src.ingest.models import ParseError, ParseResult
+from src.ingest.models import SOURCE_NORMS, ParseError, ParseResult
 from src.ingest.parse_planalto import parse_source
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "lmp_art22.html"
@@ -87,6 +87,8 @@ def test_parent_chain(result: ParseResult) -> None:
 
 
 def test_article_caput_and_inciso_content(result: ParseResult) -> None:
+    # Intentional: the article-level literal mirrors the caput. Combining
+    # caput + incisos into the article chunk is IDX-01's job, not the parser's.
     artigo = version_by_id(result, "lmp/art22")
     caput = version_by_id(result, "lmp/art22/cpt")
     inciso = version_by_id(result, "lmp/art22/cpt/inc3")
@@ -138,16 +140,73 @@ def test_paragraph_edge_cases(result: ParseResult) -> None:
 
 def test_vigencia_and_hash_are_deterministic() -> None:
     first = parse_source("lmp", FIXTURE, hoje=date(2026, 11, 5))
-    second = parse_source("lmp", FIXTURE, hoje=date(2026, 11, 5))
+    second = parse_source("lmp", FIXTURE, hoje=date(2030, 1, 1))
 
     assert first.versions == second.versions
 
     version = version_by_id(first, "lmp/art22/cpt/inc3/ali-b")
-    assert version.vigencia_inicio == date(2006, 9, 22)
+    # The amendment is from 2023; the parser must not keep 2006 as the start.
+    assert version.vigencia_inicio == date(2023, 12, 31)
+    assert version.vigencia_inicio.year == 2023
+    assert any("only a year" in warning and "2023" in warning for warning in first.warnings)
     assert version.content_hash == version_by_id(second, "lmp/art22/cpt/inc3/ali-b").content_hash
     assert (
         version.qdrant_point_id == version_by_id(second, "lmp/art22/cpt/inc3/ali-b").qdrant_point_id
     )
+
+
+def test_placeholder_vigencias_never_precede_publication_year_end() -> None:
+    for source_id, meta in SOURCE_NORMS.items():
+        if meta.ano is not None and not meta.data_exata:
+            assert meta.vigencia_inicio >= date(meta.ano, 12, 31), source_id
+
+
+def test_revocation_never_uses_parse_time(tmp_path: Path) -> None:
+    path = tmp_path / "revogado.html"
+    path.write_text(
+        '<!doctype html><html><head><meta charset="utf-8">'
+        "<title>Lei nº 11.340/2006 (Lei Maria da Penha)</title></head><body>"
+        "<p>Art. 1º Texto revogado com ano. (Revogado pela Lei nº 2, de 2019)</p>"
+        "<p>Art. 2º Texto revogado sem data. (Revogado)</p>"
+        "</body></html>",
+        encoding="utf-8",
+    )
+
+    first = parse_source("lmp", path, hoje=date(2020, 1, 1))
+    second = parse_source("lmp", path, hoje=date(2030, 6, 30))
+
+    assert first.versions == second.versions
+    assert [v.content_hash for v in first.versions] == [v.content_hash for v in second.versions]
+
+    with_year = version_by_id(first, "lmp/art1")
+    assert with_year.vigencia_status == "revogado"
+    assert with_year.vigencia_fim == date(2019, 12, 31)
+
+    without_date = version_by_id(first, "lmp/art2")
+    assert without_date.vigencia_status == "revogado"
+    assert without_date.vigencia_fim is None
+
+
+def test_annotation_full_date_is_used(tmp_path: Path) -> None:
+    path = tmp_path / "full_date.html"
+    path.write_text(
+        '<!doctype html><html><head><meta charset="utf-8">'
+        "<title>Lei nº 11.340/2006 (Lei Maria da Penha)</title></head><body>"
+        "<p>Art. 1º Texto alterado. "
+        "(Redação dada pela Lei nº 2, de 10 de janeiro de 2023)</p>"
+        "</body></html>",
+        encoding="utf-8",
+    )
+
+    result = parse_source("lmp", path, hoje=date(2030, 1, 1))
+    version = version_by_id(result, "lmp/art1")
+
+    assert version.vigencia_inicio == date(2023, 1, 10)
+    assert not any("only a year" in warning for warning in result.warnings)
+
+
+def test_vide_annotations_are_kept_as_remissoes(result: ParseResult) -> None:
+    assert "Vide ADI 4424" in result.remissoes
 
 
 def test_malformed_input_raises_parse_error(tmp_path: Path) -> None:

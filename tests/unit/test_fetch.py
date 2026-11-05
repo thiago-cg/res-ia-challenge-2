@@ -165,6 +165,26 @@ def test_fetch_is_idempotent_when_manifest_hash_matches(tmp_path: Path) -> None:
     assert result.sha256 == sha256(raw)
 
 
+def test_fetch_manifest_pin_mismatch_forces_download(tmp_path: Path) -> None:
+    old = b"old bytes"
+    new = b"new bytes"
+    path = tmp_path / "lmp.html"
+    path.write_bytes(old)
+    (tmp_path / "lmp.meta.json").write_text(
+        json.dumps({"sha256": sha256(old), "status": 200}),
+        encoding="utf-8",
+    )
+    source = make_source(sha256=sha256(new))
+    client = FakeClient(FakeResponse(200, new))
+
+    result = fetch_source(source, tmp_path, client=client)
+
+    assert result.unchanged is False
+    assert result.sha256 == sha256(new)
+    assert path.read_bytes() == new
+    assert len(client.calls) == 1
+
+
 def test_fetch_retries_on_server_error(tmp_path: Path) -> None:
     raw = b"ok"
     client = FakeClient(FakeResponse(500), FakeResponse(503), FakeResponse(200, raw))
@@ -236,6 +256,23 @@ def test_cli_parses_selection_flags() -> None:
     assert parser.parse_args(["--source", "lmp"]).source == "lmp"
     assert parser.parse_args(["--priority", "P0"]).priority == "P0"
     assert parser.parse_args(["--all"]).all is True
+
+
+def test_cli_reports_manifest_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    code = run_module.main(
+        [
+            "--all",
+            "--manifest",
+            str(tmp_path / "missing.yaml"),
+            "--dest-dir",
+            str(tmp_path / "raw"),
+        ]
+    )
+
+    assert code == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert "missing.yaml" in err
 
 
 def test_cli_returns_zero_on_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
