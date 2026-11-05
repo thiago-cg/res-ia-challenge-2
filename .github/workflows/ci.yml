@@ -74,3 +74,57 @@ jobs:
       - run: uv sync --extra dev
       - run: uv run python scripts/apply_migrations.py
       - run: uv run pytest -m integration
+
+  backup-restore:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: violencia
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U app -d violencia"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://app:app@localhost:5432/violencia
+      BACKUP_DIR: backups
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install PostgreSQL 17 client tools
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+      - run: uv sync --extra dev
+      - name: Apply migrations
+        run: uv run python scripts/apply_migrations.py
+      - name: Insert drill row
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "INSERT INTO norms (id, tipo, numero, ano, fonte_url) VALUES ('ci-restore-drill', 'lei', '1', 2020, 'https://example.test');"
+      - name: Backup
+        run: sh scripts/backup.sh
+      - name: Verify checksum sidecar
+        run: sha256sum -c backups/*.dump.sha256
+      - name: Create throwaway restore database
+        run: psql "postgresql://app:app@localhost:5432/postgres" -v ON_ERROR_STOP=1 -c "CREATE DATABASE violencia_restore;"
+      - name: Restore into throwaway database
+        env:
+          DATABASE_URL: postgresql://app:app@localhost:5432/violencia_restore
+        run: sh scripts/restore.sh backups/*.dump
+      - name: Assert drill row survived
+        run: |
+          count="$(psql "postgresql://app:app@localhost:5432/violencia_restore" -tAc "SELECT count(*) FROM norms WHERE id = 'ci-restore-drill';")"
+          test "$count" = "1"
+          echo "restore drill ok: $count row(s) survived"
