@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local infra data
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/SHA256SUMS
+data/processed/*
+!data/processed/.gitkeep
+
+# Tooling scratch
+.superpowers/
+.claude/progress/
+.opencode/
+.DS_Store
+Thumbs.db
