@@ -277,6 +277,7 @@ def record_ingest_run(
     error: str | None = None,
 ) -> int:
     """Create or finish an ``ingest_runs`` row and return its id."""
+    params: tuple[Any, ...]
     if ingest_run_id is None:
         sql = """
             INSERT INTO ingest_runs (

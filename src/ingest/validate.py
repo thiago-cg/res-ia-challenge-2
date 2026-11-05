@@ -65,15 +65,19 @@ def validate_parse_result(
     versions_by_device: dict[str, list[DeviceVersion]] = {}
     for version in result.versions:
         versions_by_device.setdefault(version.device_id, []).append(version)
-        device = devices.get(version.device_id)
-        if device is None:
+        version_device = devices.get(version.device_id)
+        if version_device is None:
             report.errors.append(f"{version.device_id}: version has no matching device identity")
             continue
 
-        _validate_literal(report, version, device, max_length=max_length, split_ids=split_ids)
+        _validate_literal(
+            report, version, version_device, max_length=max_length, split_ids=split_ids
+        )
         _validate_citation(report, version, result)
 
-        expected_hash = content_hash(version.texto_literal, version_metadata(version, device))
+        expected_hash = content_hash(
+            version.texto_literal, version_metadata(version, version_device)
+        )
         if expected_hash != version.content_hash:
             report.errors.append(
                 f"{version.device_id}: content_hash is not stable for the current literal/metadata"

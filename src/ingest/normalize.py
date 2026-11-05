@@ -108,7 +108,7 @@ def content_hash(texto_literal: str, metadados: Mapping[str, Any] | str) -> str:
             vigencia_status=str(metadados["vigencia_status"]),
             redacao_dada_por=_optional_str(metadados["redacao_dada_por"]),
             vigencia_inicio=_as_date(metadados["vigencia_inicio"]),
-            vigencia_fim=_as_date(metadados["vigencia_fim"], optional=True),
+            vigencia_fim=_as_optional_date(metadados["vigencia_fim"]),
             fonte_url=str(metadados["fonte_url"]),
         )
 
@@ -121,14 +121,16 @@ def _optional_str(value: object) -> str | None:
     return None if value is None else str(value)
 
 
-def _as_date(value: object, *, optional: bool = False) -> date | None:
-    if value is None:
-        if optional:
-            return None
-        raise ValueError("vigencia_inicio is required")
+def _as_date(value: object) -> date:
     if isinstance(value, date):
         return value
     return date.fromisoformat(str(value))
+
+
+def _as_optional_date(value: object) -> date | None:
+    if value is None:
+        return None
+    return _as_date(value)
 
 
 def has_struck_markup(text: str) -> bool:
