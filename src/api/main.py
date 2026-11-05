@@ -275,12 +275,15 @@ class SettingsHealthProbe:
                 database = "unavailable"
 
         qdrant = self._qdrant_check() if self._qdrant_check is not None else self._check_qdrant()
+        data_atualizacao_base = self.data_atualizacao_base
+        if data_atualizacao_base is None and last_ingest:
+            data_atualizacao_base = last_ingest[:10]
         return health_status(
             database=database,
             qdrant=qdrant,
             index_version=index_version,
             last_ingest=last_ingest,
-            data_atualizacao_base=self.data_atualizacao_base,
+            data_atualizacao_base=data_atualizacao_base,
         )
 
     def _check_qdrant(self) -> str:
@@ -345,13 +348,22 @@ class LegalRAGPipeline:
         if classify_risk(message).immediate:
             return self._result(emergency_answer(), emergencia=True)
 
-        resolution = resolve_explicit_citation(
-            message,
-            catalog=self.catalog,
-            data_fato=facts.data_fato if facts else None,
-        )
+        try:
+            resolution = resolve_explicit_citation(
+                message,
+                catalog=self.catalog,
+                data_fato=facts.data_fato if facts else None,
+            )
+        except Exception as exc:
+            logger.warning("explicit_citation_failed error=%s", type(exc).__name__)
+            return self._abstain("erro_recuperacao")
+
         if resolution.resolved:
-            explicit = self._explicit_devices(resolution, facts)
+            try:
+                explicit = self._explicit_devices(resolution, facts)
+            except Exception as exc:
+                logger.warning("explicit_hydration_failed error=%s", type(exc).__name__)
+                return self._abstain("erro_recuperacao")
             if not explicit:
                 return self._abstain("citacao_explicita_sem_versao_vigente")
             return self._generate(message, facts or default_facts(), [message], explicit)
@@ -380,15 +392,24 @@ class LegalRAGPipeline:
         if not candidates:
             return self._abstain("nenhum_dispositivo_recuperado")
 
-        ranked = rerank(
-            plan.consulta_juridica,
-            candidates,
-            encoder=self.encoder,
-            top_k=self.settings.max_devices,
-            rescore=self.rescore,
-        )
-        selected = self._expand(dedupe_by_artigo(ranked))[: self.settings.max_devices]
-        hydrated = hydrate(selected, repo=self.repo).devices
+        try:
+            ranked = rerank(
+                plan.consulta_juridica,
+                candidates,
+                encoder=self.encoder,
+                top_k=self.settings.max_devices,
+                rescore=self.rescore,
+            )
+            selected = self._expand(dedupe_by_artigo(ranked))[: self.settings.max_devices]
+        except Exception as exc:
+            logger.warning("ranking_failed error=%s", type(exc).__name__)
+            return self._abstain("erro_recuperacao")
+
+        try:
+            hydrated = hydrate(selected, repo=self.repo).devices
+        except Exception as exc:
+            logger.warning("hydration_failed error=%s", type(exc).__name__)
+            return self._abstain("erro_recuperacao")
         if not hydrated:
             return self._abstain("contexto_incompleto")
         return self._generate(message, plan.fatos, plan.subperguntas, hydrated)
@@ -408,11 +429,7 @@ class LegalRAGPipeline:
         getter = getattr(self.repo, "get_current_version_id", None)
         if getter is None:
             return []
-        try:
-            version = getter(device_id, facts.data_fato if facts else None)
-        except Exception:
-            logger.warning("explicit_version_lookup_failed")
-            return []
+        version = getter(device_id, facts.data_fato if facts else None)
         if version is None:
             return []
         hydrated = hydrate([(device_id, int(version))], repo=self.repo).devices
@@ -423,8 +440,8 @@ class LegalRAGPipeline:
             return devices
         try:
             return expand_to_article(devices, article_lookup=self.repo).devices
-        except TypeError:
-            logger.warning("article_expansion_skipped")
+        except Exception as exc:
+            logger.warning("article_expansion_skipped error=%s", type(exc).__name__)
             return devices
 
     @staticmethod
@@ -494,15 +511,22 @@ class LegalRAGPipeline:
                     prompt = self._feedback_prompt(prompt, str(exc))
                     continue
                 return self._safe_answer(retrieved, "citacao_invalida")
+            except Exception as exc:
+                logger.warning("citation_render_failed error=%s", type(exc).__name__)
+                return self._abstain("erro_recuperacao")
 
-            verification = verify(
-                answer,
-                retrieved,
-                repo=self.repo,
-                judge=self.judge,
-                attempt=attempt,
-                max_attempts=2,
-            )
+            try:
+                verification = verify(
+                    answer,
+                    retrieved,
+                    repo=self.repo,
+                    judge=self.judge,
+                    attempt=attempt,
+                    max_attempts=2,
+                )
+            except Exception as exc:
+                logger.warning("verification_failed error=%s", type(exc).__name__)
+                return self._abstain("erro_recuperacao")
             if verification.action == "accept":
                 return self._result(answer, emergencia=False)
             if verification.action == "regenerate" and attempt == 1:
@@ -582,6 +606,9 @@ class LazyChatPipeline:
         self._pipeline: ChatPipeline | None = None
 
     def answer(self, message: str, facts: QueryFacts | None = None) -> PipelineResult:
+        if classify_risk(message).immediate:
+            return PipelineResult(emergency_answer(), True, None)
+
         pipeline = self._pipeline
         if pipeline is None:
             try:
@@ -657,6 +684,21 @@ def create_app(
             request_id,
             payload.session_id,
         )
+        if classify_risk(payload.message).immediate:
+            response = ChatResponse.from_answer(
+                emergency_answer(),
+                emergencia=True,
+                data_atualizacao_base=http_request.app.state.data_atualizacao_base,
+            )
+            logger.info(
+                "chat_response request_id=%s abstencao=%s emergencia=%s citacoes=%d",
+                request_id,
+                response.abstencao,
+                response.emergencia,
+                len(response.citacoes),
+            )
+            return response
+
         try:
             result = http_request.app.state.pipeline.answer(
                 payload.message,

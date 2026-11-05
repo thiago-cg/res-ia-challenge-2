@@ -137,7 +137,7 @@ def _citation_from_retrieved(device: RetrievedDevice) -> Citation:
         texto=device.texto_literal,
         contexto=device.contexto or "",
         vigencia=cast(VigenciaStatus, device.vigencia),
-        fonte_url=str(getattr(device, "fonte_url", "") or ""),
+        fonte_url=device.fonte_url or "",
     )
 
 

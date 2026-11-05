@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import (
+    LazyChatPipeline,
     LegalRAGPipeline,
     PipelineResult,
     SettingsHealthProbe,
@@ -272,6 +273,57 @@ def test_emergency_does_not_read_base_date_from_repo() -> None:
     assert repo.calls == []
 
 
+def test_emergency_never_builds_lazy_pipeline() -> None:
+    factory_calls: list[str] = []
+
+    def failing_factory() -> LegalRAGPipeline:
+        factory_calls.append("called")
+        raise ValueError("no encoder revision")
+
+    app = create_app(
+        settings=Settings(),
+        pipeline=LazyChatPipeline(failing_factory),
+        source_repo=FakeRepo(),
+        health_probe=StaticProbe(
+            health_status(
+                database="unavailable",
+                qdrant="unavailable",
+                data_atualizacao_base="2026-11-05",
+            )
+        ),
+        data_atualizacao_base="2026-11-05",
+    )
+    client = TestClient(app)
+
+    body = client.post(
+        "/chat",
+        json={"session_id": "session-emergency", "message": "Ele está me batendo agora."},
+    ).json()
+
+    assert body["emergencia"] is True
+    assert "190" in body["resposta"]
+    assert "180" in body["resposta"]
+    assert "100" in body["resposta"]
+    assert "197" in body["resposta"]
+    assert factory_calls == []
+
+
+def test_lazy_pipeline_emergency_skips_factory() -> None:
+    factory_calls: list[str] = []
+
+    def failing_factory() -> LegalRAGPipeline:
+        factory_calls.append("called")
+        raise ValueError("no encoder revision")
+
+    lazy = LazyChatPipeline(failing_factory)
+
+    result = lazy.answer("Ele está me batendo agora.")
+
+    assert result.emergencia is True
+    assert "190" in result.answer.resposta
+    assert factory_calls == []
+
+
 def test_emergency_response_is_marked_at_api_level() -> None:
     repo = FakeRepo([make_row()])
     pipeline, dense, fts = make_pipeline(repo)
@@ -413,6 +465,99 @@ def test_llm_abstention_uses_fallback_abstain() -> None:
     assert result.answer.citacoes == []
 
 
+def test_explicit_resolution_error_abstains_safely() -> None:
+    class RaisingFindRepo(FakeRepo):
+        def find(self, norm_id: str, artigo_id: str) -> Any | None:
+            raise RuntimeError("database down")
+
+    repo = RaisingFindRepo([make_row()])
+    pipeline, dense, fts = make_pipeline(repo)
+
+    result = pipeline.answer("O que diz o art. 7º da Lei Maria da Penha?")
+
+    assert result.answer.abstencao is True
+    assert result.answer.motivo_abstencao == "erro_recuperacao"
+    assert result.answer.citacoes == []
+    assert dense.calls == []
+    assert fts.calls == []
+
+
+def test_explicit_hydration_error_abstains_safely() -> None:
+    class RaisingHydrateRepo(FakeRepo):
+        def get_device_version(self, device_id: str, norm_version_id: int) -> Any | None:
+            raise RuntimeError("database down")
+
+    row = make_row(device_id="lmp/art7", version=3)
+    repo = RaisingHydrateRepo([row], current_version=3)
+    repo.catalog[("lmp", "lmp/art7")] = {
+        "device_id": "lmp/art7",
+        "norm_id": "lmp",
+        "artigo_id": "lmp/art7",
+    }
+    pipeline, dense, fts = make_pipeline(repo)
+
+    result = pipeline.answer("O que diz o art. 7º da Lei Maria da Penha?")
+
+    assert result.answer.abstencao is True
+    assert result.answer.motivo_abstencao == "erro_recuperacao"
+    assert result.answer.citacoes == []
+    assert dense.calls == []
+    assert fts.calls == []
+
+
+def test_normal_hydration_error_abstains_safely() -> None:
+    class RaisingHydrateRepo(FakeRepo):
+        def get_device_version(self, device_id: str, norm_version_id: int) -> Any | None:
+            raise RuntimeError("database down")
+
+    repo = RaisingHydrateRepo([])
+    hit = RetrievedDevice(
+        device_id="lmp/art22",
+        norm_version_id=7,
+        score=0.9,
+        source="dense",
+        texto_literal="",
+        citacao="",
+    )
+    pipeline, _, _ = make_pipeline(
+        repo,
+        dense=SpySearcher([hit]),
+        fts=SpySearcher([hit.model_copy(update={"source": "bm25", "score": 0.4})]),
+        llm=FakeLLM([]),
+    )
+
+    result = pipeline.answer("Como pedir medida protetiva de urgência?")
+
+    assert result.answer.abstencao is True
+    assert result.answer.motivo_abstencao == "erro_recuperacao"
+    assert result.answer.citacoes == []
+
+
+def test_verification_error_abstains_safely() -> None:
+    row = make_row(device_id="lmp/art7", version=3)
+    repo = FakeRepo([row], current_version=3)
+    repo.catalog[("lmp", "lmp/art7")] = {
+        "device_id": "lmp/art7",
+        "norm_id": "lmp",
+        "artigo_id": "lmp/art7",
+    }
+
+    def judge(resposta: str, retrieved: list[RetrievedDevice]) -> list[str]:
+        raise RuntimeError("judge down")
+
+    pipeline, _, _ = make_pipeline(
+        repo,
+        llm=FakeLLM([llm_json(["lmp/art7"])]),
+        judge=judge,
+    )
+
+    result = pipeline.answer("O que diz o art. 7º da Lei Maria da Penha?")
+
+    assert result.answer.abstencao is True
+    assert result.answer.motivo_abstencao == "erro_recuperacao"
+    assert result.answer.citacoes == []
+
+
 def test_llm_failure_falls_back_to_retrieved_devices() -> None:
     row = make_row(device_id="lmp/art7", version=3)
     repo = FakeRepo([row], current_version=3)
@@ -428,6 +573,7 @@ def test_llm_failure_falls_back_to_retrieved_devices() -> None:
     assert result.answer.abstencao is True
     assert result.answer.motivo_abstencao == "llm_indisponivel"
     assert [citation.device_id for citation in result.answer.citacoes] == ["lmp/art7"]
+    assert result.answer.citacoes[0].fonte_url == row["fonte_url"]
 
 
 def test_verifier_abstention_regenerates_once_then_uses_fallback_abstain() -> None:
@@ -571,6 +717,20 @@ def test_settings_health_probe_degrades_honestly() -> None:
     assert snapshot["status"] == "degraded"
     assert snapshot["database"] == "unavailable"
     assert snapshot["qdrant"] == "unavailable"
+
+
+def test_settings_health_probe_derives_base_date_from_last_ingest() -> None:
+    probe = SettingsHealthProbe(
+        Settings(),
+        data_atualizacao_base=None,
+        database_check=lambda: ("ok", "42", "2026-11-05T10:00:00+00:00"),
+        qdrant_check=lambda: "ok",
+    )
+
+    snapshot = probe.snapshot()
+
+    assert snapshot["status"] == "ok"
+    assert snapshot["data_atualizacao_base"] == "2026-11-05"
 
 
 def test_source_returns_metadata_and_date_resolution() -> None:
