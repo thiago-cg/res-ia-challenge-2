@@ -46,23 +46,51 @@ def _artigo_id(device_id: str) -> str:
     return match.group(1) if match else device_id
 
 
+def _better_duplicate(candidate: RetrievedDevice, current: RetrievedDevice) -> bool:
+    candidate_known = candidate.vigencia is not None
+    current_known = current.vigencia is not None
+    if candidate_known != current_known:
+        return candidate_known
+    return candidate.score > current.score
+
+
+def _dedupe_by_artigo(devices: Sequence[RetrievedDevice]) -> list[RetrievedDevice]:
+    best_by_artigo: dict[str, RetrievedDevice] = {}
+
+    for device in devices:
+        key = _artigo_id(device.device_id)
+        current = best_by_artigo.get(key)
+        if current is None or _better_duplicate(device, current):
+            best_by_artigo[key] = device
+
+    return list(best_by_artigo.values())
+
+
 def _select_devices(
     retrieved: Sequence[RetrievedDevice] | None,
     min_score: float,
     max_devices: int,
 ) -> list[RetrievedDevice]:
-    best_by_artigo: dict[str, RetrievedDevice] = {}
+    devices = list(retrieved or [])
+    explicit = [device for device in devices if device.source == "explicit"]
+    non_explicit = [
+        device for device in devices if device.source != "explicit" and device.score > min_score
+    ]
 
-    for device in retrieved or []:
-        if device.source != "explicit" and device.score < min_score:
-            continue
-        key = _artigo_id(device.device_id)
-        current = best_by_artigo.get(key)
-        if current is None or device.score > current.score:
-            best_by_artigo[key] = device
+    explicit_selected = sorted(
+        _dedupe_by_artigo(explicit), key=lambda device: device.score, reverse=True
+    )[:max_devices]
+    seen = {_artigo_id(device.device_id) for device in explicit_selected}
 
-    ranked = sorted(best_by_artigo.values(), key=lambda device: device.score, reverse=True)
-    return ranked[:max_devices]
+    non_explicit_selected = [
+        device
+        for device in _dedupe_by_artigo(non_explicit)
+        if _artigo_id(device.device_id) not in seen
+    ]
+    non_explicit_selected.sort(key=lambda device: device.score, reverse=True)
+
+    remaining = max(0, max_devices - len(explicit_selected))
+    return explicit_selected + non_explicit_selected[:remaining]
 
 
 def insufficient_evidence(
@@ -73,7 +101,7 @@ def insufficient_evidence(
         return True
     if any(device.source == "explicit" for device in retrieved):
         return False
-    return not any(device.score >= min_score for device in retrieved)
+    return not any(device.score > min_score for device in retrieved)
 
 
 def abstain(

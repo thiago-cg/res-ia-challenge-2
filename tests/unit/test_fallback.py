@@ -64,7 +64,8 @@ def test_insufficient_evidence_without_retrieval() -> None:
 
 def test_insufficient_evidence_with_low_score() -> None:
     assert insufficient_evidence([make_retrieved(score=-0.1)]) is True
-    assert insufficient_evidence([make_retrieved(score=0.0)]) is False
+    assert insufficient_evidence([make_retrieved(score=0.0)]) is True
+    assert insufficient_evidence([make_retrieved(score=0.01)]) is False
     assert MIN_SCORE == 0.0
 
 
@@ -127,11 +128,18 @@ def test_build_safe_answer_never_invents_citation() -> None:
     assert {citation.device_id for citation in answer.citacoes} == {"lmp/art22"}
 
 
-@pytest.mark.parametrize("score", [MIN_SCORE, 0.5, 1.0])
-def test_build_safe_answer_accepts_scores_at_or_above_threshold(score: float) -> None:
+@pytest.mark.parametrize("score", [0.01, 0.5, 1.0])
+def test_build_safe_answer_accepts_scores_above_threshold(score: float) -> None:
     answer = build_safe_answer([make_retrieved(score=score)], "falha")
 
     assert len(answer.citacoes) == 1
+
+
+def test_build_safe_answer_abstains_on_non_explicit_zero_score() -> None:
+    answer = build_safe_answer([make_retrieved(score=0.0)], "sem evidência")
+
+    assert answer.abstencao is True
+    assert answer.citacoes == []
 
 
 def test_build_safe_answer_does_not_fabricate_vigencia() -> None:
@@ -204,6 +212,30 @@ def test_no_silent_citation_loss_for_known_and_unknown_vigencia() -> None:
         "Vigência não verificada" in premise and "lmp/art24" in premise
         for premise in answer.premissas
     )
+
+
+def test_explicit_devices_are_included_before_score_cap() -> None:
+    non_explicit = [make_retrieved(f"lmp/art{index}", 0.9) for index in range(1, 11)]
+    explicit = make_retrieved("lmp/explicit", 0.0, source="explicit")
+
+    answer = build_safe_answer(non_explicit + [explicit], "falha")
+
+    assert len(answer.citacoes) == 10
+    assert answer.citacoes[0].device_id == "lmp/explicit"
+    assert "lmp/explicit" not in {citation.device_id for citation in answer.citacoes[1:]}
+
+
+def test_dedupe_prefers_known_vigencia_over_higher_score() -> None:
+    answer = build_safe_answer(
+        [
+            make_retrieved("lmp/art22/cpt/inc3/ali-b", 0.9, vigencia=None),
+            make_retrieved("lmp/art22/cpt/inc3/ali-c", 0.8, vigencia="vigente"),
+        ],
+        "falha",
+    )
+
+    assert [citation.device_id for citation in answer.citacoes] == ["lmp/art22/cpt/inc3/ali-c"]
+    assert answer.citacoes[0].vigencia == "vigente"
 
 
 def test_build_safe_answer_caps_citations() -> None:
