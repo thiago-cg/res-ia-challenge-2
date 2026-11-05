@@ -20,6 +20,7 @@ def make_retrieved(
         "texto_literal": "Texto literal do dispositivo.",
         "citacao": "Lei nº 11.340/2006, art. 22",
         "vigencia": "vigente",
+        "fonte_url": "https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2006/lei/l11340.htm",
     }
     data.update(overrides)
     return RetrievedDevice(**data)
@@ -118,6 +119,9 @@ def test_build_safe_answer_shows_retrieved_devices_when_generation_fails() -> No
     assert [citation.device_id for citation in answer.citacoes] == ["lmp/art22", "lmp/art24"]
     assert [citation.norm_version_id for citation in answer.citacoes] == [42, 42]
     assert answer.citacoes[0].texto == "Texto literal do dispositivo."
+    assert answer.citacoes[0].fonte_url == (
+        "https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2006/lei/l11340.htm"
+    )
     assert "dispositivos recuperados" in answer.resposta.lower()
     assert any("Defensoria" in step for step in answer.proximos_passos)
 

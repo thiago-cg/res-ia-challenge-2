@@ -46,6 +46,7 @@ class RetrievedDevice(BaseModel):
     vigencia: VigenciaStatus | None = None
     contexto: str | None = None
     explicacao: str | None = None
+    fonte_url: str | None = None
 
 
 class QueryFacts(BaseModel):

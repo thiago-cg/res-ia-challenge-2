@@ -95,6 +95,7 @@ def test_hydrate_populates_vigencia_contexto_and_explicacao() -> None:
     assert device.vigencia == "alterado"
     assert device.contexto == "Art. 22, caput"
     assert device.explicacao == "Explicação simples."
+    assert device.fonte_url == "https://www.planalto.gov.br"
 
 
 def test_hydrate_missing_pair_is_discarded_and_reported() -> None:

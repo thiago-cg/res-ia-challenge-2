@@ -89,6 +89,7 @@ def hydrate(
                 vigencia=vigencia,
                 contexto=_field(row, "contexto"),
                 explicacao=_field(row, "explicacao"),
+                fonte_url=_field(row, "fonte_url"),
             )
         )
     return result
