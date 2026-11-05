@@ -9,6 +9,7 @@ import pytest
 from src.obs.logging import (
     DEFAULT_LOG_RETENTION_DAYS,
     JsonFormatter,
+    TextFormatter,
     bind_request_context,
     configure_logging,
     log_event,
@@ -62,6 +63,43 @@ def test_json_formatter_shape_and_context() -> None:
     assert payload["ts"].endswith("Z")
 
 
+def test_formatter_redacts_pii_in_request_and_session_context() -> None:
+    record = make_record("hello")
+    record.event = "unit.event"
+
+    with bind_request_context(request_id="123.456.789-09", session_id="maria@example.com"):
+        payload = json.loads(JsonFormatter().format(record))
+
+    assert payload["request_id"] == "[CPF]"
+    assert payload["session_id"] == "[EMAIL]"
+    assert "123.456.789-09" not in json.dumps(payload)
+    assert "maria@example.com" not in json.dumps(payload)
+
+
+def test_text_formatter_keeps_safe_extras_and_redacts_context() -> None:
+    record = make_record("http.access")
+    record.event = "http.access"
+    record.method = "GET"
+    record.path = "/health"
+    record.status = 200
+    record.duration_ms = 1.5
+    record.error = "contato maria@example.com"
+
+    with bind_request_context(request_id="123.456.789-09", session_id="sess-1"):
+        line = TextFormatter().format(record)
+
+    assert "request_id=[CPF]" in line
+    assert "session_id=sess-1" in line
+    assert "event=http.access" in line
+    assert "method=GET" in line
+    assert "path=/health" in line
+    assert "status=200" in line
+    assert "duration_ms=1.5" in line
+    assert "error=contato [EMAIL]" in line
+    assert "123.456.789-09" not in line
+    assert "maria@example.com" not in line
+
+
 def test_request_and_session_propagate_to_events() -> None:
     with capture_json_events() as stream:
         with bind_request_context(request_id="req-42", session_id="sess-42"):
@@ -101,6 +139,8 @@ def test_new_request_id_is_opaque_hex() -> None:
         ("CPF 123.456.789-09", "CPF [CPF]", "123.456.789-09"),
         ("CPF 12345678909", "CPF [CPF]", "12345678909"),
         ("CPF 11122233344", "CPF [CPF]", "11122233344"),
+        ("CPF 123-456-789-09", "CPF [CPF]", "123-456-789-09"),
+        ("CPF 123 456 789 09", "CPF [CPF]", "123 456 789 09"),
         ("telefone (11) 98765-4321", "telefone [TELEFONE]", "98765-4321"),
         ("telefone 11987654321", "telefone [TELEFONE]", "11987654321"),
         ("email maria.silva@example.com", "email [EMAIL]", "maria.silva@example.com"),
@@ -134,16 +174,78 @@ def test_question_text_not_logged_by_default(monkeypatch: pytest.MonkeyPatch) ->
     assert "123.456.789-09" not in output
 
 
-def test_non_question_fields_still_redact_pii(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_safe_fields_still_redact_pii(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("LOG_QUESTION_TEXT", raising=False)
 
     with capture_json_events() as stream:
-        log_event("contact", detail="falar com maria@example.com")
+        log_event("contact", error="falar com maria@example.com")
 
     payload = json.loads(stream.getvalue())
 
-    assert payload["detail"] == "falar com [EMAIL]"
+    assert payload["error"] == "falar com [EMAIL]"
     assert "maria@example.com" not in stream.getvalue()
+
+
+def test_unknown_fields_are_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LOG_QUESTION_TEXT", raising=False)
+
+    with capture_json_events() as stream:
+        log_event("contact", detail="texto livre", status=200)
+
+    payload = json.loads(stream.getvalue())
+
+    assert "detail" not in payload
+    assert "texto livre" not in stream.getvalue()
+    assert payload["status"] == 200
+
+
+def test_nested_content_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LOG_QUESTION_TEXT", raising=False)
+    secret = "Meu marido me bateu ontem à noite"
+
+    with capture_json_events() as stream:
+        log_event("chat.step", payload={"question": secret})
+        log_event("chat.step", scores={"doc-1": {"question": secret, "score": 0.9}})
+
+    output = stream.getvalue()
+
+    assert secret not in output
+    assert '"question"' not in output
+    assert '"payload"' not in output
+    assert '"scores"' in output
+    assert "0.9" in output
+
+
+def test_camel_case_content_keys_are_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LOG_QUESTION_TEXT", raising=False)
+    secret = "Meu marido me bateu ontem à noite"
+    secrets = [secret, "mais texto secreto"]
+
+    with capture_json_events() as stream:
+        log_event("chat.step", questionText=secret, userMessage=secrets[1], inputText=secrets[0])
+
+    output = stream.getvalue()
+
+    for value in secrets:
+        assert value not in output
+    assert "questionText" not in output
+    assert "userMessage" not in output
+    assert "inputText" not in output
+
+
+def test_numeric_pii_is_redacted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LOG_QUESTION_TEXT", raising=False)
+
+    with capture_json_events() as stream:
+        log_event("chat.step", cpf=12345678909, phone=11987654321, status=200)
+
+    payload = json.loads(stream.getvalue())
+
+    assert payload["cpf"] == "[CPF]"
+    assert payload["phone"] == "[TELEFONE]"
+    assert payload["status"] == 200
+    assert "12345678909" not in stream.getvalue()
+    assert "11987654321" not in stream.getvalue()
 
 
 def test_question_text_opt_in_still_redacts_pii(monkeypatch: pytest.MonkeyPatch) -> None:

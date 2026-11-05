@@ -35,7 +35,7 @@ session_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 _LOGGER = logging.getLogger(SERVICE_LOGGER_NAME)
 
 _EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
-_CPF_RE = re.compile(r"(?<!\d)\d{3}\.?\d{3}\.?\d{3}-?\d{2}(?!\d)")
+_CPF_RE = re.compile(r"(?<!\d)\d{3}[ .-]?\d{3}[ .-]?\d{3}[ .-]?\d{2}(?!\d)")
 _PHONE_RE = re.compile(r"(?<!\d)\(?\d{2}\)?\s?9?\d{4}-?\d{4}(?!\d)")
 _CEP_RE = re.compile(r"(?<!\d)\d{5}-?\d{3}(?!\d)")
 
@@ -67,26 +67,146 @@ _RESERVED_ATTRS = frozenset(
     }
 )
 
-_CONTENT_FIELD_NAMES = frozenset(
+_DROP = object()
+
+_CONTENT_KEY_NAMES = frozenset(
     {
         "question",
-        "question_text",
+        "questiontext",
+        "userquestion",
         "pergunta",
-        "pergunta_texto",
+        "perguntatexto",
         "query",
-        "query_text",
-        "user_message",
-        "user_text",
+        "querytext",
         "message",
-        "body",
+        "messagebody",
+        "msg",
+        "text",
+        "input",
+        "inputtext",
+        "userinput",
+        "utterance",
+        "userutterance",
+        "payload",
         "content",
+        "body",
+        "raw",
+        "rawtext",
         "prompt",
+        "systemprompt",
+        "userprompt",
         "answer",
+        "output",
         "resposta",
-        "resposta_texto",
+        "respostatexto",
         "conversation",
         "conversa",
+        "history",
+        "chatmessage",
+        "transcript",
     }
+)
+
+_PII_KEY_NAMES = frozenset(
+    {
+        "cpf",
+        "cpfnumber",
+        "phone",
+        "phonenumber",
+        "telefone",
+        "telefonenumber",
+        "celular",
+        "mobile",
+        "email",
+        "mail",
+        "cep",
+        "postalcode",
+        "address",
+        "endereco",
+    }
+)
+
+_SAFE_FIELD_NAMES = frozenset(
+    {
+        "request_id",
+        "session_id",
+        "method",
+        "path",
+        "status",
+        "status_code",
+        "duration_ms",
+        "elapsed_ms",
+        "latency_ms",
+        "error",
+        "error_type",
+        "source",
+        "sources",
+        "stage",
+        "step",
+        "model",
+        "model_name",
+        "prompt_version",
+        "retrieval_path",
+        "embedding_provider",
+        "risk_level",
+        "risk_classification",
+        "risk_kind",
+        "immediate",
+        "signals",
+        "subquestions",
+        "retrieved_ids",
+        "used_ids",
+        "citation_ids",
+        "doc_ids",
+        "ids",
+        "scores",
+        "rerank_scores",
+        "search_scores",
+        "base_updated_at",
+        "index_version",
+        "verifier_result",
+        "passed",
+        "abstained",
+        "abstencao",
+        "motivo_abstencao",
+        "count",
+        "total",
+        "offset",
+        "limit",
+        "cache_hit",
+        "cached_tokens",
+        "tokens",
+        "token_count",
+        "retry",
+        "attempt",
+        "found",
+        "reason",
+        "version",
+        "duration",
+        "n",
+        "size",
+        "bytes",
+    }
+)
+
+_SAFE_FIELD_SUFFIXES = (
+    "_id",
+    "_ids",
+    "_ms",
+    "_count",
+    "_score",
+    "_scores",
+    "_version",
+    "_at",
+    "_length",
+    "_tokens",
+    "_model",
+    "_provider",
+    "_status",
+)
+
+_MANAGED_FIELDS = frozenset(
+    {"ts", "level", "logger", "message", "request_id", "session_id", "event"}
 )
 
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
@@ -141,7 +261,7 @@ def _looks_like_mobile(digits: str) -> bool:
 def _replace_cpf(match: re.Match[str]) -> str:
     raw = match.group(0)
     digits = re.sub(r"\D", "", raw)
-    if "." in raw or "-" in raw or _valid_cpf(digits):
+    if any(separator in raw for separator in " .-") or _valid_cpf(digits):
         return "[CPF]"
     if _looks_like_mobile(digits):
         return raw
@@ -159,16 +279,78 @@ def redact_pii(text: str) -> str:
     return text
 
 
-def _redact_value(value: Any) -> Any:
+def _normalize_key(key: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", key.lower())
+
+
+def _is_safe_field_name(name: str) -> bool:
+    lowered = name.strip().lower()
+    return lowered in _SAFE_FIELD_NAMES or lowered.endswith(_SAFE_FIELD_SUFFIXES)
+
+
+def _redact_optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    return redact_pii(str(value))
+
+
+def _sanitize_value(value: Any, allow_question_text: bool) -> Any:
     if isinstance(value, str):
         return redact_pii(value)
     if isinstance(value, Mapping):
-        return {str(key): _redact_value(item) for key, item in value.items()}
+        return _sanitize_mapping(value, allow_question_text)
     if isinstance(value, (list, tuple, set, frozenset)):
-        return [_redact_value(item) for item in value]
+        items: list[Any] = []
+        for item in value:
+            sanitized = _sanitize_value(item, allow_question_text)
+            if sanitized is not _DROP:
+                items.append(sanitized)
+        return items
     if isinstance(value, (bool, int, float)) or value is None:
         return value
     return redact_pii(str(value))
+
+
+def _sanitize_mapping(mapping: Mapping[Any, Any], allow_question_text: bool) -> dict[str, Any]:
+    sanitized: dict[str, Any] = {}
+    for key, value in mapping.items():
+        name = str(key)
+        normalized = _normalize_key(name)
+        if normalized in _PII_KEY_NAMES:
+            nested = _sanitize_value(value, allow_question_text)
+            if nested is not _DROP:
+                sanitized[name] = redact_pii(str(nested))
+        elif normalized in _CONTENT_KEY_NAMES:
+            if allow_question_text:
+                sanitized[name] = redact_pii(str(value))
+        else:
+            nested = _sanitize_value(value, allow_question_text)
+            if nested is not _DROP:
+                sanitized[name] = nested
+    return sanitized
+
+
+def _sanitize_fields(fields: Mapping[str, Any]) -> dict[str, Any]:
+    allow_question_text = question_text_enabled()
+    sanitized: dict[str, Any] = {}
+    for key, value in fields.items():
+        name = str(key)
+        normalized = _normalize_key(name)
+        if normalized in _PII_KEY_NAMES:
+            nested = _sanitize_value(value, allow_question_text)
+            if nested is not _DROP:
+                sanitized[name] = redact_pii(str(nested))
+            continue
+        if normalized in _CONTENT_KEY_NAMES:
+            if allow_question_text:
+                sanitized[name] = redact_pii(str(value))
+            continue
+        if not _is_safe_field_name(name):
+            continue
+        nested = _sanitize_value(value, allow_question_text)
+        if nested is not _DROP:
+            sanitized[name] = nested
+    return sanitized
 
 
 def _safe_extra_key(key: str) -> str:
@@ -177,18 +359,13 @@ def _safe_extra_key(key: str) -> str:
     return key
 
 
-def _sanitize_fields(fields: Mapping[str, Any]) -> dict[str, Any]:
-    safe: dict[str, Any] = {}
-    allow_question_text = question_text_enabled()
-    for key, value in fields.items():
-        name = str(key)
-        if name.lower() in _CONTENT_FIELD_NAMES:
-            if not allow_question_text:
-                continue
-            safe[name] = redact_pii(str(value))
-            continue
-        safe[name] = _redact_value(value)
-    return safe
+def _record_extras(record: logging.LogRecord) -> dict[str, Any]:
+    fields = {
+        key: value
+        for key, value in vars(record).items()
+        if key not in _RESERVED_ATTRS and key not in _MANAGED_FIELDS and not key.startswith("_")
+    }
+    return _sanitize_fields(fields)
 
 
 def log_event(event: str, *, level: int = logging.INFO, **fields: Any) -> None:
@@ -217,39 +394,46 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": redact_pii(record.getMessage()),
-            "request_id": getattr(record, "request_id", None) or request_id_var.get(),
-            "session_id": getattr(record, "session_id", None) or session_id_var.get(),
-            "event": getattr(record, "event", None),
+            "request_id": _redact_optional_text(
+                getattr(record, "request_id", None) or request_id_var.get()
+            ),
+            "session_id": _redact_optional_text(
+                getattr(record, "session_id", None) or session_id_var.get()
+            ),
+            "event": _redact_optional_text(getattr(record, "event", None)),
         }
-        allow_question_text = question_text_enabled()
-        for key, value in vars(record).items():
-            if key in _RESERVED_ATTRS or key in payload or key.startswith("_"):
-                continue
-            if key.lower() in _CONTENT_FIELD_NAMES:
-                if not allow_question_text:
-                    continue
-                payload[key] = redact_pii(str(value))
-            else:
-                payload[key] = _redact_value(value)
+        payload.update(_record_extras(record))
         if record.exc_info:
             payload["exception"] = redact_pii(self.formatException(record.exc_info))
         return json.dumps(payload, ensure_ascii=False, default=str)
 
 
+def _render_extra_value(value: Any) -> str:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        rendered = str(value)
+    else:
+        rendered = json.dumps(value, ensure_ascii=False, default=str)
+    return rendered.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+
+
 class TextFormatter(logging.Formatter):
-    """Human-readable fallback that still redacts PII."""
+    """Human-readable fallback that still redacts PII and keeps safe extras."""
 
     def format(self, record: logging.LogRecord) -> str:
+        request_id = _redact_optional_text(request_id_var.get()) or "-"
+        session_id = _redact_optional_text(session_id_var.get()) or "-"
         parts = [
             _utc_timestamp(),
             record.levelname,
             record.name,
-            f"request_id={request_id_var.get() or '-'}",
-            f"session_id={session_id_var.get() or '-'}",
+            f"request_id={request_id}",
+            f"session_id={session_id}",
         ]
-        event = getattr(record, "event", None)
+        event = _redact_optional_text(getattr(record, "event", None))
         if event:
             parts.append(f"event={event}")
+        for key, value in _record_extras(record).items():
+            parts.append(f"{key}={_render_extra_value(value)}")
         line = " ".join(parts) + " " + redact_pii(record.getMessage())
         if record.exc_info:
             line += "\n" + redact_pii(self.formatException(record.exc_info))
