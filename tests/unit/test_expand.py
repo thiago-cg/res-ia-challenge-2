@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+import logging
+
+from src.contracts import RetrievedDevice
+from src.retrieve.expand import dedupe_by_artigo, expand_to_article
+
+
+def device(device_id: str, score: float, version: int = 1) -> RetrievedDevice:
+    return RetrievedDevice(
+        device_id=device_id,
+        norm_version_id=version,
+        score=score,
+        source="maxsim",
+        texto_literal=f"literal de {device_id}",
+        citacao=f"citacao de {device_id}",
+    )
+
+
+class FakeArticleLookup:
+    def __init__(self, articles: dict[tuple[str, int], dict[str, str]] | None = None) -> None:
+        self.articles = articles or {}
+        self.calls: list[tuple[str, int]] = []
+
+    def lookup(self, artigo_id: str, norm_version_id: int) -> dict[str, str] | None:
+        self.calls.append((artigo_id, norm_version_id))
+        return self.articles.get((artigo_id, norm_version_id))
+
+
+def test_three_leaves_of_same_article_collapse_to_one() -> None:
+    candidates = [
+        device("lmp/art22/cpt/inc3/ali-b", 0.8),
+        device("lmp/art22/cpt/inc3/ali-c", 0.9),
+        device("lmp/art22/cpt/inc4", 0.7),
+    ]
+
+    result = dedupe_by_artigo(candidates)
+
+    assert len(result) == 1
+    assert result[0].device_id == "lmp/art22/cpt/inc3/ali-c"
+
+
+def test_dedupe_keeps_best_score_and_preserves_other_articles() -> None:
+    candidates = [
+        device("lmp/art7", 0.3),
+        device("lmp/art22/cpt/inc3/ali-b", 0.5),
+        device("lmp/art24", 0.9),
+        device("lmp/art22/cpt/inc3/ali-c", 0.8),
+    ]
+
+    result = dedupe_by_artigo(candidates)
+
+    assert [item.device_id for item in result] == [
+        "lmp/art7",
+        "lmp/art22/cpt/inc3/ali-c",
+        "lmp/art24",
+    ]
+
+
+def test_dedupe_tie_breaks_deterministically_by_device_id() -> None:
+    candidates = [
+        device("lmp/art22/cpt/inc3/ali-c", 0.5),
+        device("lmp/art22/cpt/inc3/ali-b", 0.5),
+    ]
+
+    result = dedupe_by_artigo(candidates)
+
+    assert [item.device_id for item in result] == ["lmp/art22/cpt/inc3/ali-b"]
+
+
+def test_dedupe_keeps_versions_of_different_articles_independent() -> None:
+    candidates = [
+        device("lmp/art22/cpt/inc3", 0.5, version=1),
+        device("lmp/art22/cpt/inc3", 0.6, version=2),
+    ]
+
+    result = dedupe_by_artigo(candidates)
+
+    assert len(result) == 1
+    assert result[0].norm_version_id == 2
+
+
+def test_expand_prefers_article_context_and_keeps_leaf_citation() -> None:
+    leaf = device("lmp/art22/cpt/inc3/ali-b", 0.8)
+    lookup = FakeArticleLookup(
+        {("lmp/art22", 1): {"texto_literal": "Art. 22. Texto completo do artigo."}}
+    )
+
+    result = expand_to_article([leaf], article_lookup=lookup)
+
+    assert lookup.calls == [("lmp/art22", 1)]
+    assert result[0].device_id == leaf.device_id
+    assert result[0].score == leaf.score
+    assert result[0].citacao == leaf.citacao
+    assert result[0].texto_literal == leaf.texto_literal
+    assert result[0].contexto == "Art. 22. Texto completo do artigo."
+
+
+def test_expand_lookup_miss_keeps_leaf_and_records_incomplete_context(
+    caplog,
+) -> None:
+    leaf = device("lmp/art22/cpt/inc3/ali-b", 0.8)
+    lookup = FakeArticleLookup()
+
+    with caplog.at_level(logging.WARNING):
+        result = expand_to_article([leaf], article_lookup=lookup)
+
+    assert result == [leaf]
+    assert "incomplete_context" in caplog.text
+
+
+def test_expand_uses_version_specific_lookup() -> None:
+    candidates = [
+        device("lmp/art22/cpt/inc3", 0.8, version=1),
+        device("lmp/art22/cpt/inc3", 0.9, version=2),
+    ]
+    lookup = FakeArticleLookup(
+        {
+            ("lmp/art22", 1): {"texto_literal": "texto v1"},
+            ("lmp/art22", 2): {"texto_literal": "texto v2"},
+        }
+    )
+
+    result = expand_to_article(candidates, article_lookup=lookup)
+
+    assert [item.contexto for item in result] == ["texto v1", "texto v2"]
+
+
+def test_expand_accepts_a_plain_callable() -> None:
+    leaf = device("lmp/art22/cpt/inc3", 0.8)
+
+    result = expand_to_article(
+        [leaf],
+        article_lookup=lambda artigo_id, version: {"texto_literal": f"{artigo_id}@{version}"},
+    )
+
+    assert result[0].contexto == "lmp/art22@1"
