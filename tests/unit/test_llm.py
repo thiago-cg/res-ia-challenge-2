@@ -42,6 +42,17 @@ def test_mock_llm_without_context_returns_no_citations() -> None:
     assert output.citacoes == []
 
 
+def test_mock_llm_context_can_change_between_calls() -> None:
+    client = MockLLM(context_ids=["lmp/art22"])
+
+    client.set_context_ids(["lmp/art24"])
+    after_setter = parse_llm_output(client.complete("system", "user"))
+    per_call = parse_llm_output(client.complete("system", "user", context_ids=["lmp/art25"]))
+
+    assert [citation.device_id for citation in after_setter.citacoes] == ["lmp/art24"]
+    assert [citation.device_id for citation in per_call.citacoes] == ["lmp/art25"]
+
+
 def test_get_llm_selects_mock_by_default() -> None:
     client = get_llm(SimpleNamespace(llm_provider="mock"))
 
@@ -75,15 +86,22 @@ def test_get_llm_rejects_unknown_provider() -> None:
         get_llm(SimpleNamespace(llm_provider="nope"))
 
 
-def test_local_and_api_require_credentials() -> None:
+def test_local_and_api_require_base_url() -> None:
     with pytest.raises(ValueError):
-        LocalLLM(base_url="", api_key="key", model_name="m")
-    with pytest.raises(ValueError):
-        LocalLLM(base_url="http://x", api_key="", model_name="m")
+        LocalLLM(base_url="", model_name="m")
     with pytest.raises(ValueError):
         APILLM(base_url="", api_key="key", model_name="m")
+
+
+def test_local_llm_allows_keyless_ollama() -> None:
+    client = LocalLLM(base_url="http://local.test", model_name="m")
+
+    assert client._headers() == {"Content-Type": "application/json"}
+
+
+def test_api_llm_requires_api_key() -> None:
     with pytest.raises(ValueError):
-        APILLM(base_url="http://x", api_key="", model_name="m")
+        APILLM(base_url="http://api.test", api_key="", model_name="m")
 
 
 def make_openai_response(content: str) -> httpx.Response:
@@ -181,13 +199,40 @@ def test_local_llm_parses_ollama_response() -> None:
 
     client = LocalLLM(
         base_url="http://local.test",
-        api_key="secret",
         model_name="m",
         backoff_base=0,
         client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
 
     assert client.complete("system", "user") == "resposta local"
+
+
+def test_http_llm_closes_owned_client() -> None:
+    client = APILLM(
+        base_url="http://api.test",
+        api_key="secret",
+        model_name="m",
+        backoff_base=0,
+    )
+
+    with client as managed:
+        assert managed is client
+    assert client._client.is_closed is True
+
+
+def test_http_llm_does_not_close_injected_client() -> None:
+    http_client = httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200)))
+    client = APILLM(
+        base_url="http://api.test",
+        api_key="secret",
+        model_name="m",
+        client=http_client,
+    )
+
+    client.close()
+
+    assert http_client.is_closed is False
+    http_client.close()
 
 
 def test_never_logs_prompt_or_credentials(caplog: pytest.LogCaptureFixture) -> None:

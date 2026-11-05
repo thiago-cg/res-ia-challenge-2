@@ -40,8 +40,20 @@ class MockLLM:
         self.model_name = model_name
         self.version = version
 
-    def complete(self, system: str, user: str, *, timeout: float = 30) -> str:
-        if not self.context_ids:
+    def set_context_ids(self, context_ids: Sequence[str]) -> None:
+        self.context_ids = list(context_ids)
+
+    def complete(
+        self,
+        system: str,
+        user: str,
+        *,
+        timeout: float = 30,
+        context_ids: Sequence[str] | None = None,
+    ) -> str:
+        active_ids = list(context_ids) if context_ids is not None else self.context_ids
+
+        if not active_ids:
             output = LLMOutput(
                 resposta=(
                     "Não encontrei base suficiente na minha base para responder com segurança."
@@ -59,7 +71,7 @@ class MockLLM:
                     device_id=device_id,
                     afirmacao="O dispositivo foi recuperado do contexto fornecido.",
                 )
-                for device_id in self.context_ids
+                for device_id in active_ids
             ],
             proximos_passos=["Procurar a Defensoria Pública."],
             encaminhamentos=[
@@ -74,11 +86,13 @@ class MockLLM:
 
 
 class _HTTPLLM:
+    requires_api_key = True
+
     def __init__(
         self,
         *,
         base_url: str,
-        api_key: str,
+        api_key: str | None = None,
         model_name: str,
         version: str = PROMPT_VERSION,
         max_retries: int = 2,
@@ -87,17 +101,18 @@ class _HTTPLLM:
     ) -> None:
         if not base_url:
             raise ValueError("LLM base_url is required")
-        if not api_key:
+        if self.requires_api_key and not api_key:
             raise ValueError("LLM api_key is required")
         if not model_name:
             raise ValueError("LLM model_name is required")
 
         self.base_url = base_url.rstrip("/")
-        self._api_key = api_key
+        self._api_key = api_key or ""
         self.model_name = model_name
         self.version = version
         self.max_retries = max_retries
         self.backoff_base = backoff_base
+        self._owns_client = client is None
         self._client = client or httpx.Client()
 
     @property
@@ -105,10 +120,20 @@ class _HTTPLLM:
         raise NotImplementedError
 
     def _headers(self) -> dict[str, str]:
-        return {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json",
-        }
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        return headers
+
+    def close(self) -> None:
+        if self._owns_client:
+            self._client.close()
+
+    def __enter__(self) -> "_HTTPLLM":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
 
     def _payload(self, system: str, user: str) -> dict[str, Any]:
         return {
@@ -170,6 +195,8 @@ class _HTTPLLM:
 class LocalLLM(_HTTPLLM):
     """Client for local OpenAI-compatible or Ollama servers."""
 
+    requires_api_key = False
+
     @property
     def endpoint(self) -> str:
         if self.base_url.endswith("/v1"):
@@ -199,7 +226,8 @@ class APILLM(_HTTPLLM):
 
 def get_llm(settings: object) -> LLMClient:
     provider = str(getattr(settings, "llm_provider", "mock"))
-    model_name = str(getattr(settings, "llm_model", "") or "default")
+    default_model = "mock" if provider == "mock" else "default"
+    model_name = str(getattr(settings, "llm_model", "") or default_model)
 
     if provider == "mock":
         context_ids = getattr(settings, "mock_context_ids", None) or []

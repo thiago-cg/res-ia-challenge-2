@@ -1,3 +1,4 @@
+import re
 import unicodedata
 
 from pydantic import BaseModel
@@ -39,6 +40,8 @@ _CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
             "vai me matar",
             "disse que me mata",
             "ameacou de me matar",
+            "esta me ameacando",
+            "ameacando de me matar",
             "vou morrer",
         ),
     ),
@@ -77,6 +80,9 @@ _CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             "me forcou",
             "me estuprou",
+            "esta me forcando",
+            "me forcando agora",
+            "esta me estuprando",
             "estupro",
             "abusou sexualmente",
         ),
@@ -101,17 +107,30 @@ _CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
 )
 
-_HISTORICAL_MARKERS = (
-    "ha dois anos",
-    "ha um ano",
-    "ha anos",
-    "ha meses",
-    "meses atras",
-    "no passado",
-    "ano passado",
-    "antigamente",
-    "quando eramos casados",
-    "ha muito tempo",
+_HISTORICAL_RE = re.compile(
+    r"\bha\s+"
+    r"(?:(?:\d+|um|uma|dois|duas|tres|quatro|cinco|seis|dez|muitos|muitas|alguns|algumas)\s+)?"
+    r"(?:ano|anos|mes|meses)\b"
+    r"|\banos\s+atras\b"
+    r"|\bmeses\s+atras\b"
+    r"|\bno\s+passado\b"
+    r"|\bano\s+passado\b"
+    r"|\bantigamente\b"
+    r"|\bquando\s+eu\s+era\b"
+    r"|\bha\s+muito\s+tempo\b"
+)
+
+_PRESENT_MARKERS = (
+    "agora",
+    "neste momento",
+    "neste instante",
+    "esta me",
+    "estou presa",
+    "estou trancada",
+    "esta aqui",
+    "nao me deixa sair",
+    "nao para de",
+    "hoje",
 )
 
 
@@ -124,6 +143,9 @@ def _normalize(text: str) -> str:
 def classify_risk(text: str) -> RiskAssessment:
     normalized = _normalize(text)
 
+    historical = bool(_HISTORICAL_RE.search(normalized))
+    present = any(marker in normalized for marker in _PRESENT_MARKERS)
+
     signals: list[str] = []
     kind: str | None = None
 
@@ -134,9 +156,11 @@ def classify_risk(text: str) -> RiskAssessment:
                 kind = category
 
     if signals:
+        if historical and not present:
+            return RiskAssessment(immediate=False, signals=["historical"], kind=None)
         return RiskAssessment(immediate=True, signals=signals, kind=kind)
 
-    if any(marker in normalized for marker in _HISTORICAL_MARKERS):
+    if historical:
         return RiskAssessment(immediate=False, signals=["historical"], kind=None)
 
     return RiskAssessment(immediate=False, signals=[], kind=None)

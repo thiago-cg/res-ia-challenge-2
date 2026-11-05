@@ -43,6 +43,9 @@ class RetrievedDevice(BaseModel):
     source: Literal["explicit", "bm25", "dense", "maxsim"]
     texto_literal: str
     citacao: str
+    vigencia: VigenciaStatus | None = None
+    contexto: str | None = None
+    explicacao: str | None = None
 
 
 class QueryFacts(BaseModel):

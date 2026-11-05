@@ -1,5 +1,7 @@
 import html
 import json
+import logging
+import math
 import re
 import unicodedata
 from collections.abc import Sequence
@@ -8,6 +10,8 @@ from pydantic import BaseModel
 
 from src.contracts import QueryFacts, RetrievedDevice
 from src.generate.schemas import LLMOutput
+
+logger = logging.getLogger(__name__)
 
 PROMPT_VERSION = "v1"
 
@@ -84,17 +88,24 @@ def _is_hostile(text: str) -> bool:
     return any(pattern in normalized for pattern in _HOSTILE_PATTERNS)
 
 
-def _token_count(text: str) -> int:
-    return len(text.split())
+def estimate_tokens(text: str) -> int:
+    """Conservative cross-language token estimate: one token per four characters."""
+    if not text:
+        return 0
+    return math.ceil(len(text) / 4)
 
 
-def _clip_words(text: str, limit: int) -> str:
-    if not text or limit <= 0:
+def _clip_to_tokens(text: str, token_budget: int) -> str:
+    if not text or token_budget <= 0:
         return ""
-    words = text.split()
-    if len(words) <= limit:
-        return " ".join(words)
-    return " ".join(words[:limit]) + " [...]"
+    if estimate_tokens(text) <= token_budget:
+        return text
+
+    char_budget = max(1, token_budget * 4 - 8)
+    clipped = text[:char_budget].rstrip()
+    if " " in clipped:
+        clipped = clipped.rsplit(" ", 1)[0]
+    return f"{clipped} [...]"
 
 
 def _coerce_device(device: RetrievedDevice | PromptDevice) -> PromptDevice:
@@ -105,9 +116,9 @@ def _coerce_device(device: RetrievedDevice | PromptDevice) -> PromptDevice:
         device_id=device.device_id,
         citacao=device.citacao,
         texto_literal=device.texto_literal,
-        vigencia=str(getattr(device, "vigencia", "vigente")),
-        contexto=str(getattr(device, "contexto", "")),
-        explicacao=str(getattr(device, "explicacao", "")),
+        vigencia=str(getattr(device, "vigencia", None) or "não verificada"),
+        contexto=str(getattr(device, "contexto", None) or ""),
+        explicacao=str(getattr(device, "explicacao", None) or ""),
     )
 
 
@@ -125,15 +136,15 @@ def _render_subquestions(subperguntas: Sequence[str]) -> str:
     return "\n".join(f"- {question}" for question in subperguntas)
 
 
-def _render_document(device: PromptDevice, optional_budget: int) -> str:
+def _render_document(device: PromptDevice, optional_token_budget: int) -> str:
     literal = _sanitize(device.texto_literal)
     context = _sanitize(device.contexto)
     explanation = _sanitize(device.explicacao)
 
-    context_budget = optional_budget // 2
-    explanation_budget = optional_budget - context_budget
-    context_clipped = _clip_words(context, context_budget)
-    explanation_clipped = _clip_words(explanation, explanation_budget)
+    context_budget = optional_token_budget // 2
+    explanation_budget = optional_token_budget - context_budget
+    context_clipped = _clip_to_tokens(context, context_budget)
+    explanation_clipped = _clip_to_tokens(explanation, explanation_budget)
 
     attributes = (
         f'id="{html.escape(device.device_id, quote=True)}" '
@@ -143,6 +154,10 @@ def _render_document(device: PromptDevice, optional_budget: int) -> str:
 
     lines = [f"<documento {attributes}>"]
     if _is_hostile(literal) or _is_hostile(context) or _is_hostile(explanation):
+        logger.warning(
+            "hostile_content_detected device_id=%s action=ignored",
+            device.device_id,
+        )
         lines.append(HOSTILE_MARKER)
     lines.append(f"Texto literal: {literal}")
     if context_clipped:
@@ -160,6 +175,7 @@ def build_user_prompt(
     devices: Sequence[RetrievedDevice | PromptDevice],
     max_devices: int = 10,
     max_context_tokens: int = 6000,
+    warnings: list[str] | None = None,
 ) -> str:
     schema_json = json.dumps(LLMOutput.model_json_schema(), ensure_ascii=False, indent=2)
 
@@ -176,27 +192,33 @@ def build_user_prompt(
     )
     footer = f"\n\nSchema de saída:\n{schema_json}"
 
-    budget = max_context_tokens - _token_count(header) - _token_count(footer)
-    documents: list[str] = []
-    used_tokens = 0
+    available = max(0, max_context_tokens - estimate_tokens(header) - estimate_tokens(footer))
+    kept = [_coerce_device(device) for device in devices[:max_devices]]
+    mandatory = [estimate_tokens(_render_document(device, 0)) for device in kept]
 
-    for raw_device in devices[:max_devices]:
-        device = _coerce_device(raw_device)
-        literal_tokens = _token_count(_sanitize(device.texto_literal))
-        mandatory_tokens = literal_tokens + 12
+    while len(kept) > 1 and sum(mandatory) > available:
+        kept.pop()
+        mandatory.pop()
 
-        if documents and used_tokens + mandatory_tokens > budget:
-            break
+    context_warnings: list[str] = []
+    overflow = bool(kept) and sum(mandatory) > available
+    if overflow:
+        context_warnings.append(
+            "[AVISO DE CONTEXTO: o texto literal do dispositivo "
+            f'"{kept[0].device_id}" excede o orçamento de tokens; '
+            "mantido integralmente para não truncar a lei.]"
+        )
+        optional_total = 0
+    else:
+        optional_total = max(0, available - sum(mandatory))
 
-        optional_budget = max(0, budget - used_tokens - mandatory_tokens)
-        rendered = _render_document(device, optional_budget)
+    optional_per_device = optional_total // len(kept) if kept else 0
+    documents = [_render_document(device, optional_per_device) for device in kept]
 
-        if not documents and used_tokens + _token_count(rendered) > budget:
-            rendered = _render_document(device, 0)
-
-        documents.append(rendered)
-        used_tokens += _token_count(rendered)
+    if warnings is not None:
+        warnings.extend(context_warnings)
 
     document_text = "\n\n".join(documents) if documents else "(nenhum dispositivo recuperado)"
+    warning_text = "\n\n" + "\n".join(context_warnings) if context_warnings else ""
 
-    return f"{header}\n{document_text}{footer}"
+    return f"{header}\n{document_text}{warning_text}{footer}"

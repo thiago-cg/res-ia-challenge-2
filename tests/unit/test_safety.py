@@ -65,6 +65,36 @@ def test_historical_threat_is_not_immediate() -> None:
 @pytest.mark.parametrize(
     "phrase",
     [
+        "Ele me ameaçou de me matar há dois anos.",
+        "Ele me estuprou há dois anos.",
+        "Ele me ameaçou de me matar anos atrás.",
+        "Ele me estuprou no passado.",
+    ],
+)
+def test_remote_threat_and_sexual_violence_are_not_immediate(phrase: str) -> None:
+    assessment = classify_risk(phrase)
+
+    assert assessment.immediate is False
+    assert assessment.signals == ["historical"]
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "Ele está me ameaçando de me matar agora.",
+        "Ele está me estuprando agora.",
+    ],
+)
+def test_present_threat_and_sexual_violence_are_immediate(phrase: str) -> None:
+    assessment = classify_risk(phrase)
+
+    assert assessment.immediate is True
+    assert assessment.signals
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
         "ELE ESTÁ ME BATENDO",
         "ele esta me batendo",
         "Ele está com faca",

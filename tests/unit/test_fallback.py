@@ -19,6 +19,7 @@ def make_retrieved(
         "source": "dense",
         "texto_literal": "Texto literal do dispositivo.",
         "citacao": "Lei nº 11.340/2006, art. 22",
+        "vigencia": "vigente",
     }
     data.update(overrides)
     return RetrievedDevice(**data)
@@ -63,7 +64,8 @@ def test_insufficient_evidence_without_retrieval() -> None:
 
 def test_insufficient_evidence_with_low_score() -> None:
     assert insufficient_evidence([make_retrieved(score=-0.1)]) is True
-    assert MIN_SCORE == 0.0
+    assert insufficient_evidence([make_retrieved(score=0.0)]) is True
+    assert MIN_SCORE > 0.0
 
 
 def test_insufficient_evidence_threshold_is_injectable() -> None:
@@ -115,8 +117,53 @@ def test_build_safe_answer_never_invents_citation() -> None:
     assert {citation.device_id for citation in answer.citacoes} == {"lmp/art22"}
 
 
-@pytest.mark.parametrize("score", [0.0, 0.5, 1.0])
+@pytest.mark.parametrize("score", [MIN_SCORE, 0.5, 1.0])
 def test_build_safe_answer_accepts_scores_at_or_above_threshold(score: float) -> None:
     answer = build_safe_answer([make_retrieved(score=score)], "falha")
 
     assert len(answer.citacoes) == 1
+
+
+def test_build_safe_answer_does_not_fabricate_vigencia() -> None:
+    answer = build_safe_answer(
+        [make_retrieved("lmp/art22", 0.9, vigencia=None)],
+        "falha",
+    )
+
+    assert answer.citacoes == []
+    assert "vigência não verificada" in answer.resposta
+    assert "Texto literal do dispositivo." in answer.resposta
+    assert any("Vigência não verificada" in premise for premise in answer.premissas)
+
+
+def test_build_safe_answer_uses_known_vigencia() -> None:
+    answer = build_safe_answer(
+        [make_retrieved("lmp/art22", 0.9, vigencia="alterado")],
+        "falha",
+    )
+
+    assert answer.citacoes[0].vigencia == "alterado"
+
+
+def test_build_safe_answer_dedupes_by_artigo_id() -> None:
+    answer = build_safe_answer(
+        [
+            make_retrieved("lmp/art22/cpt/inc3/ali-b", 0.9),
+            make_retrieved("lmp/art22/cpt/inc3/ali-c", 0.8),
+            make_retrieved("lmp/art24", 0.7),
+        ],
+        "falha",
+    )
+
+    assert [citation.device_id for citation in answer.citacoes] == [
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art24",
+    ]
+
+
+def test_build_safe_answer_caps_citations() -> None:
+    retrieved = [make_retrieved(f"lmp/art{index}", 0.9) for index in range(1, 15)]
+
+    answer = build_safe_answer(retrieved, "falha")
+
+    assert len(answer.citacoes) == 10

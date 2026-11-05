@@ -1,5 +1,6 @@
 import json
 import re
+from collections.abc import Collection
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -48,7 +49,11 @@ def _format_validation_error(error: ValidationError) -> str:
     return "; ".join(parts)
 
 
-def parse_llm_output(raw: str) -> LLMOutput:
+def parse_llm_output(
+    raw: str,
+    *,
+    allowed_ids: Collection[str] | None = None,
+) -> LLMOutput:
     content = _strip_markdown_fence(raw)
 
     try:
@@ -60,8 +65,18 @@ def parse_llm_output(raw: str) -> LLMOutput:
         raise LLMOutputError("JSON inválido na saída do LLM: esperado um objeto.")
 
     try:
-        return LLMOutput.model_validate(payload)
+        output = LLMOutput.model_validate(payload)
     except ValidationError as exc:
         raise LLMOutputError(
             f"Schema inválido na saída do LLM: {_format_validation_error(exc)}"
         ) from exc
+
+    if allowed_ids is not None:
+        allowed = set(allowed_ids)
+        rejected = [
+            citation.device_id for citation in output.citacoes if citation.device_id not in allowed
+        ]
+        if rejected:
+            raise LLMOutputError("device_id não recuperado na saída do LLM: " + ", ".join(rejected))
+
+    return output

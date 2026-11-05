@@ -104,6 +104,31 @@ def test_llm_citation_forbids_extra_fields() -> None:
         LLMCitation(device_id="x", afirmacao="y", citacao="z")
 
 
+def test_allowed_ids_accept_retrieved_ids() -> None:
+    output = parse_llm_output(
+        json.dumps(valid_payload()),
+        allowed_ids={"lmp/art22/cpt/inc3/ali-b"},
+    )
+
+    assert output.citacoes[0].device_id == "lmp/art22/cpt/inc3/ali-b"
+
+
+def test_allowed_ids_reject_ids_outside_retrieved_set() -> None:
+    payload = valid_payload()
+    payload["citacoes"].append({"device_id": "lmp/art99", "afirmacao": "Dispositivo inventado."})
+
+    with pytest.raises(LLMOutputError, match="lmp/art99"):
+        parse_llm_output(
+            json.dumps(payload),
+            allowed_ids={"lmp/art22/cpt/inc3/ali-b"},
+        )
+
+
+def test_allowed_ids_empty_rejects_all_citations() -> None:
+    with pytest.raises(LLMOutputError):
+        parse_llm_output(json.dumps(valid_payload()), allowed_ids=set())
+
+
 def test_llm_output_defaults_for_optional_lists() -> None:
     output = LLMOutput(resposta="ok")
 
