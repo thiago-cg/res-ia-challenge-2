@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+import pytest
+
 from src.contracts import RetrievedDevice
 from src.retrieve.expand import dedupe_by_artigo, expand_to_article
 
@@ -68,7 +70,7 @@ def test_dedupe_tie_breaks_deterministically_by_device_id() -> None:
     assert [item.device_id for item in result] == ["lmp/art22/cpt/inc3/ali-b"]
 
 
-def test_dedupe_keeps_versions_of_different_articles_independent() -> None:
+def test_dedupe_preserves_versions_of_the_same_article() -> None:
     candidates = [
         device("lmp/art22/cpt/inc3", 0.5, version=1),
         device("lmp/art22/cpt/inc3", 0.6, version=2),
@@ -76,8 +78,10 @@ def test_dedupe_keeps_versions_of_different_articles_independent() -> None:
 
     result = dedupe_by_artigo(candidates)
 
-    assert len(result) == 1
-    assert result[0].norm_version_id == 2
+    assert [(item.device_id, item.norm_version_id) for item in result] == [
+        ("lmp/art22/cpt/inc3", 1),
+        ("lmp/art22/cpt/inc3", 2),
+    ]
 
 
 def test_expand_prefers_article_context_and_keeps_leaf_citation() -> None:
@@ -89,11 +93,12 @@ def test_expand_prefers_article_context_and_keeps_leaf_citation() -> None:
     result = expand_to_article([leaf], article_lookup=lookup)
 
     assert lookup.calls == [("lmp/art22", 1)]
-    assert result[0].device_id == leaf.device_id
-    assert result[0].score == leaf.score
-    assert result[0].citacao == leaf.citacao
-    assert result[0].texto_literal == leaf.texto_literal
-    assert result[0].contexto == "Art. 22. Texto completo do artigo."
+    assert result.incomplete_context == []
+    assert result.devices[0].device_id == leaf.device_id
+    assert result.devices[0].score == leaf.score
+    assert result.devices[0].citacao == leaf.citacao
+    assert result.devices[0].texto_literal == leaf.texto_literal
+    assert result.devices[0].contexto == "Art. 22. Texto completo do artigo."
 
 
 def test_expand_lookup_miss_keeps_leaf_and_records_incomplete_context(
@@ -105,7 +110,8 @@ def test_expand_lookup_miss_keeps_leaf_and_records_incomplete_context(
     with caplog.at_level(logging.WARNING):
         result = expand_to_article([leaf], article_lookup=lookup)
 
-    assert result == [leaf]
+    assert result.devices == [leaf]
+    assert result.incomplete_context == [("lmp/art22", 1)]
     assert "incomplete_context" in caplog.text
 
 
@@ -123,7 +129,8 @@ def test_expand_uses_version_specific_lookup() -> None:
 
     result = expand_to_article(candidates, article_lookup=lookup)
 
-    assert [item.contexto for item in result] == ["texto v1", "texto v2"]
+    assert [item.contexto for item in result.devices] == ["texto v1", "texto v2"]
+    assert result.incomplete_context == []
 
 
 def test_expand_accepts_a_plain_callable() -> None:
@@ -134,4 +141,17 @@ def test_expand_accepts_a_plain_callable() -> None:
         article_lookup=lambda artigo_id, version: {"texto_literal": f"{artigo_id}@{version}"},
     )
 
-    assert result[0].contexto == "lmp/art22@1"
+    assert result.devices[0].contexto == "lmp/art22@1"
+
+
+def test_lookup_body_type_error_propagates_without_retry() -> None:
+    calls: list[int] = []
+
+    def lookup(artigo_id: str, version: int) -> dict[str, str]:
+        calls.append(1)
+        raise TypeError("boom inside lookup")
+
+    with pytest.raises(TypeError, match="boom inside lookup"):
+        expand_to_article([device("lmp/art22/cpt/inc3", 0.8)], article_lookup=lookup)
+
+    assert calls == [1]

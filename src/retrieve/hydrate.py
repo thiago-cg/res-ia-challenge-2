@@ -10,11 +10,13 @@ populated here — B7's fallback depends on it to emit citations.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from pydantic import BaseModel, Field
 
-from src.contracts import Citation, InvalidCitation, RetrievedDevice
+from src.contracts import Citation, InvalidCitation, RetrievedDevice, VigenciaStatus
+
+_VALID_VIGENCIA = frozenset({"vigente", "alterado", "revogado", "cancelado", "superado"})
 
 
 class HydrationRepo(Protocol):
@@ -66,10 +68,11 @@ def hydrate(
             result.incomplete_context.append(key)
             continue
 
-        vigencia = _field(row, "vigencia_status") or _field(row, "vigencia")
-        if vigencia is None:
+        vigencia_raw = _field(row, "vigencia_status") or _field(row, "vigencia")
+        if vigencia_raw is None:
             result.incomplete_context.append(key)
             continue
+        vigencia = _valid_vigencia(vigencia_raw, device_id, norm_version_id)
 
         texto_literal = _field(row, "texto_literal")
         if texto_literal is None:
@@ -116,6 +119,7 @@ def resolve_citation(
     vigencia = _field(row, "vigencia_status") or _field(row, "vigencia")
     if not citacao or texto is None or vigencia is None:
         raise InvalidCitation(f"incomplete metadata for {device_id}@{retrieved_version_id}")
+    vigencia = _valid_vigencia(vigencia, device_id, retrieved_version_id)
 
     return Citation(
         device_id=device_id,
@@ -156,3 +160,9 @@ def _field(row: Any, name: str) -> Any:
     if isinstance(row, dict):
         return row.get(name)
     return getattr(row, name, None)
+
+
+def _valid_vigencia(value: Any, device_id: str, norm_version_id: int) -> VigenciaStatus:
+    if not isinstance(value, str) or value not in _VALID_VIGENCIA:
+        raise InvalidCitation(f"invalid vigencia {value!r} for {device_id}@{norm_version_id}")
+    return cast(VigenciaStatus, value)

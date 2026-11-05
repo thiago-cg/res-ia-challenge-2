@@ -8,6 +8,7 @@ never accepts an invented device ID or a version that was not retrieved.
 
 from __future__ import annotations
 
+import inspect
 import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal
@@ -82,6 +83,7 @@ def _check_citation(
 ) -> list[str]:
     issues: list[str] = []
     pair = (citation.device_id, citation.norm_version_id)
+    hydrated_literal: str | None = None
 
     if pair not in by_pair:
         if citation.device_id in devices_by_id:
@@ -93,11 +95,15 @@ def _check_citation(
             issues.append(f"citation device not retrieved: {citation.device_id}")
     else:
         retrieved_device = by_pair[pair]
-        if retrieved_device.citacao and retrieved_device.citacao != citation.citacao:
+        if retrieved_device.citacao and not _same_citation(
+            retrieved_device.citacao, citation.citacao
+        ):
             issues.append(
                 f"citation metadata mismatch for {citation.device_id}: "
                 "rendered citation does not match retrieved metadata"
             )
+        if retrieved_device.texto_literal:
+            hydrated_literal = retrieved_device.texto_literal
 
     if repo is not None:
         try:
@@ -107,13 +113,26 @@ def _check_citation(
                 f"citation device not found: {citation.device_id}@{citation.norm_version_id}"
             )
         else:
-            if resolved.citacao != citation.citacao:
+            if not _same_citation(resolved.citacao, citation.citacao):
                 issues.append(
                     f"citation metadata mismatch for {citation.device_id}: "
                     "rendered citation does not match stored metadata"
                 )
+            if resolved.texto:
+                hydrated_literal = resolved.texto
 
+    issues.extend(_check_citation_text(citation, hydrated_literal))
     return issues
+
+
+def _check_citation_text(citation: Citation, hydrated_literal: str | None) -> list[str]:
+    if not citation.texto.strip():
+        return [f"citation text is empty for {citation.device_id}"]
+    if hydrated_literal is None:
+        return [f"citation literal unavailable for {citation.device_id}"]
+    if _normalize_space(citation.texto) not in _normalize_space(hydrated_literal):
+        return [f"citation text is not inside the hydrated literal for {citation.device_id}"]
+    return []
 
 
 def _check_quotes(
@@ -158,14 +177,34 @@ def _run_judge(
     answer: Answer,
     retrieved: list[RetrievedDevice],
 ) -> list[str]:
-    try:
+    # Inspect once: a ``TypeError`` raised inside the judge must propagate, never
+    # be reinterpreted as a signature mismatch or trigger a second call.
+    arity, varargs = _positional_arity(judge)
+    if arity is None or varargs or arity >= 2:
         result = judge(answer, retrieved)
-    except TypeError:
-        try:
-            result = judge(answer.resposta, retrieved)
-        except TypeError:
-            result = judge(answer.resposta)
+    elif arity == 1:
+        result = judge(answer.resposta)
+    else:
+        result = judge()
     return _normalize_judge_result(result)
+
+
+def _positional_arity(func: Any) -> tuple[int | None, bool]:
+    try:
+        signature = inspect.signature(func)
+    except (TypeError, ValueError):
+        return None, False
+    positional = 0
+    varargs = False
+    for parameter in signature.parameters.values():
+        if parameter.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        ):
+            positional += 1
+        elif parameter.kind is inspect.Parameter.VAR_POSITIONAL:
+            varargs = True
+    return positional, varargs
 
 
 def _normalize_judge_result(result: Any) -> list[str]:
@@ -211,6 +250,17 @@ def _row_field(row: Any, name: str) -> Any:
 
 def _normalize_space(text: str) -> str:
     return " ".join(text.split())
+
+
+def _same_citation(left: str, right: str) -> bool:
+    return _bare_citation(left) == _bare_citation(right)
+
+
+def _bare_citation(text: str) -> str:
+    stripped = text.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        stripped = stripped[1:-1].strip()
+    return _normalize_space(stripped)
 
 
 def _dedupe(items: list[str]) -> list[str]:

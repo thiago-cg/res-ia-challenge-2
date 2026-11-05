@@ -1,18 +1,23 @@
 """Deduplicate by article and expand a leaf to its article context (RET-05).
 
 Deduplication never lets ten chunks of the same article occupy the context: it
-keeps the best-scoring leaf per ``artigo_id`` with a deterministic
-``device_id`` tie-break.  Expansion swaps only the context (full article) while
+keeps the best-scoring leaf per ``(artigo_id, norm_version_id)`` with a
+deterministic ``device_id`` tie-break.  Different versions of the same article
+stay independent so a historical ``data_fato`` query never loses the version
+that applies to it.  Expansion swaps only the context (full article) while
 keeping the leaf's identity, score and citation; a lookup miss degrades safely
-and logs ``incomplete_context`` instead of inventing text.
+and reports ``incomplete_context`` instead of inventing text.
 """
 
 from __future__ import annotations
 
+import inspect
 import logging
 import re
 from collections.abc import Callable, Sequence
 from typing import Any, Protocol, cast
+
+from pydantic import BaseModel, Field
 
 from src.contracts import RetrievedDevice
 
@@ -20,9 +25,20 @@ logger = logging.getLogger(__name__)
 
 _ARTIGO_RE = re.compile(r"^(.*?/art[^/]+)")
 
+ArticleVersionKey = tuple[str, int]
+
 
 class ArticleLookup(Protocol):
     def lookup(self, artigo_id: str, norm_version_id: int) -> Any | None: ...
+
+
+class ExpansionResult(BaseModel):
+    devices: list[RetrievedDevice] = Field(default_factory=list)
+    incomplete_context: list[ArticleVersionKey] = Field(default_factory=list)
+
+    @property
+    def expanded(self) -> list[RetrievedDevice]:
+        return self.devices
 
 
 def artigo_id(device_id: str) -> str:
@@ -31,11 +47,11 @@ def artigo_id(device_id: str) -> str:
 
 
 def dedupe_by_artigo(candidates: Sequence[RetrievedDevice]) -> list[RetrievedDevice]:
-    """Keep one device per article: highest score, then smallest device_id."""
+    """Keep one device per article *and version*: highest score, then device_id."""
 
-    best: dict[str, RetrievedDevice] = {}
+    best: dict[ArticleVersionKey, RetrievedDevice] = {}
     for candidate in candidates:
-        key = artigo_id(candidate.device_id)
+        key = (artigo_id(candidate.device_id), candidate.norm_version_id)
         current = best.get(key)
         if current is None or _is_better(candidate, current):
             best[key] = candidate
@@ -46,12 +62,13 @@ def expand_to_article(
     candidates: Sequence[RetrievedDevice],
     *,
     article_lookup: ArticleLookup | Callable[..., Any],
-) -> list[RetrievedDevice]:
+) -> ExpansionResult:
     """Attach the full article/caput text as context, never losing the leaf."""
 
-    expanded: list[RetrievedDevice] = []
+    result = ExpansionResult()
     for candidate in candidates:
-        article = _lookup(article_lookup, artigo_id(candidate.device_id), candidate.norm_version_id)
+        artigo = artigo_id(candidate.device_id)
+        article = _lookup(article_lookup, artigo, candidate.norm_version_id)
         article_text = _field(article, "texto_literal") or _field(article, "contexto")
         if not article_text:
             logger.warning(
@@ -59,10 +76,11 @@ def expand_to_article(
                 candidate.device_id,
                 candidate.norm_version_id,
             )
-            expanded.append(candidate)
+            result.incomplete_context.append((artigo, candidate.norm_version_id))
+            result.devices.append(candidate)
             continue
-        expanded.append(candidate.model_copy(update={"contexto": article_text}))
-    return expanded
+        result.devices.append(candidate.model_copy(update={"contexto": article_text}))
+    return result
 
 
 def _is_better(candidate: RetrievedDevice, current: RetrievedDevice) -> bool:
@@ -77,16 +95,31 @@ def _lookup(
     norm_version_id: int,
 ) -> Any | None:
     method = getattr(lookup, "lookup", None)
-    if method is not None:
-        try:
-            return method(artigo, norm_version_id)
-        except TypeError:
-            return method(artigo)
-    call = cast(Callable[..., Any], lookup)
+    target = method if method is not None else cast(Callable[..., Any], lookup)
+    arity, varargs = _positional_arity(target)
+    if arity is None or varargs or arity >= 2:
+        return target(artigo, norm_version_id)
+    if arity == 1:
+        return target(artigo)
+    return target()
+
+
+def _positional_arity(func: Any) -> tuple[int | None, bool]:
     try:
-        return call(artigo, norm_version_id)
-    except TypeError:
-        return call(artigo)
+        signature = inspect.signature(func)
+    except (TypeError, ValueError):
+        return None, False
+    positional = 0
+    varargs = False
+    for parameter in signature.parameters.values():
+        if parameter.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        ):
+            positional += 1
+        elif parameter.kind is inspect.Parameter.VAR_POSITIONAL:
+            varargs = True
+    return positional, varargs
 
 
 def _field(row: Any, name: str) -> Any:

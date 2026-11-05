@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from src.contracts import Answer, Citation, RetrievedDevice
 from src.generate.verify import verify
 
@@ -222,3 +224,53 @@ def test_judge_boolean_result_is_supported() -> None:
 
     assert result.ok is True
     assert result.semantic_ok is True
+
+
+def test_fabricated_citation_text_is_rejected() -> None:
+    result = verify(
+        answer(citacoes=[citation(texto="texto inventado")]),
+        [retrieved()],
+        repo=FakeRepo({("lmp/art22", 1): row()}),
+    )
+
+    assert result.ok is False
+    assert any("not inside the hydrated literal" in issue for issue in result.issues)
+
+
+def test_citation_text_matches_literal_after_whitespace_normalization() -> None:
+    result = verify(
+        answer(citacoes=[citation(texto="  contato   com a ofendida  ")]),
+        [retrieved()],
+        repo=FakeRepo({("lmp/art22", 1): row()}),
+    )
+
+    assert result.ok is True
+
+
+def test_judge_body_type_error_propagates_without_retry() -> None:
+    calls: list[int] = []
+
+    def judge(answer: Answer, retrieved: list[RetrievedDevice]) -> list[str]:
+        calls.append(1)
+        raise TypeError("boom inside judge")
+
+    with pytest.raises(TypeError, match="boom inside judge"):
+        verify(
+            answer(),
+            [retrieved()],
+            repo=FakeRepo({("lmp/art22", 1): row()}),
+            judge=judge,
+        )
+
+    assert calls == [1]
+
+
+def test_bracketed_citation_matches_hydrated_metadata() -> None:
+    bracketed = "[Lei nº 11.340/2006, art. 22, inciso III]"
+    result = verify(
+        answer(citacoes=[citation(citacao=bracketed)]),
+        [retrieved()],
+        repo=FakeRepo({("lmp/art22", 1): row()}),
+    )
+
+    assert result.ok is True

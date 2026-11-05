@@ -91,12 +91,11 @@ def test_fallback_merges_with_rrf_and_marks_sources() -> None:
 
 
 def test_fallback_caps_union_at_150() -> None:
-    dense_results = [hit(f"d{index}") for index in range(100)]
-    fts_results = [hit(f"f{index}") for index in range(100)]
-    dense = FakeSearcher({"p": dense_results})
-    fts = FakeSearcher({"p": fts_results})
+    names = ("p0", "p1", "p2")
+    dense = FakeSearcher({name: [hit(f"d{name}-{index}") for index in range(50)] for name in names})
+    fts = FakeSearcher({name: [hit(f"f{name}-{index}") for index in range(50)] for name in names})
 
-    result = hybrid_search(make_plan("p"), dense=dense, fts=fts)
+    result = hybrid_search(make_plan(*names), dense=dense, fts=fts)
 
     assert len(result) == 150
 
@@ -178,3 +177,29 @@ def test_target_path_keeps_version_pairs_distinct() -> None:
         ("lmp/art22", 2),
         ("lmp/art22", 1),
     ]
+
+
+def test_fallback_defensively_truncates_searcher_output_to_50() -> None:
+    dense = FakeSearcher({"p": [hit(f"d{index}") for index in range(60)]})
+    fts = FakeSearcher({"p": []})
+
+    result = hybrid_search(make_plan("p"), dense=dense, fts=fts)
+
+    assert len(result) == 50
+    assert result[0].device_id == "d0"
+    assert all(item.device_id != "d50" for item in result)
+
+
+def test_target_defensively_truncates_searcher_output_to_100() -> None:
+    qdrant = FakeSearcher({"p": [retrieved(f"q{index}") for index in range(120)]})
+
+    result = hybrid_search(
+        make_plan("p"),
+        dense=FakeSearcher(),
+        fts=FakeSearcher(),
+        qdrant=qdrant,
+        path="target",
+    )
+
+    assert len(result) == 100
+    assert all(item.device_id != "q100" for item in result)

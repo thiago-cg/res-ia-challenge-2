@@ -8,6 +8,7 @@ the RRF order is kept untouched so no embedding space is ever mixed.
 
 from __future__ import annotations
 
+import inspect
 import math
 from collections.abc import Callable, Sequence
 from typing import Any, Protocol
@@ -111,10 +112,34 @@ def _document_vectors(encoder: MultiVectorEncoder, texts: Sequence[str]) -> list
 def _call_rescore(
     rescore: Rescore, pergunta: str, candidates: list[RetrievedDevice]
 ) -> list[RetrievedDevice]:
-    try:
+    # Inspect the signature once instead of retrying calls: a ``TypeError`` raised
+    # inside the callable must not be mistaken for a signature mismatch.
+    arity, varargs = _positional_arity(rescore)
+    if arity is None or arity == 2:
         return list(rescore(pergunta, candidates))
-    except TypeError:
+    if varargs or arity >= 3:
         return list(rescore(pergunta, candidates, DEFAULT_TOP_K))  # type: ignore[call-arg]
+    if arity == 1:
+        return list(rescore(pergunta))  # type: ignore[call-arg]
+    return list(rescore())  # type: ignore[call-arg]
+
+
+def _positional_arity(func: Any) -> tuple[int | None, bool]:
+    try:
+        signature = inspect.signature(func)
+    except (TypeError, ValueError):
+        return None, False
+    positional = 0
+    varargs = False
+    for parameter in signature.parameters.values():
+        if parameter.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        ):
+            positional += 1
+        elif parameter.kind is inspect.Parameter.VAR_POSITIONAL:
+            varargs = True
+    return positional, varargs
 
 
 def _sorted_cap(candidates: list[RetrievedDevice], top_k: int) -> list[RetrievedDevice]:

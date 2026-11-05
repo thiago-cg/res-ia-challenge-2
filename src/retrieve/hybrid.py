@@ -99,12 +99,10 @@ def _fallback_candidates(
 
     best: dict[PairKey, RetrievedDevice] = {}
     for subquestion in subquestions:
-        dense_hits = [
-            _as_retrieved(item) for item in dense.search(subquestion, PER_SEARCH_LIMIT, data_fato)
-        ]
-        fts_hits = [
-            _as_retrieved(item) for item in fts.search(subquestion, PER_SEARCH_LIMIT, data_fato)
-        ]
+        dense_raw = list(dense.search(subquestion, PER_SEARCH_LIMIT, data_fato))[:PER_SEARCH_LIMIT]
+        fts_raw = list(fts.search(subquestion, PER_SEARCH_LIMIT, data_fato))[:PER_SEARCH_LIMIT]
+        dense_hits = [_as_retrieved(item) for item in dense_raw]
+        fts_hits = [_as_retrieved(item) for item in fts_raw]
 
         by_key = _by_pair(dense_hits + fts_hits)
         fts_keys = {_key(item) for item in fts_hits}
@@ -132,7 +130,10 @@ def _target_candidates(
 
     best: dict[PairKey, RetrievedDevice] = {}
     for subquestion in subquestions:
-        for raw in qdrant.search(subquestion, TARGET_BM25_LIMIT, data_fato):
+        raw_hits = list(qdrant.search(subquestion, TARGET_BM25_LIMIT, data_fato))[
+            :TARGET_BM25_LIMIT
+        ]
+        for raw in raw_hits:
             candidate = _as_retrieved(raw).model_copy(update={"source": "bm25"})
             _keep_best(best, candidate)
     return best

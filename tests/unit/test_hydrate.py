@@ -146,3 +146,17 @@ def test_resolve_citation_version_mismatch_raises_invalid_citation() -> None:
 
     with pytest.raises(InvalidCitation):
         resolve_citation("lmp/art22", 42, repo=repo)
+
+
+def test_hydrate_invalid_vigencia_raises_invalid_citation() -> None:
+    repo = FakeRepo({("lmp/art22", 1): row("texto", version=1, vigencia="banana")})
+
+    with pytest.raises(InvalidCitation):
+        hydrate([("lmp/art22", 1)], repo=repo)
+
+
+def test_resolve_citation_invalid_vigencia_raises_invalid_citation() -> None:
+    repo = FakeRepo({("lmp/art22", 42): row("texto", version=42, vigencia="banana")})
+
+    with pytest.raises(InvalidCitation):
+        resolve_citation("lmp/art22", 42, repo=repo)

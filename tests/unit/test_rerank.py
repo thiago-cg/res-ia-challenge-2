@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import math
 
+import pytest
+
 from src.contracts import RetrievedDevice
 from src.retrieve.rerank import maxsim_score, rerank
 
@@ -146,3 +148,16 @@ def test_target_rerank_delegates_to_rescore_over_all_candidates() -> None:
     assert len(result) == 10
     assert result[0].device_id == "d149"
     assert all(item.source == "maxsim" for item in result)
+
+
+def test_rescore_body_type_error_propagates_without_retry() -> None:
+    calls: list[int] = []
+
+    def rescore(question: str, items: list[RetrievedDevice]) -> list[RetrievedDevice]:
+        calls.append(1)
+        raise TypeError("boom inside rescore")
+
+    with pytest.raises(TypeError, match="boom inside rescore"):
+        rerank("p", [candidate("d")], rescore=rescore)
+
+    assert calls == [1]
