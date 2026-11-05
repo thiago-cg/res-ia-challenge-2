@@ -693,7 +693,7 @@ def create_app(
 
     @app.post("/chat", response_model=ChatResponse)
     def chat(payload: ChatRequest, http_request: Request) -> ChatResponse:
-        request_id = uuid4().hex
+        request_id = getattr(http_request.state, "request_id", None) or uuid4().hex
         logger.info(
             "chat_request request_id=%s session_id=%s",
             request_id,
