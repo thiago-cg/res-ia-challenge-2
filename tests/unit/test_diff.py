@@ -187,6 +187,35 @@ def test_apply_diff_removed_requires_a_deterministic_date() -> None:
     assert not conn.updates
 
 
+def test_apply_diff_removed_rejects_future_date() -> None:
+    conn = FakeConnection()
+    diff = diff_parse_result(_old_rows(("lmp/art9", "old-hash")), _result())
+
+    with pytest.raises(DiffError, match="future"):
+        apply_diff(conn, diff, data_fato=date(2024, 1, 2), today=date(2024, 1, 1))
+
+    assert not conn.updates
+
+
+def test_apply_diff_removed_rejects_date_before_version_start() -> None:
+    conn = FakeConnection()
+    diff = diff_parse_result(_old_rows(("lmp/art9", "old-hash")), _result())
+
+    with pytest.raises(DiffError, match="before"):
+        apply_diff(conn, diff, data_fato=date(2019, 12, 31), today=date(2024, 1, 1))
+
+    assert not conn.updates
+
+
+def test_apply_diff_removed_raises_when_nothing_was_closed() -> None:
+    conn = FakeConnection()
+    conn.update_rowcount = 0
+    diff = diff_parse_result(_old_rows(("lmp/art9", "old-hash")), _result())
+
+    with pytest.raises(DiffError, match="no open version"):
+        apply_diff(conn, diff, data_fato=date(2024, 1, 1))
+
+
 def test_apply_diff_unchanged_creates_nothing() -> None:
     conn = FakeConnection()
     new = _result("lmp/art1")

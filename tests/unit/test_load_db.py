@@ -129,52 +129,62 @@ def test_load_versions_compatibility_wrapper() -> None:
     assert not any(sql.startswith("INSERT INTO devices") for sql, _ in conn.executions)
 
 
-def test_sumula_norm_derives_numero_and_writes_null_ano() -> None:
-    conn = FakeConnection()
-    device_id = "stj-sum-542"
-    result = normalize_parse_result(
+def _sumula_result(numbers: tuple[int, ...]) -> ParseResult:
+    devices = [
+        Device(
+            id=f"stj-sum-{number}",
+            norm_id="stj-sumulas",
+            parent_id=None,
+            artigo_id=f"stj-sum-{number}",
+            tipo="artigo",
+            rotulo=f"Súmula nº {number}",
+            caminho=f"Súmula {number}",
+            ordem=index,
+        )
+        for index, number in enumerate(numbers, start=1)
+    ]
+    versions = [
+        DeviceVersion(
+            device_id=device.id,
+            norm_version_id=1,
+            texto_literal=f"Súmula {device.id} de teste.",
+            texto_anterior=None,
+            contexto="Súmulas do STJ",
+            citacao=f"Súmula nº {device.id.removeprefix('stj-sum-')} do STJ",
+            vigencia_status="vigente",
+            redacao_dada_por=None,
+            vigencia_inicio=date(1989, 1, 1),
+            vigencia_fim=None,
+            fonte_url="https://example.test",
+            content_hash="placeholder",
+            qdrant_point_id=uuid5(NAMESPACE_URL, device.id),
+            search_text="",
+        )
+        for device in devices
+    ]
+    return normalize_parse_result(
         ParseResult(
             norm=Norm(id="stj-sumulas", tipo="sumula", numero=None, ano=None),
-            devices=[
-                Device(
-                    id=device_id,
-                    norm_id="stj-sumulas",
-                    parent_id=None,
-                    artigo_id=device_id,
-                    tipo="artigo",
-                    rotulo="Súmula nº 542",
-                    caminho="Súmula 542",
-                    ordem=1,
-                )
-            ],
-            versions=[
-                DeviceVersion(
-                    device_id=device_id,
-                    norm_version_id=1,
-                    texto_literal="Súmula de teste.",
-                    texto_anterior=None,
-                    contexto="Súmulas do STJ",
-                    citacao="Súmula nº 542 do STJ",
-                    vigencia_status="vigente",
-                    redacao_dada_por=None,
-                    vigencia_inicio=date(1989, 1, 1),
-                    vigencia_fim=None,
-                    fonte_url="https://example.test",
-                    content_hash="placeholder",
-                    qdrant_point_id=uuid5(NAMESPACE_URL, device_id),
-                    search_text="",
-                )
-            ],
+            devices=devices,
+            versions=versions,
         )
     )
 
-    load_parse_result(conn, result)
 
-    insert_norm = next(
-        (sql, params) for sql, params in conn.executions if sql.startswith("INSERT INTO norms")
+def test_sumula_norm_keeps_null_identity_regardless_of_order() -> None:
+    conn = FakeConnection()
+
+    load_parse_result(conn, _sumula_result((542, 600)))
+    first_row = conn.norm_rows["stj-sumulas"]
+    assert first_row[2] is None
+    assert first_row[3] is None
+
+    load_parse_result(conn, _sumula_result((600, 542)))
+
+    assert conn.norm_rows["stj-sumulas"] == first_row
+    assert not any(
+        "DO UPDATE" in sql for sql, _ in conn.executions if sql.startswith("INSERT INTO norms")
     )
-    assert insert_norm[1][2] == "542"
-    assert insert_norm[1][3] is None
 
 
 def test_different_device_order_does_not_mutate_norm_version_event() -> None:

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date
@@ -33,24 +32,11 @@ class LoadReport(BaseModel):
     versions_skipped: int = 0
 
 
-_SUMULA_DEVICE_RE = re.compile(r"^stj-sum-(\d+)$")
-
-
-def _derive_numero(norm: Norm, versions: Sequence[DeviceVersion]) -> str | None:
-    if norm.numero:
-        return norm.numero
-    for version in versions:
-        match = _SUMULA_DEVICE_RE.match(version.device_id)
-        if match is not None:
-            return match.group(1)
-    return None
-
-
-def _norm_params(norm: Norm, versions: Sequence[DeviceVersion]) -> tuple[object, ...]:
+def _norm_params(norm: Norm) -> tuple[object, ...]:
     return (
         norm.id,
         norm.tipo,
-        _derive_numero(norm, versions),
+        norm.numero,
         norm.ano,
         norm.apelido,
         norm.ementa,
@@ -59,21 +45,14 @@ def _norm_params(norm: Norm, versions: Sequence[DeviceVersion]) -> tuple[object,
     )
 
 
-def _upsert_norm(conn: Any, norm: Norm, versions: Sequence[DeviceVersion]) -> None:
+def _upsert_norm(conn: Any, norm: Norm) -> None:
     sql = """
         INSERT INTO norms (id, tipo, numero, ano, apelido, ementa, urn_lexml, fonte_url)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (id) DO UPDATE SET
-            tipo = EXCLUDED.tipo,
-            numero = EXCLUDED.numero,
-            ano = EXCLUDED.ano,
-            apelido = EXCLUDED.apelido,
-            ementa = EXCLUDED.ementa,
-            urn_lexml = EXCLUDED.urn_lexml,
-            fonte_url = EXCLUDED.fonte_url
+        ON CONFLICT (id) DO NOTHING
     """
     with conn.cursor() as cur:
-        cur.execute(sql, _norm_params(norm, versions))
+        cur.execute(sql, _norm_params(norm))
 
 
 def _upsert_device(conn: Any, device: Device) -> None:
@@ -208,7 +187,7 @@ def load_parse_result(
     normalized = normalize_parse_result(result)
     report = LoadReport(norm_id=normalized.norm.id)
 
-    _upsert_norm(conn, normalized.norm, normalized.versions)
+    _upsert_norm(conn, normalized.norm)
     event_hash = source_content_hash(normalized.norm, normalized.versions)
 
     grouped: dict[date, list[DeviceVersion]] = defaultdict(list)

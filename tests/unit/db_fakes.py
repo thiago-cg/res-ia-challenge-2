@@ -42,6 +42,7 @@ class FakeCursor:
                 self._rows = [(self.conn.device_versions[key],)]
         elif normalized.startswith("INSERT INTO norms"):
             self.conn.norms.add(str(values[0]))
+            self.conn.norm_rows.setdefault(str(values[0]), values)
         elif normalized.startswith("INSERT INTO ingest_runs"):
             self.conn.ingest_runs.append(self.conn.next_id())
             self._rows = [(self.conn.ingest_runs[-1],)]
@@ -50,7 +51,7 @@ class FakeCursor:
             self._rows = [(int(values[-1]),)]
         elif normalized.startswith("UPDATE device_versions"):
             self.conn.updates.append((normalized, values))
-            self.rowcount = 1
+            self.rowcount = self.conn.update_rowcount
 
     def fetchone(self) -> tuple[Any, ...] | None:
         return self._rows[0] if self._rows else None
@@ -64,11 +65,13 @@ class FakeConnection:
         self.executions: list[tuple[str, tuple[Any, ...]]] = []
         self.updates: list[tuple[str, tuple[Any, ...]]] = []
         self.norms: set[str] = set()
+        self.norm_rows: dict[str, tuple[Any, ...]] = {}
         self.devices: set[str] = set()
         self.norm_versions: dict[tuple[str, Any], int] = {}
         self.norm_version_hashes: dict[tuple[str, Any], str] = {}
         self.device_versions: dict[tuple[str, int], int] = {}
         self.ingest_runs: list[int] = []
+        self.update_rowcount = 1
         self._id = 0
 
     def next_id(self) -> int:

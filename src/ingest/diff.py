@@ -178,6 +178,8 @@ def _close_removed(conn: Any, device_id: str, end: date) -> None:
     """
     with conn.cursor() as cur:
         cur.execute(sql, (end, device_id))
+        if cur.rowcount == 0:
+            raise DiffError(f"{device_id}: no open version to close as revoked")
 
 
 def _check_start(device_id: str, start: date, today: date) -> None:
@@ -224,6 +226,20 @@ def apply_diff(
     if diff.removed and data_fato is None and removed_at is None:
         raise DiffError("removed devices require data_fato or removed_at to set vigencia_fim")
     removed_end = data_fato or removed_at
+    if diff.removed:
+        assert removed_end is not None
+        if removed_end > current_day:
+            raise DiffError(f"removal date {removed_end} is in the future")
+        for device_id in diff.removed:
+            old = diff.old_rows.get(device_id)
+            old_start = old.vigencia_inicio if old is not None else None
+            if old_start is None:
+                raise DiffError(f"{device_id}: removal needs the open version start date")
+            if removed_end < old_start:
+                raise DiffError(
+                    f"{device_id}: removal date {removed_end} is before "
+                    f"the version start {old_start}"
+                )
 
     for device_id in diff.added + diff.changed:
         version = diff.new_versions[device_id]
