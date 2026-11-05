@@ -389,13 +389,15 @@ Legenda: **S** ≤ 2 h, **M** 2–4 h, **L** 4–8 h.
 - [ ] GEN-03 Roteador de risco
 - [ ] GEN-04 Abstenção/encaminhamento
 - [ ] GEN-05 API e UI
-- [ ] EVA-01 20 perguntas semeadas
-- [ ] EVA-02 Harness
-- [ ] EVA-03 Regressões legais
+- [x] EVA-01 20 perguntas semeadas
+- [x] EVA-02 Harness
+- [x] EVA-03 Regressões legais
 - [ ] EVA-04 150 + revisão humana
 - [ ] OPS-01 Observabilidade e LGPD
 - [ ] OPS-02 Backup e CI
 - [ ] OPS-03 Runbook e gate jurídico
+
+> EVA-04 permanece aberta: as 150 perguntas e as regressões foram criadas, mas a execução com Postgres/Qdrant e a revisão jurídica humana estão pendentes. Nenhuma métrica foi produzida e nenhum parecer jurídico foi emitido (ver `docs/08` §12). Os gates G4 e G6 não foram atingidos.
 
 ## 9. Ordem de execução e paralelismo
 

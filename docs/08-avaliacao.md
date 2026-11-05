@@ -286,3 +286,41 @@ Saída:
 - Impacto da camada de regras condicionais.
 - Custo por pergunta em cada configuração.
 - Taxa de correção após feedback da usuária.
+
+## 12. Status da avaliação (B9, 2026-11-05)
+
+### Entregue
+
+- `data/eval/questions.jsonl`: 20 perguntas semeadas (`q001`–`q020`) cobrindo prazo/12 meses, ação penal incondicionada, medida protetiva sem boletim, contato por qualquer meio, coabitação, FONAR, art. 24-A, serviços, violência psicológica, 5 abstenções e 5 emergências. Há um caso com `data_fato` anterior à Lei nº 14.550/2023.
+- `data/eval/questions_150.jsonl`: 150 perguntas únicas = as 20 semeadas + 130 variações sintéticas marcadas `fonte: "sintetica"`, com pelo menos 20 abstenções e 20 emergências e `split` dev/test equilibrado.
+- `data/eval/regressions.jsonl`: casos R1–R6 de §4, mais art. 24-A/Lei nº 14.994/2024, emergência, abstenção e prompt injection.
+- `src/eval/metrics.py`: recall@10 por dispositivo e por pergunta, MRR@10, nDCG@10, precisão e cobertura de citação, groundedness, acurácia de abstenção, roteamento de emergência e percentis de latência.
+- `src/eval/run.py`: harness com pipeline injetável, agregação por categoria e dificuldade, comparação com thresholds, escrita de `last_run.json` e CLI (`python -m src.eval.run --questions ... --out ... --fail-under ...`).
+- Testes unitários com pipelines falsos (perfeito, parcial e abstencionista). Nenhum teste toca Postgres, Qdrant, rede ou LLM.
+
+### Pendências
+
+- **Métricas pendentes de execução com Postgres/Qdrant.** Nenhum valor de recall, citação, groundedness, abstenção ou latência foi produzido neste ciclo; os números de §3 e §10 continuam metas, não resultados.
+- **Revisão jurídica humana PENDENTE.** Não houve revisão por advogada, defensora ou pessoa da rede de atendimento. As perguntas e as respostas esperadas são hipóteses de avaliação, não parecer jurídico.
+- O adaptador real (`src.api.main.build_eval_pipeline`) ainda não existe neste branch; a CLI falha com mensagem clara e o harness só roda com pipeline injetado.
+- Todos os `device_ids` usados são canônicos (docs/04 §3). Emergência e fora do corpus não têm `device_ids`. `stf-adi-4424` vem de uma semente curada em `data/seed/stf-adi-4424.json` (não raspada; precisa ser carregada no corpus). Não foi criada pergunta de violência vicária porque não há dispositivo verificado no corpus.
+- O checklist de aceite do MVP (§10) permanece intocado: nenhuma caixa deve ser marcada sem execução real e revisão humana.
+
+### Como executar quando houver Postgres/Qdrant
+
+```bash
+uv sync --extra dev
+uv run pytest -m "not integration"
+uv run python -m src.eval.run --questions data/eval/questions_150.jsonl --out data/eval/last_run.json
+```
+
+O relatório gerado em `data/eval/last_run.json` deve ser tratado como rascunho técnico até a revisão jurídica humana.
+
+### Correções da rodada 1 (B9)
+
+- As 130 entradas sintéticas tiveram `resposta_esperada` reescrita para responder à pergunta concreta, sem inverter o sim/não; todas receberam `revisao: "pendente"` e testes semânticos cobrem as inversões conhecidas (Súmula 542, Súmula 600, art. 19, §§ 5º e 6º, e FONAR).
+- R2 agora cita `stf-adi-4424`; R6 cita `cnj-portaria-6-2025/art1`. A semente `data/seed/stf-adi-4424.json` é curada manualmente, traz proveniência e `status: "pendente_de_carga"`; não é scraping e precisa ser carregada no Postgres/Qdrant antes de executar as regressões.
+- Agregados por categoria usam `null` para abstenção/emergência quando a categoria não tem esses casos.
+- Thresholds parciais são mesclados aos padrões, em vez de substituí-los.
+- Métricas continuam pendentes de execução e a revisão jurídica humana continua PENDENTE.
+
