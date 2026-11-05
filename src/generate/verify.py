@@ -91,6 +91,13 @@ def _check_citation(
             )
         else:
             issues.append(f"citation device not retrieved: {citation.device_id}")
+    else:
+        retrieved_device = by_pair[pair]
+        if retrieved_device.citacao and retrieved_device.citacao != citation.citacao:
+            issues.append(
+                f"citation metadata mismatch for {citation.device_id}: "
+                "rendered citation does not match retrieved metadata"
+            )
 
     if repo is not None:
         try:
@@ -167,15 +174,25 @@ def _normalize_judge_result(result: Any) -> list[str]:
     if isinstance(result, bool):
         return [] if result else ["unsupported claim"]
     if isinstance(result, str):
+        verdict = result.strip().lower()
+        if verdict in {"sim", "s", "yes", "true", "ok", "aprovado", "suportado"}:
+            return []
+        if verdict in {"nao", "não", "no", "false", "rejeitado", "insuficiente"}:
+            return ["unsupported claim"]
         return [result] if result.strip() else []
     if isinstance(result, Mapping):
         issues = result.get("issues")
         normalized = [str(item) for item in issues] if isinstance(issues, Sequence) else []
-        if result.get("ok") is False and not normalized:
+        rejected = any(
+            result.get(key) is False for key in ("ok", "supported", "suportado", "aprovado")
+        )
+        if rejected and not normalized:
             normalized = ["unsupported claim"]
         return normalized
     if isinstance(result, Sequence):
         return [str(item) for item in result if str(item).strip()]
+    if getattr(result, "ok", None) is False:
+        return ["unsupported claim"]
     return [str(result)]
 
 

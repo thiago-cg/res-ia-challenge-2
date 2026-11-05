@@ -92,13 +92,16 @@ def _score_with_encoder(
 def _query_vectors(encoder: MultiVectorEncoder, pergunta: str) -> list[list[float]]:
     try:
         raw = encoder.encode_query([pergunta])
-    except TypeError:
+    except (TypeError, AttributeError):
         raw = encoder.encode_query(pergunta)
     return [_as_vector(vector) for vector in _first_matrix(raw)]
 
 
 def _document_vectors(encoder: MultiVectorEncoder, texts: Sequence[str]) -> list[list[list[float]]]:
-    raw = encoder.encode_document(list(texts))
+    try:
+        raw = encoder.encode_document(list(texts))
+    except TypeError:
+        raw = encoder.encode_document(list(texts), batch_size=8)  # type: ignore[call-arg]
     matrices = _to_list(raw)
     if matrices and _is_vector(matrices[0]):
         matrices = [matrices]
@@ -135,13 +138,20 @@ def _first_matrix(value: Any) -> list[Any]:
     if not data:
         return []
     first = data[0]
+    if isinstance(first, (int, float)):
+        return [data]
     if _is_vector(first):
         return data
     return _to_list(first)
 
 
 def _is_vector(value: Any) -> bool:
-    data = _to_list(value)
+    if isinstance(value, (int, float)):
+        return False
+    try:
+        data = _to_list(value)
+    except TypeError:
+        return False
     return bool(data) and isinstance(data[0], (int, float))
 
 

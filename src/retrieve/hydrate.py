@@ -29,6 +29,14 @@ class HydrationResult(BaseModel):
     def retrieved(self) -> list[RetrievedDevice]:
         return self.devices
 
+    @property
+    def hydrated(self) -> list[RetrievedDevice]:
+        return self.devices
+
+    @property
+    def missing(self) -> list[tuple[str, int]]:
+        return self.incomplete_context
+
 
 def hydrate(
     pairs: Sequence[tuple[str, int] | RetrievedDevice],
@@ -58,10 +66,14 @@ def hydrate(
             result.incomplete_context.append(key)
             continue
 
-        vigencia = _field(row, "vigencia_status")
+        vigencia = _field(row, "vigencia_status") or _field(row, "vigencia")
         if vigencia is None:
             result.incomplete_context.append(key)
             continue
+
+        texto_literal = _field(row, "texto_literal")
+        if texto_literal is None:
+            texto_literal = _field(row, "texto")
 
         result.devices.append(
             RetrievedDevice(
@@ -69,7 +81,7 @@ def hydrate(
                 norm_version_id=norm_version_id,
                 score=score,
                 source=source,
-                texto_literal=_field(row, "texto_literal") or "",
+                texto_literal=texto_literal or "",
                 citacao=_field(row, "citacao") or "",
                 vigencia=vigencia,
                 contexto=_field(row, "contexto"),
@@ -101,7 +113,7 @@ def resolve_citation(
     texto = _field(row, "texto_literal")
     if texto is None:
         texto = _field(row, "texto")
-    vigencia = _field(row, "vigencia_status")
+    vigencia = _field(row, "vigencia_status") or _field(row, "vigencia")
     if not citacao or texto is None or vigencia is None:
         raise InvalidCitation(f"incomplete metadata for {device_id}@{retrieved_version_id}")
 
