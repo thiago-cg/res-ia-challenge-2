@@ -13,7 +13,7 @@ dependencies = [
     "streamlit",
     "psycopg[binary]",
     "pgvector",
-    "qdrant-client",
+    "qdrant-client>=1.15,<1.16",
     "pymupdf>=2.1",
 ]
 
