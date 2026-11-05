@@ -321,7 +321,7 @@ def _as_matrix(value: Any) -> list[list[float]]:
     if not value:
         return []
     first = value[0]
-    if isinstance(first, (int, float)):
+    if isinstance(first, (int, float)) or not hasattr(first, "__len__"):
         return [[float(item) for item in value]]
     return [[float(item) for item in row] for row in value]
 
