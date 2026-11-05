@@ -133,7 +133,7 @@ def test_normalize_parse_result_strips_nr_but_keeps_text_verbatim() -> None:
     version = _version("Texto vigente com continuação (NR).")
     normalized = normalize_parse_result(_result(version)).versions[0]
 
-    assert normalized.texto_literal == "Texto vigente com continuação."
+    assert normalized.texto_literal == "Texto vigente com continuação ."
     assert "(NR)" not in normalized.texto_literal
     assert "(NR)" not in normalized.search_text
 

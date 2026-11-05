@@ -7,7 +7,7 @@ from uuid import NAMESPACE_URL, uuid5
 import pytest
 
 from src.contracts import Device, DeviceVersion
-from src.ingest.diff import apply_diff, diff_parse_result
+from src.ingest.diff import DiffError, apply_diff, diff_parse_result
 from src.ingest.models import Norm, ParseResult
 from src.ingest.normalize import normalize_parse_result
 from tests.unit.db_fakes import FakeConnection
@@ -62,8 +62,35 @@ def _result(*device_ids: str, literals: dict[str, str] | None = None) -> ParseRe
 
 def _old_rows(*rows: tuple[str, str]) -> list[dict[str, Any]]:
     return [
-        {"device_id": device_id, "content_hash": content_hash} for device_id, content_hash in rows
+        {
+            "device_id": device_id,
+            "content_hash": content_hash,
+            "vigencia_inicio": date(2020, 1, 1),
+        }
+        for device_id, content_hash in rows
     ]
+
+
+def test_diff_reads_tuple_rows_in_documented_order() -> None:
+    new = _result("lmp/art1")
+    content_hash = new.versions[0].content_hash
+
+    diff = diff_parse_result(
+        [("lmp/art1", content_hash, "lmp", date(2020, 1, 1))],
+        new,
+    )
+
+    assert diff.unchanged == ["lmp/art1"]
+    assert diff.changed == []
+
+
+def test_tuple_rows_with_only_identity_and_hash_are_accepted() -> None:
+    new = _result("lmp/art1")
+    content_hash = new.versions[0].content_hash
+
+    diff = diff_parse_result([("lmp/art1", content_hash)], new)
+
+    assert diff.unchanged == ["lmp/art1"]
 
 
 def test_diff_classifies_added_changed_removed_and_unchanged() -> None:
@@ -106,6 +133,58 @@ def test_apply_diff_changed_creates_one_new_version_and_closes_old() -> None:
     assert any(
         date(2024, 1, 1) in params for sql, params in conn.executions if "device_versions" in sql
     )
+
+
+def test_apply_diff_never_mutates_an_existing_norm_version() -> None:
+    conn = FakeConnection()
+    new = _result("lmp/art1", literals={"lmp/art1": "Texto novo."})
+    diff = diff_parse_result(_old_rows(("lmp/art1", "old-hash")), new)
+
+    apply_diff(conn, diff, data_fato=date(2024, 1, 1))
+
+    assert not any("UPDATE norm_versions" in sql for sql, _ in conn.executions)
+    norm_inserts = [
+        (sql, params)
+        for sql, params in conn.executions
+        if sql.startswith("INSERT INTO norm_versions")
+    ]
+    assert norm_inserts
+    assert all("DO NOTHING" in sql for sql, _ in norm_inserts)
+    assert all(params[3] == diff.source_content_hash for _, params in norm_inserts)
+
+
+@pytest.mark.parametrize("new_start", [date(2020, 1, 1), date(2019, 12, 31)])
+def test_apply_diff_rejects_equal_or_earlier_new_start(new_start: date) -> None:
+    conn = FakeConnection()
+    new = _result("lmp/art1", literals={"lmp/art1": "Texto novo."})
+    diff = diff_parse_result(_old_rows(("lmp/art1", "old-hash")), new)
+
+    with pytest.raises(DiffError, match="must be after"):
+        apply_diff(conn, diff, data_fato=new_start)
+
+    assert not any(sql.startswith("INSERT INTO device_versions") for sql, _ in conn.executions)
+    assert not conn.updates
+
+
+def test_apply_diff_rejects_future_start() -> None:
+    conn = FakeConnection()
+    new = _result("lmp/art1", literals={"lmp/art1": "Texto novo."})
+    diff = diff_parse_result(_old_rows(("lmp/art1", "old-hash")), new)
+
+    with pytest.raises(DiffError, match="future"):
+        apply_diff(conn, diff, data_fato=date(2024, 1, 2), today=date(2024, 1, 1))
+
+    assert not any(sql.startswith("INSERT INTO device_versions") for sql, _ in conn.executions)
+
+
+def test_apply_diff_removed_requires_a_deterministic_date() -> None:
+    conn = FakeConnection()
+    diff = diff_parse_result(_old_rows(("lmp/art9", "old-hash")), _result())
+
+    with pytest.raises(DiffError, match="removed_at"):
+        apply_diff(conn, diff)
+
+    assert not conn.updates
 
 
 def test_apply_diff_unchanged_creates_nothing() -> None:

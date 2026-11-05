@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 from typing import Literal
 
@@ -12,6 +13,7 @@ from src.ingest.models import ParseResult
 from src.ingest.normalize import content_hash, has_struck_markup, version_metadata
 
 CurrentStatus = Literal["vigente", "alterado"]
+TokenCounter = Callable[[str], int]
 
 
 class ValidationReport(BaseModel):
@@ -27,18 +29,22 @@ class ValidationReport(BaseModel):
 def validate_parse_result(
     result: ParseResult,
     *,
-    max_length: int = 4000,
+    max_length: int = 8192,
+    tokenizer: TokenCounter | None = None,
     expected_article_count: int | None = None,
     sample_checked: bool = False,
     split_device_ids: set[str] | None = None,
 ) -> ValidationReport:
     """Run the ingestion checklist and return errors and warnings.
 
-    ``split_device_ids`` marks devices whose text was explicitly split into
-    article blocks and therefore may exceed ``max_length``.
+    ``max_length`` is measured in tokens over ``contexto + texto_literal``.
+    Pass ``tokenizer`` to use a model tokenizer; the default counts whitespace
+    words as a conservative estimate. ``split_device_ids`` marks devices whose
+    text was explicitly split and therefore may exceed the limit.
     """
     report = ValidationReport(sample_check=sample_checked)
     split_ids = split_device_ids or set()
+    count_tokens = tokenizer or _default_token_count
 
     devices = {device.id: device for device in result.devices}
     if len(devices) != len(result.devices):
@@ -71,7 +77,12 @@ def validate_parse_result(
             continue
 
         _validate_literal(
-            report, version, version_device, max_length=max_length, split_ids=split_ids
+            report,
+            version,
+            version_device,
+            max_length=max_length,
+            split_ids=split_ids,
+            count_tokens=count_tokens,
         )
         _validate_citation(report, version, result)
 
@@ -118,6 +129,7 @@ def _validate_literal(
     *,
     max_length: int,
     split_ids: set[str],
+    count_tokens: TokenCounter,
 ) -> None:
     literal = version.texto_literal
     if not literal.strip():
@@ -131,10 +143,17 @@ def _validate_literal(
         if struck in literal.lower():
             report.errors.append(f"{version.device_id}: struck text remains in texto_literal")
 
-    if len(literal) > max_length and device.id not in split_ids:
+    device_text = f"{version.contexto}\n{literal}"
+    if count_tokens(device_text) > max_length and device.id not in split_ids:
         report.errors.append(
-            f"{device.id}: texto_literal exceeds max_length {max_length} without an explicit split"
+            f"{device.id}: contexto + texto_literal exceeds max_length {max_length} tokens "
+            "without an explicit split"
         )
+
+
+def _default_token_count(text: str) -> int:
+    """Conservative whitespace-word estimate when no tokenizer is supplied."""
+    return len(text.split())
 
 
 def _validate_citation(
@@ -144,7 +163,8 @@ def _validate_citation(
 ) -> None:
     if not version.citacao.strip():
         report.errors.append(f"{version.device_id}: citation is empty")
-    if not result.norm.id.strip():
+    norm_ids = {device.norm_id for device in result.devices}
+    if not result.norm.id.strip() or result.norm.id not in norm_ids:
         report.errors.append(f"{version.device_id}: citation does not resolve to a norm")
     if not version.fonte_url.strip() and not result.norm.fonte_url.strip():
         report.errors.append(f"{version.device_id}: citation has no source URL")

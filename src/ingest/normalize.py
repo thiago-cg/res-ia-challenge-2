@@ -17,7 +17,7 @@ from src.contracts import Device, DeviceVersion
 from src.ingest.models import ParseResult, compute_content_hash
 from src.textnorm import normalize_search_text
 
-_NR_RE = re.compile(r"\s*\(\s*NR\s*\)", re.IGNORECASE)
+_NR_RE = re.compile(r"\(\s*NR\s*\)", re.IGNORECASE)
 _STRUCK_MARKUP_RE = re.compile(r"</?(?:s|strike|del)>|~~", re.IGNORECASE)
 
 _HASH_KEYS = (
@@ -39,8 +39,8 @@ _HASH_KEYS = (
 
 
 def strip_nr(text: str) -> str:
-    """Remove the ``(NR)`` new-wording marker from a literal."""
-    return _NR_RE.sub("", text).strip()
+    """Remove only the ``(NR)`` marker, preserving surrounding whitespace."""
+    return _NR_RE.sub("", text)
 
 
 def build_search_text(contexto: str, texto_literal: str, citacao: str) -> str:

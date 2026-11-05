@@ -8,6 +8,8 @@ ignored so re-running the same parse result is a no-op.
 from __future__ import annotations
 
 import hashlib
+import json
+import re
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date
@@ -31,12 +33,25 @@ class LoadReport(BaseModel):
     versions_skipped: int = 0
 
 
-def _norm_params(norm: Norm) -> tuple[object, ...]:
+_SUMULA_DEVICE_RE = re.compile(r"^stj-sum-(\d+)$")
+
+
+def _derive_numero(norm: Norm, versions: Sequence[DeviceVersion]) -> str | None:
+    if norm.numero:
+        return norm.numero
+    for version in versions:
+        match = _SUMULA_DEVICE_RE.match(version.device_id)
+        if match is not None:
+            return match.group(1)
+    return None
+
+
+def _norm_params(norm: Norm, versions: Sequence[DeviceVersion]) -> tuple[object, ...]:
     return (
         norm.id,
         norm.tipo,
-        norm.numero or "",
-        norm.ano or 0,
+        _derive_numero(norm, versions),
+        norm.ano,
         norm.apelido,
         norm.ementa,
         norm.urn_lexml,
@@ -44,7 +59,7 @@ def _norm_params(norm: Norm) -> tuple[object, ...]:
     )
 
 
-def _upsert_norm(conn: Any, norm: Norm) -> None:
+def _upsert_norm(conn: Any, norm: Norm, versions: Sequence[DeviceVersion]) -> None:
     sql = """
         INSERT INTO norms (id, tipo, numero, ano, apelido, ementa, urn_lexml, fonte_url)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -58,7 +73,7 @@ def _upsert_norm(conn: Any, norm: Norm) -> None:
             fonte_url = EXCLUDED.fonte_url
     """
     with conn.cursor() as cur:
-        cur.execute(sql, _norm_params(norm))
+        cur.execute(sql, _norm_params(norm, versions))
 
 
 def _upsert_device(conn: Any, device: Device) -> None:
@@ -89,8 +104,23 @@ def _upsert_device(conn: Any, device: Device) -> None:
         )
 
 
-def _event_hash(versions: Sequence[DeviceVersion]) -> str:
-    payload = "\n".join(sorted(version.content_hash for version in versions))
+def source_content_hash(norm: Norm, versions: Sequence[DeviceVersion]) -> str:
+    """Hash of the source snapshot: norm plus every parsed device hash.
+
+    Both the initial load and the diff path use this same function, so the
+    provenance hash does not depend on device order or on which path wrote it.
+    """
+    payload = json.dumps(
+        {
+            "norm_id": norm.id,
+            "devices": sorted(
+                f"{version.device_id}:{version.content_hash}" for version in versions
+            ),
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -101,19 +131,25 @@ def _ensure_norm_version(
     fonte_url: str,
     content_hash: str,
 ) -> int:
-    sql = """
+    """Append a norm event once; never mutate an existing provenance row."""
+    insert_sql = """
         INSERT INTO norm_versions (norm_id, vigencia_inicio, fonte_url, content_hash)
         VALUES (%s, %s, %s, %s)
-        ON CONFLICT (norm_id, vigencia_inicio) DO UPDATE SET
-            fonte_url = EXCLUDED.fonte_url,
-            content_hash = EXCLUDED.content_hash
+        ON CONFLICT (norm_id, vigencia_inicio) DO NOTHING
         RETURNING id
     """
+    select_sql = """
+        SELECT id FROM norm_versions
+        WHERE norm_id = %s AND vigencia_inicio = %s
+    """
     with conn.cursor() as cur:
-        cur.execute(sql, (norm_id, vigencia_inicio, fonte_url, content_hash))
+        cur.execute(insert_sql, (norm_id, vigencia_inicio, fonte_url, content_hash))
         row = cur.fetchone()
-    if row is None:  # pragma: no cover - RETURNING always yields a row on success
-        raise RuntimeError(f"could not upsert norm_version {norm_id}@{vigencia_inicio}")
+        if row is None:
+            cur.execute(select_sql, (norm_id, vigencia_inicio))
+            row = cur.fetchone()
+    if row is None:  # pragma: no cover - row exists after a conflict
+        raise RuntimeError(f"could not find norm_version {norm_id}@{vigencia_inicio}")
     return int(row[0])
 
 
@@ -172,7 +208,8 @@ def load_parse_result(
     normalized = normalize_parse_result(result)
     report = LoadReport(norm_id=normalized.norm.id)
 
-    _upsert_norm(conn, normalized.norm)
+    _upsert_norm(conn, normalized.norm, normalized.versions)
+    event_hash = source_content_hash(normalized.norm, normalized.versions)
 
     grouped: dict[date, list[DeviceVersion]] = defaultdict(list)
     for version in normalized.versions:
@@ -186,7 +223,7 @@ def load_parse_result(
             normalized.norm.id,
             vigencia_inicio,
             fonte_url,
-            _event_hash(versions),
+            event_hash,
         )
     report.norm_version_ids = {
         vigencia.isoformat(): version_id for vigencia, version_id in norm_version_ids.items()
@@ -208,28 +245,35 @@ def load_parse_result(
         else:
             report.versions_skipped += 1
 
+    if ingest_run_id is not None:
+        _update_ingest_run_counts(
+            conn,
+            ingest_run_id,
+            devices_seen=len(normalized.devices),
+            devices_changed=report.versions_loaded,
+        )
+
     return report
+
+
+def _update_ingest_run_counts(
+    conn: Any,
+    ingest_run_id: int,
+    *,
+    devices_seen: int,
+    devices_changed: int,
+) -> None:
+    sql = """
+        UPDATE ingest_runs
+        SET devices_seen = %s, devices_changed = %s
+        WHERE id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (devices_seen, devices_changed, ingest_run_id))
 
 
 def _infer_norm_id(device_id: str) -> str:
     return device_id.split("/", 1)[0]
-
-
-def _infer_artigo_id(device_id: str) -> str:
-    parts = device_id.split("/")
-    if len(parts) >= 2 and parts[1].startswith("art"):
-        return f"{parts[0]}/{parts[1]}"
-    return device_id
-
-
-def _ensure_device_shell(conn: Any, device_id: str, norm_id: str) -> None:
-    sql = """
-        INSERT INTO devices (id, norm_id, parent_id, artigo_id, tipo, rotulo, caminho, ordem)
-        VALUES (%s, %s, NULL, %s, 'artigo', %s, %s, 0)
-        ON CONFLICT (id) DO NOTHING
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (device_id, norm_id, _infer_artigo_id(device_id), device_id, device_id))
 
 
 def load_versions(
@@ -238,7 +282,12 @@ def load_versions(
     *,
     norm_id: str | None = None,
 ) -> LoadReport:
-    """Compatibility wrapper for callers that only hold device versions."""
+    """Compatibility wrapper: norms and devices must already exist in the DB.
+
+    This wrapper only writes ``norm_versions``/``device_versions``. Callers that
+    have a full :class:`ParseResult` should use :func:`load_parse_result`, which
+    also upserts ``norms`` and ``devices``.
+    """
     if isinstance(versions, ParseResult):
         return load_parse_result(conn, versions)
 
@@ -248,7 +297,6 @@ def load_versions(
 
     for version in version_list:
         event_norm = norm_id or _infer_norm_id(version.device_id)
-        _ensure_device_shell(conn, version.device_id, event_norm)
         event_id = _ensure_norm_version(
             conn,
             event_norm,

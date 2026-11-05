@@ -118,12 +118,14 @@ def test_apply_diff_creates_one_version_and_closes_one() -> None:
 
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT device_id, content_hash, norm_id FROM device_versions "
+                "SELECT device_id, content_hash, norm_id, vigencia_inicio "
+                "FROM device_versions "
                 "WHERE norm_id = %s AND vigencia_fim IS NULL",
                 (norm_id,),
             )
             old_rows = cur.fetchall()
 
+        assert all(isinstance(row, tuple) for row in old_rows)
         new = _result(norm_id, {changed_id: "Texto novo.", unchanged_id: "Texto estável."})
         diff = diff_parse_result(old_rows, new)
         assert diff.changed == [changed_id]

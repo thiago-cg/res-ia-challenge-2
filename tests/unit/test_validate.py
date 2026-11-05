@@ -27,7 +27,8 @@ def _version(
     *,
     literal: str = "Texto vigente.",
     anterior: str | None = None,
-    citacao: str = "Lei nº 11.340/2006, art. 1º",
+    contexto: str = "Lei nÂº 11.340/2006",
+    citacao: str = "Lei nÂº 11.340/2006, art. 1Âº",
     status: str = "vigente",
     fim: date | None = None,
 ) -> DeviceVersion:
@@ -36,7 +37,7 @@ def _version(
         norm_version_id=1,
         texto_literal=literal,
         texto_anterior=anterior,
-        contexto="Lei nº 11.340/2006",
+        contexto=contexto,
         citacao=citacao,
         vigencia_status=status,  # type: ignore[arg-type]
         redacao_dada_por=None,
@@ -140,13 +141,39 @@ def test_device_over_max_length_requires_explicit_split() -> None:
     result = _valid_result()
     result.versions[0] = _version("lmp/art1", literal="x" * 50)
 
-    report = validate_parse_result(normalize_parse_result(result), max_length=20)
+    report = validate_parse_result(normalize_parse_result(result), max_length=40, tokenizer=len)
     assert any("max_length" in error for error in report.errors)
 
     allowed = validate_parse_result(
-        normalize_parse_result(result), max_length=20, split_device_ids={"lmp/art1"}
+        normalize_parse_result(result),
+        max_length=40,
+        tokenizer=len,
+        split_device_ids={"lmp/art1"},
     )
     assert not any("max_length" in error for error in allowed.errors)
+
+
+def test_context_alone_can_exceed_max_tokens() -> None:
+    result = _valid_result()
+    result.versions[0] = _version(
+        "lmp/art1",
+        literal="Texto curto.",
+        contexto="contexto longo " * 10,
+    )
+
+    report = validate_parse_result(normalize_parse_result(result), max_length=40, tokenizer=len)
+
+    assert any("contexto + texto_literal" in error for error in report.errors)
+
+
+def test_citation_must_resolve_to_a_norm_in_the_result() -> None:
+    result = _valid_result().model_copy(
+        update={"norm": Norm(id="outra-norma", tipo="lei", numero="1", ano=2020)}
+    )
+
+    report = validate_parse_result(result)
+
+    assert any("citation does not resolve" in error for error in report.errors)
 
 
 def test_article_count_mismatch_is_an_error() -> None:

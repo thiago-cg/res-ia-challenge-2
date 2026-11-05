@@ -27,7 +27,12 @@ class FakeCursor:
             key = (str(values[0]), values[1])
             if key not in self.conn.norm_versions:
                 self.conn.norm_versions[key] = self.conn.next_id()
-            self._rows = [(self.conn.norm_versions[key],)]
+                self.conn.norm_version_hashes[key] = str(values[3])
+                self._rows = [(self.conn.norm_versions[key],)]
+        elif normalized.startswith("SELECT id FROM norm_versions"):
+            key = (str(values[0]), values[1])
+            if key in self.conn.norm_versions:
+                self._rows = [(self.conn.norm_versions[key],)]
         elif normalized.startswith("INSERT INTO devices"):
             self.conn.devices.add(str(values[0]))
         elif normalized.startswith("INSERT INTO device_versions"):
@@ -61,6 +66,7 @@ class FakeConnection:
         self.norms: set[str] = set()
         self.devices: set[str] = set()
         self.norm_versions: dict[tuple[str, Any], int] = {}
+        self.norm_version_hashes: dict[tuple[str, Any], str] = {}
         self.device_versions: dict[tuple[str, int], int] = {}
         self.ingest_runs: list[int] = []
         self._id = 0

@@ -121,11 +121,96 @@ def test_norm_version_is_keyed_by_vigencia_inicio() -> None:
 def test_load_versions_compatibility_wrapper() -> None:
     conn = FakeConnection()
 
-    report = load_versions(conn, _result().versions)
+    report = load_versions(conn, _result().versions, norm_id="lmp")
 
     assert report.norm_id == "lmp"
     assert report.versions_loaded == 2
     assert len(conn.device_versions) == 2
+    assert not any(sql.startswith("INSERT INTO devices") for sql, _ in conn.executions)
+
+
+def test_sumula_norm_derives_numero_and_writes_null_ano() -> None:
+    conn = FakeConnection()
+    device_id = "stj-sum-542"
+    result = normalize_parse_result(
+        ParseResult(
+            norm=Norm(id="stj-sumulas", tipo="sumula", numero=None, ano=None),
+            devices=[
+                Device(
+                    id=device_id,
+                    norm_id="stj-sumulas",
+                    parent_id=None,
+                    artigo_id=device_id,
+                    tipo="artigo",
+                    rotulo="Súmula nº 542",
+                    caminho="Súmula 542",
+                    ordem=1,
+                )
+            ],
+            versions=[
+                DeviceVersion(
+                    device_id=device_id,
+                    norm_version_id=1,
+                    texto_literal="Súmula de teste.",
+                    texto_anterior=None,
+                    contexto="Súmulas do STJ",
+                    citacao="Súmula nº 542 do STJ",
+                    vigencia_status="vigente",
+                    redacao_dada_por=None,
+                    vigencia_inicio=date(1989, 1, 1),
+                    vigencia_fim=None,
+                    fonte_url="https://example.test",
+                    content_hash="placeholder",
+                    qdrant_point_id=uuid5(NAMESPACE_URL, device_id),
+                    search_text="",
+                )
+            ],
+        )
+    )
+
+    load_parse_result(conn, result)
+
+    insert_norm = next(
+        (sql, params) for sql, params in conn.executions if sql.startswith("INSERT INTO norms")
+    )
+    assert insert_norm[1][2] == "542"
+    assert insert_norm[1][3] is None
+
+
+def test_different_device_order_does_not_mutate_norm_version_event() -> None:
+    conn = FakeConnection()
+    result = _result()
+    load_parse_result(conn, result)
+    first_hash = conn.norm_version_hashes[("lmp", date(2006, 9, 22))]
+
+    reversed_result = result.model_copy(
+        update={
+            "devices": list(reversed(result.devices)),
+            "versions": list(reversed(result.versions)),
+        }
+    )
+    load_parse_result(conn, reversed_result)
+
+    assert conn.norm_version_hashes[("lmp", date(2006, 9, 22))] == first_hash
+    assert len(conn.norm_versions) == 1
+    assert not any("UPDATE norm_versions" in sql for sql, _ in conn.executions)
+    assert not any("DO UPDATE" in sql for sql, _ in conn.executions if "norm_versions" in sql)
+
+
+def test_load_parse_result_wires_ingest_run_counts() -> None:
+    conn = FakeConnection()
+
+    load_parse_result(conn, _result(), ingest_run_id=42)
+
+    updates = [
+        (sql, params) for sql, params in conn.executions if sql.startswith("UPDATE ingest_runs")
+    ]
+    assert updates == [
+        (
+            "UPDATE ingest_runs SET devices_seen = %s, devices_changed = %s WHERE id = %s",
+            (2, 2, 42),
+        )
+    ]
 
 
 def test_record_ingest_run_inserts_and_updates() -> None:
