@@ -14,26 +14,37 @@ The literal text is never modified here; ``embed_chunks`` only reads
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
+import time
 from collections.abc import Iterable
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
+import httpx
 from pydantic import BaseModel
 
 from src.config import LOCAL_06B_GGUF, LOCAL_9B_GGUF
 from src.contracts import ModelFormatError
 from src.index.chunk import Chunk
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_HARRIER_MODEL = "microsoft/harrier-oss-v1-0.6b"
 DEFAULT_PPLX_06B_MODEL = "perplexity-ai/pplx-embed-v2-late-0.6b"
 DEFAULT_PPLX_9B_MODEL = "perplexity-ai/pplx-embed-v2-late-9b"
 DEFAULT_DIMENSION = 1024
+OPENROUTER_DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+OPENROUTER_DEFAULT_MODEL = "openai/text-embedding-3-small"
 
 HARRIER_INSTRUCTION = (
     "Instruct: Dada uma pergunta de uma vítima de violência doméstica, "
     "recupere o dispositivo legal que a responde.\nQuery: "
 )
 QUERY_INSTRUCTION = HARRIER_INSTRUCTION
+
+
+class EmbeddingUnavailable(Exception):
+    """Raised when the embedding provider cannot produce vectors after retries."""
 
 
 class Encoder(Protocol):
@@ -177,6 +188,176 @@ class PPLXEncoder(_SentenceTransformerEncoder):
         return self._encode([text])[0]
 
 
+class OpenRouterEncoder:
+    """Dense embeddings through OpenRouter's OpenAI-compatible API.
+
+    OpenRouter only exposes dense embedding models; the pplx-v2-late
+    multivector models used by the target path are not available.
+    """
+
+    def __init__(
+        self,
+        model: str = OPENROUTER_DEFAULT_MODEL,
+        *,
+        api_key: str | None = None,
+        base_url: str = OPENROUTER_DEFAULT_BASE_URL,
+        dimension: int = DEFAULT_DIMENSION,
+        batch_size: int = 32,
+        timeout: float = 60.0,
+        max_retries: int = 2,
+        data_collection: Literal["deny", "allow"] = "deny",
+        zdr: bool = True,
+        site_url: str = "",
+        app_name: str = "",
+        backoff_base: float = 0.5,
+        client: httpx.Client | None = None,
+    ) -> None:
+        if not api_key:
+            raise ValueError(
+                "OPENROUTER_API_KEY is required for EMBEDDING_PROVIDER=openrouter; "
+                "set it in the environment or in .env."
+            )
+        if not model:
+            raise ValueError("embedding model is required")
+        if not base_url:
+            raise ValueError("embedding base_url is required")
+        if dimension <= 0:
+            raise ValueError("dimension must be positive")
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        if timeout <= 0:
+            raise ValueError("timeout must be positive")
+        if max_retries < 0:
+            raise ValueError("max_retries must be non-negative")
+
+        self.model_name = model
+        self.revision = f"openrouter:{model}"
+        self.dimension = dimension
+        self.batch_size = batch_size
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.data_collection = data_collection
+        self.zdr = zdr
+        self.site_url = site_url
+        self.app_name = app_name
+        self.backoff_base = backoff_base
+        self.base_url = base_url.rstrip("/")
+        self._api_key = api_key
+        self._owns_client = client is None
+        self._client = client or httpx.Client()
+
+    @property
+    def endpoint(self) -> str:
+        return f"{self.base_url}/embeddings"
+
+    def _headers(self) -> dict[str, str]:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self._api_key}",
+        }
+        if self.site_url:
+            headers["HTTP-Referer"] = self.site_url
+        if self.app_name:
+            headers["X-Title"] = self.app_name
+        return headers
+
+    def _payload(self, batch: list[str]) -> dict[str, Any]:
+        return {
+            "model": self.model_name,
+            "input": batch,
+            "dimensions": self.dimension,
+            "encoding_format": "float",
+            "provider": {
+                "data_collection": self.data_collection,
+                "zdr": self.zdr,
+                "allow_fallbacks": True,
+            },
+        }
+
+    def close(self) -> None:
+        if self._owns_client:
+            self._client.close()
+
+    def __enter__(self) -> OpenRouterEncoder:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
+
+    def encode_documents(self, texts: list[str]) -> list[list[float]]:
+        items = list(texts)
+        vectors: list[list[float]] = []
+        for start in range(0, len(items), self.batch_size):
+            batch = items[start : start + self.batch_size]
+            vectors.extend(self._encode_batch(batch))
+        return vectors
+
+    def encode_query(self, text: str) -> list[float]:
+        return self._encode_batch([text])[0]
+
+    def _encode_batch(self, batch: list[str]) -> list[list[float]]:
+        attempts = self.max_retries + 1
+        last_error = "unknown"
+
+        for attempt in range(attempts):
+            try:
+                response = self._client.post(
+                    self.endpoint,
+                    json=self._payload(batch),
+                    headers=self._headers(),
+                    timeout=self.timeout,
+                )
+            except httpx.TimeoutException:
+                last_error = "timeout"
+                logger.warning("embedding request timed out attempt=%s", attempt + 1)
+            except httpx.HTTPError:
+                last_error = "network error"
+                logger.warning("embedding request failed attempt=%s", attempt + 1)
+            else:
+                if response.status_code == 429 or 500 <= response.status_code < 600:
+                    last_error = f"status {response.status_code}"
+                    logger.warning(
+                        "embedding request failed with status=%s attempt=%s",
+                        response.status_code,
+                        attempt + 1,
+                    )
+                elif response.status_code >= 400:
+                    raise EmbeddingUnavailable(
+                        f"OpenRouter embeddings request failed with status {response.status_code}"
+                    )
+                else:
+                    return self._parse_vectors(response, len(batch))
+
+            if attempt < attempts - 1 and self.backoff_base > 0:
+                time.sleep(self.backoff_base * (2**attempt))
+
+        raise EmbeddingUnavailable(
+            f"OpenRouter embeddings unavailable after {attempts} attempts: {last_error}"
+        )
+
+    def _parse_vectors(self, response: httpx.Response, expected: int) -> list[list[float]]:
+        try:
+            entries = sorted(
+                response.json()["data"],
+                key=lambda item: int(item.get("index", 0)),
+            )
+            vectors = [[float(value) for value in item["embedding"]] for item in entries]
+        except (AttributeError, KeyError, IndexError, TypeError, ValueError) as exc:
+            raise EmbeddingUnavailable("OpenRouter returned an unexpected response") from exc
+
+        if len(vectors) != expected:
+            raise EmbeddingUnavailable(
+                f"OpenRouter returned {len(vectors)} embeddings for {expected} inputs"
+            )
+        for vector in vectors:
+            if len(vector) != self.dimension:
+                raise ValueError(
+                    "embedding dimension mismatch: OPENROUTER_EMBEDDING_DIMENSIONS expects "
+                    f"{self.dimension}, got {len(vector)}"
+                )
+        return vectors
+
+
 def _pplx_field_for(model_path: str) -> str:
     return "ppx_9b_model_path" if "9b" in model_path.lower() else "ppx_06b_model_path"
 
@@ -209,6 +390,24 @@ def _load_sentence_transformer(model_name: str, revision: str) -> Any:
 
 def get_encoder(settings: Any) -> Encoder:
     provider = settings.embedding_provider
+
+    if provider == "openrouter":
+        return OpenRouterEncoder(
+            str(getattr(settings, "openrouter_embedding_model", "") or OPENROUTER_DEFAULT_MODEL),
+            api_key=str(getattr(settings, "openrouter_api_key", "") or ""),
+            base_url=str(
+                getattr(settings, "openrouter_base_url", "") or OPENROUTER_DEFAULT_BASE_URL
+            ),
+            dimension=int(getattr(settings, "openrouter_embedding_dimensions", DEFAULT_DIMENSION)),
+            batch_size=int(getattr(settings, "openrouter_batch_size", 32)),
+            timeout=float(getattr(settings, "openrouter_timeout", 60.0)),
+            max_retries=int(getattr(settings, "openrouter_max_retries", 2)),
+            data_collection=getattr(settings, "openrouter_data_collection", "deny"),
+            zdr=bool(getattr(settings, "openrouter_zdr", True)),
+            site_url=str(getattr(settings, "openrouter_site_url", "") or ""),
+            app_name=str(getattr(settings, "openrouter_app_name", "") or ""),
+        )
+
     revision = _revision(settings)
 
     if provider == "harrier":

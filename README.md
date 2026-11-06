@@ -48,7 +48,7 @@ antes de usar qualquer número deste repositório.
 | Modelos locais | Os artefatos locais são **GGUF** (llama.cpp). O caminho alvo precisa de **safetensors**. GGUF levanta `ModelFormatError`; o fallback é o padrão. |
 | Docker/Postgres/Qdrant | `docker-compose.yml` e CI existem, mas **não há Docker, Postgres ou Qdrant ao vivo** no ambiente em que este status foi escrito. Testes de integração não foram executados aqui. |
 | Observabilidade | Módulos de log estruturado e middleware existem, com testes. `create_app` instala `RequestContextMiddleware` e `SecurityHeadersMiddleware`; não houve execução ponta a ponta ao vivo neste ambiente. |
-| LLM | Padrão `LLM_PROVIDER=mock`. Os provedores `local`/`api` existem no código, mas `llm_base_url`/`llm_api_key` não estão em `Settings` nem no `.env.example`; não são configuráveis de ponta a ponta. |
+| LLM | Padrão `LLM_PROVIDER=mock`. Os provedores `local`, `api` e `openrouter` existem; `openrouter` usa as chaves `OPENROUTER_*` e permite rodar sem modelos locais. O smoke ao vivo depende de chave e rede e **não foi executado** para produzir métricas. |
 
 ## Arquitetura e fluxo
 
@@ -86,7 +86,7 @@ mensagem
 - Python **3.12** e [uv](https://docs.astral.sh/uv/).
 - Docker (opcional; necessário para Postgres/Qdrant locais).
 - GPU + checkpoints **safetensors** apenas para o caminho alvo.
-- Rede apenas para a ingestão das fontes oficiais.
+- Rede para a ingestão das fontes oficiais e, opcionalmente, para o OpenRouter.
 
 ## Quickstart em máquina limpa
 
@@ -121,8 +121,9 @@ Edite `.env` e **pinne** `EMBEDDING_MODEL_REVISION` com um commit/tag. Vazio ou
 EMBEDDING_MODEL_REVISION=<commit-ou-tag>
 ```
 
-O padrão `LLM_PROVIDER=mock` não precisa de chave. Não há campos de URL/chave de
-LLM em `Settings`; para esta versão, use `mock`.
+O padrão `LLM_PROVIDER=mock` não precisa de chave. Para LLM local/API, use
+`LLM_BASE_URL` e `LLM_API_KEY`; para rodar sem modelos locais, veja
+[Rodando com OpenRouter](#rodando-com-openrouter).
 
 ### 3. Infra local
 
@@ -250,6 +251,52 @@ uv run mypy src
 `pytest -m integration` exige Postgres/Qdrant vivos e não foi executado no
 ambiente deste status. O CI define os serviços e aplica as migrações antes.
 
+## Rodando com OpenRouter
+
+O OpenRouter permite usar chat e embeddings densos sem baixar modelos locais.
+Ele é compatível com a API da OpenAI em `https://openrouter.ai/api/v1`.
+
+Configure o ambiente (ou copie o bloco `OPENROUTER_*` de `.env.example` para
+`.env`):
+
+```powershell
+$env:LLM_PROVIDER = "openrouter"
+$env:EMBEDDING_PROVIDER = "openrouter"
+$env:RETRIEVAL_PATH = "fallback"
+$env:OPENROUTER_API_KEY = "<sua-chave>"
+```
+
+Defaults: chat `openai/gpt-4o-mini`; embeddings
+`openai/text-embedding-3-small` com `OPENROUTER_EMBEDDING_DIMENSIONS=1024`
+(compatível com `vector(1024)` de `migrations/001_init.sql`). `OPENROUTER_*`
+também aceita modelo, base URL, lote, timeout, retries e os cabeçalhos
+opcionais de site/app.
+
+Smoke ao vivo (falha com código 1 e mensagem clara se a chave não existir ou a
+API não responder):
+
+```powershell
+uv run python scripts/check_openrouter.py
+uv run pytest -m integration
+```
+
+O teste `tests/integration/test_openrouter_live.py` é pulado quando
+`OPENROUTER_API_KEY` não está definido; quando definido, faz uma chamada de chat
+e uma de embeddings com prompt mínimo.
+
+> **Privacidade:** enviar perguntas de vítimas a um terceiro exige contrato de
+> retenção zero, sem treinamento com os dados e jurisdição compatível. Por
+> padrão o código pede `OPENROUTER_DATA_COLLECTION=deny` e `OPENROUTER_ZDR=true`,
+> mas essas preferências precisam ser validadas com o provedor e com o contrato;
+> não são garantia jurídica. Se isso não estiver assegurado, rode LLM e embedder
+> localmente.
+
+O caminho alvo continua indisponível: o OpenRouter não oferece os modelos
+multivector `pplx-embed-v2-late` usados por `RETRIEVAL_PATH=target`. Com
+`EMBEDDING_PROVIDER=openrouter` e `RETRIEVAL_PATH=target`,
+`build_default_pipeline` levanta `ValueError` e pede
+`RETRIEVAL_PATH=fallback`.
+
 ## Variáveis de ambiente
 
 Todas as chaves de `.env.example`. O default entre parênteses é o usado pelo
@@ -258,9 +305,9 @@ código quando a variável não existe.
 | Variável | Default | Para que serve |
 | --- | --- | --- |
 | `RETRIEVAL_PATH` | `fallback` | `fallback` (pgvector/FTS) ou `target` (Qdrant/9B). O alvo ainda exige injeção de searcher. |
-| `EMBEDDING_PROVIDER` | `harrier` | `harrier` no fallback; `pplx` para os modelos pplx. |
-| `EMBEDDING_MODEL_REVISION` | vazio | Commit/tag do modelo. **Obrigatório para indexar**; vazio ou `main` levanta erro. |
-| `LLM_PROVIDER` | `mock` | `mock`, `local` ou `api`. Só `mock` é configurável de ponta a ponta neste branch. |
+| `EMBEDDING_PROVIDER` | `harrier` | `harrier` no fallback; `pplx` para os modelos pplx; `openrouter` para embeddings densos remotos. |
+| `EMBEDDING_MODEL_REVISION` | vazio | Commit/tag do modelo. **Obrigatório para indexar**; vazio ou `main` levanta erro. Ignorado com `EMBEDDING_PROVIDER=openrouter`. |
+| `LLM_PROVIDER` | `mock` | `mock`, `local`, `api` ou `openrouter`. `openrouter` usa as chaves `OPENROUTER_*`. |
 | `MAX_DEVICES` | `10` | Máximo de dispositivos no contexto/resposta. |
 | `MAX_CONTEXT_TOKENS` | `6000` | Orçamento de tokens do contexto. |
 | `MAX_SUBQUESTIONS` | `3` | Máximo de subperguntas (contrato limita a 3). |
@@ -270,7 +317,21 @@ código quando a variável não existe.
 | `PPX_9B_MODEL_PATH` | vazio | Diretório **safetensors** do pplx 9B (indexação alvo). Valor terminado em `.gguf` é rejeitado. |
 | `PPX_06B_MODEL_PATH` | vazio | Diretório **safetensors** do pplx 0.6B (consulta alvo/rerank). Valor terminado em `.gguf` é rejeitado. |
 | `HARRIER_MODEL_PATH` | vazio | Diretório **safetensors** do Harrier; vazio usa `microsoft/harrier-oss-v1-0.6b`. Valor terminado em `.gguf` é rejeitado. |
-| `LLM_MODEL` | vazio | Nome do modelo do provedor LLM; com `mock`, vira `mock`. |
+| `LLM_MODEL` | vazio | Nome do modelo do provedor LLM; com `mock`, vira `mock`. Com `openrouter`, é o fallback quando `OPENROUTER_MODEL` está vazio. |
+| `LLM_BASE_URL` | vazio | Base URL de um servidor OpenAI-compatible/Ollama para `LLM_PROVIDER=local` ou `api`. |
+| `LLM_API_KEY` | vazio | Chave do provedor local/API. Para OpenRouter, use `OPENROUTER_API_KEY`. |
+| `OPENROUTER_API_KEY` | vazio | Chave do OpenRouter. Obrigatória apenas ao construir os clientes OpenRouter; `Settings` não falha sem ela. |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | Base URL da API do OpenRouter. |
+| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | Modelo de chat; vazio cai para `LLM_MODEL` e depois para o default. |
+| `OPENROUTER_EMBEDDING_MODEL` | `openai/text-embedding-3-small` | Modelo de embeddings densos. |
+| `OPENROUTER_EMBEDDING_DIMENSIONS` | `1024` | Dimensão pedida ao provedor; precisa bater com o `vector(N)` indexado. |
+| `OPENROUTER_BATCH_SIZE` | `32` | Textos por requisição de embeddings. |
+| `OPENROUTER_TIMEOUT` | `60` | Timeout em segundos das requisições de embeddings. |
+| `OPENROUTER_MAX_RETRIES` | `2` | Tentativas extras em 429/5xx/timeout; `0` desliga. |
+| `OPENROUTER_DATA_COLLECTION` | `deny` | Preferência `provider.data_collection` (`deny` ou `allow`). |
+| `OPENROUTER_ZDR` | `true` | Preferência `provider.zdr` (zero data retention). |
+| `OPENROUTER_SITE_URL` | vazio | Cabeçalho opcional `HTTP-Referer`. |
+| `OPENROUTER_APP_NAME` | vazio | Cabeçalho opcional `X-Title`. |
 | `LOG_LEVEL` | `INFO` | Nível do logger. |
 | `LOG_QUESTION_TEXT` | `false` | Se `true`, permite logar texto de pergunta **com PII redigida**. Padrão: descartar. |
 | `LOG_RETENTION_DAYS` | `7` | Retenção de logs; `0` significa sem persistência. Lido do ambiente do processo, não do `.env` por `src.obs.logging`. |
@@ -283,6 +344,10 @@ Observações de configuração:
   diretamente por `src.obs.logging`.
 - `MAX_AGENT_LOOPS` está na configuração, mas o pipeline atual não executa um loop
   agêntico amplo.
+- `LLM_PROVIDER=openrouter`/`EMBEDDING_PROVIDER=openrouter` não exigem chave na
+  construção de `Settings`; `get_llm`/`get_encoder` falham nomeando
+  `OPENROUTER_API_KEY` apenas quando o cliente é criado. O caminho alvo é
+  rejeitado porque não há modelo multivector no OpenRouter.
 
 ## Modelos e formatos
 
@@ -334,8 +399,10 @@ permanecem **PENDENTES**. Os números de `docs/08` são metas, não resultados.
   quem criar um sink.
 - **APIs externas:** só com contrato de retenção zero, sem treinamento com os
   dados, jurisdição compatível, minimização da pergunta e trilha de auditoria.
-  Caso contrário, embedder e LLM devem rodar localmente. Neste branch, o LLM
-  padrão é `mock`.
+   Caso contrário, embedder e LLM devem rodar localmente. Neste branch, o LLM
+   padrão é `mock`; o OpenRouter é opt-in e as preferências
+   `OPENROUTER_DATA_COLLECTION=deny`/`OPENROUTER_ZDR=true` precisam ser
+   confirmadas no contrato (veja [Rodando com OpenRouter](#rodando-com-openrouter)).
 - **Emergência:** o bloco com 190/180/100/197 é avaliado antes do RAG e não toca
   banco, busca ou LLM.
 - **UI:** a barra lateral repete o aviso de não substituição e orienta a não
@@ -384,7 +451,10 @@ Limitações atuais:
   injeção de pipeline/searcher.
 - O adaptador de avaliação existe, mas as métricas seguem pendentes: não houve
   execução contra Postgres/Qdrant ao vivo.
-- LLM `local`/`api` sem campos de URL/chave em `Settings`/`.env.example`.
+- OpenRouter implementado e coberto por testes com httpx mockado, mas o smoke ao
+  vivo (`scripts/check_openrouter.py` / `pytest -m integration`) não foi
+  executado neste ambiente; não há métricas com OpenRouter. O caminho alvo
+  continua indisponível no OpenRouter (sem modelo multivector `pplx-v2-late`).
 - Middlewares de request ID/segurança estão ligados em `create_app`, mas não
   houve validação em execução ao vivo.
 - Nenhuma revisão jurídica humana; nenhum gate G4/G6.
