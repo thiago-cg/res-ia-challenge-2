@@ -365,22 +365,25 @@ Legenda: **S** ≤ 2 h, **M** 2–4 h, **L** 4–8 h.
 
 ### 8.1 Checklist de execução
 
+Legenda: `[x]` = aceite executado e verificado no ambiente local; `[~]` =
+implementado, não executado no ambiente local; `[ ]` = pendente.
+
 - [x] FND-01 Scaffold
-- [x] FND-02 Infra local
-- [x] FND-03 Migração inicial
+- [~] FND-02 Infra local
+- [~] FND-03 Migração inicial
 - [x] FND-04 Contratos e config
-- [x] FND-05 CI e qualidade
-- [x] ING-01 Manifesto e downloader
+- [~] FND-05 CI e qualidade
+- [~] ING-01 Manifesto e downloader
 - [x] ING-02 Parser Planalto
 - [x] ING-03 Parser CNJ e súmulas
 - [x] ING-04 Normalização
-- [x] ING-05 Loader e validação
-- [x] ING-06 Diff e reindexação
+- [~] ING-05 Loader e validação
+- [~] ING-06 Diff e reindexação
 - [x] IDX-01 Chunker estrutural
 - [x] IDX-02 Embeddings
-- [x] IDX-03 Qdrant
-- [x] IDX-04 pgvector/FTS
-- [x] IDX-05 CLI de índice e smoke
+- [~] IDX-03 Qdrant
+- [~] IDX-04 pgvector/FTS
+- [~] IDX-05 CLI de índice e smoke
 - [x] RET-01 Citação explícita
 - [x] RET-02 Entendimento da consulta
 - [x] RET-03 Busca BM25/densa
@@ -401,18 +404,20 @@ Legenda: **S** ≤ 2 h, **M** 2–4 h, **L** 4–8 h.
 - [ ] OPS-02 Backup e CI
 - [ ] OPS-03 Runbook e gate jurídico
 
-> Atualização OPS-03 (2026-11-05): as caixas marcadas têm implementação e
-> evidência unitária/estática neste repositório (suíte `pytest -m "not
-> integration"`, ruff, format e mypy). Testes de integração e o drill de
-> backup/restore **não** foram executados localmente porque não há Docker,
-> Postgres ou Qdrant; o CI está configurado, mas não foi observado nesta
-> máquina. As caixas marcadas não afirmam funcionamento ponta a ponta.
+> Atualização OPS-03 (2026-11-05): as caixas `[x]` têm aceite verificado com
+> testes locais (suíte `pytest -m "not integration"`, ruff, format e mypy). As
+> caixas `[~]` têm implementação e evidência unitária/estática, mas o aceite
+> depende de Docker, Postgres, Qdrant, download real, migração real ou execução
+> observada do CI, e **não** foi executado neste ambiente. As caixas `[x]` e
+> `[~]` não afirmam funcionamento ponta a ponta.
 >
 > Permanecem abertas: **EVA-04** (150 perguntas dependem de execução viva e
 > revisão humana); **OPS-01** (módulos de log/middleware implementados e
 > testados, mas `create_app` ainda não instala os middlewares e não há sink de
 > retenção); **OPS-02** (scripts e job de CI prontos, drill não executado aqui);
 > **OPS-03** (README/runbook entregues, parecer jurídico **PENDENTE**).
+> FND-02, FND-03, FND-05, ING-01, ING-05, ING-06, IDX-03, IDX-04 e IDX-05
+> seguem `[~]` até execução real.
 >
 > Nenhuma métrica foi produzida e nenhum parecer jurídico foi emitido (ver
 > `docs/08` §12). Os gates **G4** e **G6** não foram atingidos. Os artefatos

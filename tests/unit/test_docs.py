@@ -30,8 +30,21 @@ FORBIDDEN_CLAIMS = (
     "revisão jurídica realizada",
     "parecer jurídico emitido",
     "G4 atingido",
+    "G5 atingido",
     "G6 atingido",
     "métricas produzidas",
+)
+
+LIVE_ONLY_TASKS = (
+    "FND-02",
+    "FND-03",
+    "FND-05",
+    "ING-01",
+    "ING-05",
+    "ING-06",
+    "IDX-03",
+    "IDX-04",
+    "IDX-05",
 )
 
 
@@ -116,8 +129,8 @@ def test_readme_documents_backup_and_restore_commands() -> None:
         assert needle in text, f"missing backup/restore detail: {needle}"
 
 
-def test_readme_and_docs10_do_not_claim_human_review_or_live_metrics() -> None:
-    for path in (README, DOCS10):
+def test_readme_and_docs_do_not_claim_human_review_or_live_metrics() -> None:
+    for path in (README, DOCS06, DOCS10):
         text = _read(path).lower()
         for claim in FORBIDDEN_CLAIMS:
             assert claim.lower() not in text, f"{path.name} makes a false claim: {claim}"
@@ -135,10 +148,20 @@ def test_readme_relative_links_exist() -> None:
         assert (ROOT / target).exists(), f"broken relative link in README: {link}"
 
 
-def test_docs10_keeps_eva04_g4_and_g6_unchecked() -> None:
+def test_docs10_keeps_eva04_and_gates_unchecked() -> None:
     text = _read(DOCS10)
-    for item in ("EVA-04", "G4", "G6"):
+    for item in ("EVA-04", "G4", "G5", "G6"):
         assert re.search(rf"^- \[ \] {re.escape(item)}\b", text, re.MULTILINE), item
+        assert not re.search(rf"^- \[x\] {re.escape(item)}\b", text, re.MULTILINE | re.I)
+
+
+def test_docs10_marks_live_only_tasks_as_not_executed() -> None:
+    text = _read(DOCS10)
+    normalized = " ".join(text.split())
+    assert "[~]" in text
+    assert "implementado, não executado no ambiente local" in normalized
+    for item in LIVE_ONLY_TASKS:
+        assert re.search(rf"^- \[~\] {re.escape(item)}\b", text, re.MULTILINE), item
         assert not re.search(rf"^- \[x\] {re.escape(item)}\b", text, re.MULTILINE | re.I)
 
 

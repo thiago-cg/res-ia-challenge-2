@@ -271,9 +271,9 @@ código quando a variável não existe.
 | `MAX_AGENT_LOOPS` | `3` | Limite de loops do agente; presente na config. |
 | `DATABASE_URL` | `postgresql://app:app@localhost:5432/violencia` | Postgres, fonte da verdade. |
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant do caminho alvo e do health check. |
-| `PPX_9B_MODEL_PATH` | vazio | Diretório **safetensors** do pplx 9B (indexação alvo). GGUF é rejeitado. |
-| `PPX_06B_MODEL_PATH` | vazio | Diretório **safetensors** do pplx 0.6B (consulta alvo/rerank). GGUF é rejeitado. |
-| `HARRIER_MODEL_PATH` | vazio | Diretório **safetensors** do Harrier; vazio usa `microsoft/harrier-oss-v1-0.6b`. GGUF é rejeitado. |
+| `PPX_9B_MODEL_PATH` | vazio | Diretório **safetensors** do pplx 9B (indexação alvo). Valor terminado em `.gguf` é rejeitado. |
+| `PPX_06B_MODEL_PATH` | vazio | Diretório **safetensors** do pplx 0.6B (consulta alvo/rerank). Valor terminado em `.gguf` é rejeitado. |
+| `HARRIER_MODEL_PATH` | vazio | Diretório **safetensors** do Harrier; vazio usa `microsoft/harrier-oss-v1-0.6b`. Valor terminado em `.gguf` é rejeitado. |
 | `LLM_MODEL` | vazio | Nome do modelo do provedor LLM; com `mock`, vira `mock`. |
 | `LOG_LEVEL` | `INFO` | Nível do logger. |
 | `LOG_QUESTION_TEXT` | `false` | Se `true`, permite logar texto de pergunta **com PII redigida**. Padrão: descartar. |
@@ -293,9 +293,11 @@ Observações de configuração:
 - Os caminhos `LOCAL_06B_GGUF` e `LOCAL_9B_GGUF` em `src/config.py` apontam para
   diretórios **GGUF** da máquina de desenvolvimento. Eles não são baixados pelo
   projeto e não são portáveis.
-- `sentence-transformers` não carrega GGUF. Qualquer `*.gguf` em
-  `PPX_9B_MODEL_PATH`, `PPX_06B_MODEL_PATH` ou `HARRIER_MODEL_PATH` levanta
-  `ModelFormatError` antes de qualquer download/carga.
+- `sentence-transformers` não carrega GGUF. Um valor de configuração terminado
+  em `.gguf` em `PPX_9B_MODEL_PATH`, `PPX_06B_MODEL_PATH` ou
+  `HARRIER_MODEL_PATH` levanta `ModelFormatError` antes de qualquer
+  download/carga. Um diretório que apenas contém arquivos GGUF não é detectado
+  por essa checagem; aponte para um diretório safetensors ou use o fallback.
 - O caminho alvo exige checkpoints **safetensors** do pplx 9B/0.6B e um encoder
   multivector. O caminho fallback usa Harrier denso em `pgvector`.
 - Sem `EMBEDDING_MODEL_REVISION` pinado, `get_encoder` falha; na API, a factory
