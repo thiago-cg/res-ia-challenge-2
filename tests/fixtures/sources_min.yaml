@@ -1,0 +1,16 @@
+# Synthetic manifest used only by unit tests. The URLs do not need to resolve.
+sources:
+  - id: lmp
+    title: "Lei nº 11.340/2006 (Lei Maria da Penha)"
+    url: "https://example.test/lmp.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+  - id: cpp
+    title: "Código de Processo Penal"
+    url: "https://example.test/cpp.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: false

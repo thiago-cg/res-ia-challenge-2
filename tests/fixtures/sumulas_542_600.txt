@@ -1,0 +1,8 @@
+# SYNTHETIC FIXTURE. Hand-written enunciados for parser unit tests only.
+# The wording below is not official STJ text and must not be used as legal content.
+
+Súmula 542
+Enunciado sintético da Súmula 542 sobre lesão corporal.
+
+Súmula 600
+Enunciado sintético da Súmula 600 sobre a dispensa de coabitação.

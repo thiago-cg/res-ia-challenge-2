@@ -1,0 +1,16 @@
+{
+  "device_id": "stf-adi-4424",
+  "norm_id": "stf-adi-4424",
+  "artigo_id": "stf-adi-4424",
+  "tipo": "artigo",
+  "rotulo": "STF, ADI nº 4.424",
+  "caminho": "STF > Controle concentrado de constitucionalidade > ADI 4.424",
+  "citacao": "STF, ADI nº 4.424",
+  "texto_curado": "Curadoria: o STF, na ADI 4.424, reconheceu a natureza incondicionada da ação penal no crime de lesão corporal em contexto de violência doméstica, em linha com a Súmula 542 do STJ.",
+  "fonte_url": "https://portal.stf.jus.br/jurisprudencia/",
+  "fonte_consulta": "STF — ADI nº 4.424 (pesquisar no portal de jurisprudência)",
+  "proveniencia": "Entrada curada manualmente para o conjunto de avaliação. Não é scraping e não é texto literal do acórdão; a fonte oficial deve ser consultada antes de qualquer uso jurídico.",
+  "status": "pendente_de_carga",
+  "carregar_em": "corpus de avaliação (Postgres/Qdrant) antes de executar data/eval/regressions.jsonl",
+  "revisao_juridica": "pendente"
+}
