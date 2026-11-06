@@ -2,16 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-from src.api.main import (
-    PipelineResult as ApiPipelineResult,
-)
-from src.api.main import (
-    build_eval_pipeline,
-)
+from src.api.main import PipelineResult as ApiPipelineResult
+from src.api.main import build_eval_pipeline
+from src.config import Settings
 from src.contracts import Answer, Citation, QueryFacts
 from src.eval.pipeline import make_eval_pipeline
 
@@ -56,9 +54,26 @@ class FakeRepo:
         return "ok", None, None
 
 
+class FakeEncoder:
+    model_name = "fake"
+    dimension = 3
+
+    def __init__(self, *, revision: str = "abc123", fail: bool = False) -> None:
+        self.revision = revision
+        self.fail = fail
+        self.probes: list[str] = []
+
+    def encode_query(self, text: str) -> list[float]:
+        self.probes.append(text)
+        if self.fail:
+            raise RuntimeError("model files missing")
+        return [0.1, 0.2, 0.3]
+
+
 class FakeDefaultPipeline:
-    def __init__(self) -> None:
+    def __init__(self, encoder: FakeEncoder | None = None) -> None:
         self.repo = FakeRepo()
+        self.encoder = encoder or FakeEncoder()
 
     def answer(self, message: str, facts: QueryFacts | None = None) -> ApiPipelineResult:
         return ApiPipelineResult(
@@ -142,14 +157,20 @@ def test_adapter_clears_claims_for_emergency() -> None:
 def test_build_eval_pipeline_wraps_the_default_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    encoder = FakeEncoder()
+    monkeypatch.setattr(
+        "src.api.main.get_settings",
+        lambda: Settings(embedding_model_revision="abc123"),
+    )
     monkeypatch.setattr(
         "src.api.main.build_default_pipeline",
-        lambda settings, data_atualizacao_base: FakeDefaultPipeline(),
+        lambda settings, data_atualizacao_base: FakeDefaultPipeline(encoder),
     )
 
     adapter = build_eval_pipeline()
     result = adapter({"pergunta": "Qual o prazo?", "data_fato": None})
 
+    assert encoder.probes == ["probe"]
     assert result.retrieved_ids == ("lmp/art1",)
     assert result.claims_supported == [True]
 
@@ -163,4 +184,59 @@ def test_build_eval_pipeline_fails_clearly_without_database(
     monkeypatch.setattr("src.api.main.build_default_pipeline", unavailable)
 
     with pytest.raises(RuntimeError, match="pipeline real de avaliação indisponível"):
+        build_eval_pipeline()
+
+
+def test_build_eval_pipeline_fails_when_encoder_probe_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "src.api.main.get_settings",
+        lambda: Settings(embedding_model_revision="abc123"),
+    )
+    monkeypatch.setattr(
+        "src.api.main.build_default_pipeline",
+        lambda settings, data_atualizacao_base: FakeDefaultPipeline(FakeEncoder(fail=True)),
+    )
+
+    with pytest.raises(RuntimeError, match="embedding de teste") as excinfo:
+        build_eval_pipeline()
+
+    assert "safetensors" in str(excinfo.value)
+    assert "GGUF" in str(excinfo.value)
+
+
+def test_build_eval_pipeline_fails_when_model_path_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    missing = tmp_path / "missing-model"
+    monkeypatch.setattr(
+        "src.api.main.get_settings",
+        lambda: Settings(
+            embedding_model_revision="abc123",
+            harrier_model_path=str(missing),
+        ),
+    )
+    monkeypatch.setattr(
+        "src.api.main.build_default_pipeline",
+        lambda settings, data_atualizacao_base: FakeDefaultPipeline(),
+    )
+
+    with pytest.raises(RuntimeError, match="caminho do modelo não existe"):
+        build_eval_pipeline()
+
+
+def test_build_eval_pipeline_fails_with_unpinned_revision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "src.api.main.get_settings",
+        lambda: Settings(embedding_model_revision=""),
+    )
+    monkeypatch.setattr(
+        "src.api.main.build_default_pipeline",
+        lambda settings, data_atualizacao_base: FakeDefaultPipeline(FakeEncoder(revision="")),
+    )
+
+    with pytest.raises(RuntimeError, match="EMBEDDING_MODEL_REVISION"):
         build_eval_pipeline()

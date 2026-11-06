@@ -82,6 +82,35 @@ class FakeConnection:
         self.closed = True
 
 
+class TransactionalConnection:
+    """Models commit/rollback: uncommitted rows disappear on rollback."""
+
+    def __init__(self) -> None:
+        self.rows: dict[int, str] = {}
+        self._pending: list[tuple[int, str]] = []
+        self.closed = False
+
+    def stage_insert(self, row_id: int, status: str) -> None:
+        self._pending.append((row_id, status))
+
+    def stage_update(self, row_id: int, status: str) -> None:
+        active = set(self.rows) | {pending_id for pending_id, _ in self._pending}
+        if row_id not in active:
+            raise RuntimeError(f"ingest run {row_id} was not committed before the update")
+        self._pending.append((row_id, status))
+
+    def commit(self) -> None:
+        for row_id, status in self._pending:
+            self.rows[row_id] = status
+        self._pending.clear()
+
+    def rollback(self) -> None:
+        self._pending.clear()
+
+    def close(self) -> None:
+        self.closed = True
+
+
 def _fail(*args: Any, **kwargs: Any) -> Any:
     raise AssertionError("this stage must not run")
 
@@ -248,6 +277,71 @@ def test_load_failure_exits_one(
     assert conn.closed is True
 
 
+def test_load_failure_records_error_after_rollback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    events: list[str] = []
+    conn = TransactionalConnection()
+    _patch_fetch(monkeypatch, events)
+    _patch_parse(monkeypatch, events)
+    _patch_validate(monkeypatch, events)
+
+    def fake_record(
+        connection: TransactionalConnection,
+        source_id: str,
+        status: str,
+        *,
+        ingest_run_id: int | None = None,
+        **kwargs: Any,
+    ) -> int:
+        events.append(f"record:{status}")
+        if ingest_run_id is None:
+            connection.stage_insert(1, status)
+            return 1
+        connection.stage_update(ingest_run_id, status)
+        return ingest_run_id
+
+    def failing_load(
+        connection: TransactionalConnection, result: ParseResult, **kwargs: Any
+    ) -> LoadReport:
+        connection.stage_insert(99, "device_version")
+        raise RuntimeError("database exploded")
+
+    monkeypatch.setattr(run_module, "record_ingest_run", fake_record)
+    monkeypatch.setattr(run_module, "load_parse_result", failing_load)
+    monkeypatch.setattr(run_module, "_connect", lambda url: conn)
+
+    code = run_module.main(
+        [
+            "--all",
+            "--manifest",
+            str(_manifest(tmp_path)),
+            "--database-url",
+            "postgresql://example.test/db",
+        ]
+    )
+
+    assert code == 1
+    assert conn.rows == {1: "error"}
+    assert 99 not in conn.rows
+    assert events.index("record:running") < events.index("record:error")
+
+
+def test_database_url_resolution_failure_exits_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setattr(run_module, "get_settings", _fail)
+    monkeypatch.setattr(run_module, "_connect", _fail)
+
+    code = run_module.main(["--all", "--manifest", str(_manifest(tmp_path))])
+
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "could not resolve database URL" in err
+    assert "this stage must not run" in err
+
+
 def test_all_stage_runs_stages_in_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     events: list[str] = []
     conn = FakeConnection(events)
@@ -280,6 +374,7 @@ def test_all_stage_runs_stages_in_order(tmp_path: Path, monkeypatch: pytest.Monk
         "parse",
         "validate",
         "record:running",
+        "commit",
         "load",
         "record:ok",
         "commit",

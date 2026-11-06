@@ -236,6 +236,7 @@ def _run_source(
             return report
 
         ingest_run_id = record_ingest_run(conn, source.id, "running")
+        conn.commit()
         loaded = load_parse_result(conn, parsed, ingest_run_id=ingest_run_id)
         normalized = normalize_parse_result(parsed)
         record_ingest_run(
@@ -317,7 +318,11 @@ def main(argv: list[str] | None = None) -> int:
 
     conn: Any = None
     if args.stage in LOAD_STAGES and active:
-        database_url = _database_url(args)
+        try:
+            database_url = _database_url(args)
+        except Exception as exc:
+            print(f"error: could not resolve database URL: {exc}", file=sys.stderr)
+            return 1
         try:
             conn = _connect(database_url)
         except Exception as exc:

@@ -17,6 +17,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -671,13 +672,15 @@ def build_eval_pipeline() -> Callable[[Mapping[str, Any]], Any]:
     """Build the real pipeline adapter consumed by ``src.eval.run``.
 
     The evaluation CLI reports the ``RuntimeError`` below when Postgres or the
-    encoder is unavailable, instead of failing one question at a time.
+    encoder is unavailable, instead of failing one question at a time. The
+    encoder is probed once, during this call only, so a missing model artifact
+    does not silently degrade every question into an abstention.
     """
 
     from src.eval.pipeline import make_eval_pipeline
 
-    settings = get_settings()
     try:
+        settings = get_settings()
         pipeline = build_default_pipeline(settings, None)
         checker = getattr(pipeline.repo, "health_snapshot", None)
         if callable(checker):
@@ -686,9 +689,70 @@ def build_eval_pipeline() -> Callable[[Mapping[str, Any]], Any]:
         raise RuntimeError(
             "pipeline real de avaliação indisponível: não foi possível montar "
             "Postgres/encoder. Verifique DATABASE_URL, EMBEDDING_MODEL_REVISION e o "
-            f"extra 'ml'. Detalhe: {type(exc).__name__}: {exc}"
+            "extra 'ml'; modelos GGUF não são suportados, o caminho exige safetensors "
+            "e, sem GPU, use RETRIEVAL_PATH=fallback. "
+            f"Detalhe: {type(exc).__name__}: {exc}"
         ) from exc
+    _probe_eval_encoder(settings, getattr(pipeline, "encoder", None))
     return make_eval_pipeline(pipeline)
+
+
+def _probe_eval_encoder(settings: Settings, encoder: Any) -> None:
+    """Fail fast when the configured encoder cannot produce an embedding."""
+
+    if encoder is None:
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: o pipeline não expôs encoder. "
+            "Use RETRIEVAL_PATH=fallback com um encoder Harrier configurado."
+        )
+
+    configured_revision = getattr(settings, "embedding_model_revision", "")
+    revision = str(getattr(encoder, "revision", None) or configured_revision)
+    if not revision or revision.lower() == "main":
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: EMBEDDING_MODEL_REVISION deve "
+            "estar pinado em um commit/tag; vazio ou 'main' não serve."
+        )
+
+    configured_path = _encoder_model_path(settings)
+    if configured_path:
+        model_path = Path(configured_path)
+        if not model_path.exists():
+            raise RuntimeError(
+                "pipeline real de avaliação indisponível: caminho do modelo não existe: "
+                f"{model_path}. Aponte para um diretório safetensors válido ou use "
+                "RETRIEVAL_PATH=fallback."
+            )
+        if model_path.suffix.lower() == ".gguf":
+            raise RuntimeError(
+                "pipeline real de avaliação indisponível: GGUF (llama.cpp) não é "
+                "suportado; use checkpoints safetensors ou RETRIEVAL_PATH=fallback."
+            )
+
+    encode = getattr(encoder, "encode_query", None)
+    if not callable(encode):
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: encoder sem encode_query; "
+            "use o encoder Harrier do caminho fallback."
+        )
+    try:
+        encode("probe")
+    except Exception as exc:
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: o encoder não gerou o embedding "
+            "de teste. Use checkpoints safetensors (GGUF/llama.cpp não é suportado), "
+            "confira EMBEDDING_MODEL_REVISION e os caminhos de modelo; sem GPU, use "
+            "RETRIEVAL_PATH=fallback. "
+            f"Detalhe: {type(exc).__name__}: {exc}"
+        ) from exc
+
+
+def _encoder_model_path(settings: Settings) -> str | None:
+    if getattr(settings, "embedding_provider", "harrier") == "harrier":
+        return getattr(settings, "harrier_model_path", "") or None
+    if getattr(settings, "retrieval_path", "fallback") == "target":
+        return getattr(settings, "ppx_9b_model_path", "") or None
+    return getattr(settings, "ppx_06b_model_path", "") or None
 
 
 def create_app(
