@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from src.api.main import PipelineResult as ApiPipelineResult
-from src.api.main import build_eval_pipeline
+from src.api.main import build_default_pipeline, build_eval_pipeline
 from src.config import Settings
 from src.contracts import Answer, Citation, QueryFacts
 from src.eval.pipeline import make_eval_pipeline
@@ -173,6 +173,42 @@ def test_build_eval_pipeline_wraps_the_default_pipeline(
     assert encoder.probes == ["probe"]
     assert result.retrieved_ids == ("lmp/art1",)
     assert result.claims_supported == [True]
+
+
+def test_build_default_pipeline_wires_encoder_into_eval_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    encoder = FakeEncoder()
+    dense_calls: list[tuple[str, Any]] = []
+
+    class FakeDenseSearcher:
+        def __init__(self, url: str, configured: Any) -> None:
+            dense_calls.append((url, configured))
+
+        def search(self, query: str, limit: int, data_fato: Any = None) -> list[Any]:
+            return []
+
+    class FakeFtsSearcher:
+        def __init__(self, url: str) -> None:
+            self.url = url
+
+        def search(self, query: str, limit: int, data_fato: Any = None) -> list[Any]:
+            return []
+
+    settings = Settings(embedding_model_revision="abc123")
+    monkeypatch.setattr("src.api.main.get_settings", lambda: settings)
+    monkeypatch.setattr("src.api.main.PostgresRepo", lambda url: FakeRepo())
+    monkeypatch.setattr("src.api.main.get_encoder", lambda configured: encoder)
+    monkeypatch.setattr("src.api.main.PgDenseSearcher", FakeDenseSearcher)
+    monkeypatch.setattr("src.api.main.PgFtsSearcher", FakeFtsSearcher)
+
+    pipeline = build_default_pipeline(settings, None)
+    adapter = build_eval_pipeline()
+
+    assert pipeline.encoder is encoder
+    assert dense_calls[0][1] is encoder
+    assert callable(adapter)
+    assert encoder.probes == ["probe"]
 
 
 def test_build_eval_pipeline_fails_clearly_without_database(

@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -323,7 +323,7 @@ class LegalRAGPipeline:
         dense: DenseSearcher | None = None,
         fts: FtsSearcher | None = None,
         qdrant: QdrantSearcher | None = None,
-        encoder: MultiVectorEncoder | None = None,
+        encoder: Encoder | MultiVectorEncoder | None = None,
         rescore: Rescore | None = None,
         judge: Callable[..., Any] | None = None,
         catalog: CitationCatalog | None = None,
@@ -408,7 +408,7 @@ class LegalRAGPipeline:
             ranked = rerank(
                 plan.consulta_juridica,
                 candidates,
-                encoder=self.encoder,
+                encoder=_as_rerank_encoder(self.encoder),
                 top_k=self.settings.max_devices,
                 rescore=self.rescore,
             )
@@ -642,12 +642,25 @@ class LazyChatPipeline:
         return pipeline.answer(message, facts)
 
 
+def _as_rerank_encoder(
+    encoder: Encoder | MultiVectorEncoder | None,
+) -> MultiVectorEncoder | None:
+    """Rerank needs token multivectors; dense encoders keep the RRF order."""
+
+    if encoder is None:
+        return None
+    if callable(getattr(encoder, "encode_document", None)):
+        return cast(MultiVectorEncoder, encoder)
+    return None
+
+
 def build_default_pipeline(
     settings: Settings, data_atualizacao_base: str | None
 ) -> LegalRAGPipeline:
     repo = PostgresRepo(settings.database_url)
     dense: DenseSearcher | None = None
     fts: FtsSearcher | None = None
+    encoder: Encoder | None = None
 
     if settings.retrieval_path == "target":
         raise ValueError(
@@ -664,6 +677,7 @@ def build_default_pipeline(
         settings=settings,
         dense=dense,
         fts=fts,
+        encoder=encoder,
         data_atualizacao_base=data_atualizacao_base,
     )
 
