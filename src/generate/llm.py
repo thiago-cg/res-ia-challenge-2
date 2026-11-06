@@ -224,15 +224,83 @@ class APILLM(_HTTPLLM):
         return f"{self.base_url}/v1/chat/completions"
 
 
+class OpenRouterLLM(_HTTPLLM):
+    """OpenRouter chat client (OpenAI-compatible endpoint)."""
+
+    def __init__(
+        self,
+        *,
+        base_url: str = "https://openrouter.ai/api/v1",
+        api_key: str | None = None,
+        model_name: str = "openai/gpt-4o-mini",
+        version: str = PROMPT_VERSION,
+        max_retries: int = 2,
+        backoff_base: float = 0.5,
+        site_url: str = "",
+        app_name: str = "",
+        client: httpx.Client | None = None,
+    ) -> None:
+        if not api_key:
+            raise ValueError(
+                "OPENROUTER_API_KEY is required for LLM_PROVIDER=openrouter; "
+                "set it in the environment or in .env."
+            )
+        self.site_url = site_url
+        self.app_name = app_name
+        super().__init__(
+            base_url=base_url,
+            api_key=api_key,
+            model_name=model_name,
+            version=version,
+            max_retries=max_retries,
+            backoff_base=backoff_base,
+            client=client,
+        )
+
+    @property
+    def endpoint(self) -> str:
+        return f"{self.base_url}/chat/completions"
+
+    def _headers(self) -> dict[str, str]:
+        headers = super()._headers()
+        if self.site_url:
+            headers["HTTP-Referer"] = self.site_url
+        if self.app_name:
+            headers["X-Title"] = self.app_name
+        return headers
+
+
 def get_llm(settings: object) -> LLMClient:
     provider = str(getattr(settings, "llm_provider", "mock"))
-    default_model = "mock" if provider == "mock" else "default"
-    model_name = str(getattr(settings, "llm_model", "") or default_model)
 
     if provider == "mock":
         context_ids = getattr(settings, "mock_context_ids", None) or []
-        return MockLLM(context_ids=context_ids, model_name=model_name)
+        return MockLLM(context_ids=context_ids, model_name="mock")
 
+    if provider == "openrouter":
+        api_key = str(getattr(settings, "openrouter_api_key", "") or "")
+        if not api_key:
+            raise ValueError(
+                "OPENROUTER_API_KEY is required for LLM_PROVIDER=openrouter; "
+                "set it in the environment or in .env."
+            )
+        model_name = str(
+            getattr(settings, "openrouter_model", "")
+            or getattr(settings, "llm_model", "")
+            or "openai/gpt-4o-mini"
+        )
+        return OpenRouterLLM(
+            base_url=str(
+                getattr(settings, "openrouter_base_url", "") or "https://openrouter.ai/api/v1"
+            ),
+            api_key=api_key,
+            model_name=model_name,
+            max_retries=int(getattr(settings, "openrouter_max_retries", 2)),
+            site_url=str(getattr(settings, "openrouter_site_url", "") or ""),
+            app_name=str(getattr(settings, "openrouter_app_name", "") or ""),
+        )
+
+    model_name = str(getattr(settings, "llm_model", "") or "default")
     base_url = str(getattr(settings, "llm_base_url", "") or "")
     api_key = str(getattr(settings, "llm_api_key", "") or "")
 

@@ -27,9 +27,9 @@ class Settings(BaseSettings):
     )
 
     retrieval_path: Literal["fallback", "target"] = "fallback"
-    embedding_provider: Literal["harrier", "pplx"] = "harrier"
+    embedding_provider: Literal["harrier", "pplx", "openrouter"] = "harrier"
     embedding_model_revision: str = ""
-    llm_provider: Literal["mock", "local", "api"] = "mock"
+    llm_provider: Literal["mock", "local", "api", "openrouter"] = "mock"
 
     max_devices: int = Field(default=10, gt=0)
     max_context_tokens: int = Field(default=6000, gt=0)
@@ -43,7 +43,22 @@ class Settings(BaseSettings):
     ppx_06b_model_path: str = ""
     harrier_model_path: str = ""
     llm_model: str = ""
+    llm_base_url: str = ""
+    llm_api_key: str = ""
     log_level: str = "INFO"
+
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "openai/gpt-4o-mini"
+    openrouter_embedding_model: str = "openai/text-embedding-3-small"
+    openrouter_embedding_dimensions: int = Field(default=1024, gt=0)
+    openrouter_batch_size: int = Field(default=32, gt=0)
+    openrouter_timeout: float = Field(default=60.0, gt=0)
+    openrouter_max_retries: int = Field(default=2, ge=0)
+    openrouter_data_collection: Literal["deny", "allow"] = "deny"
+    openrouter_zdr: bool = True
+    openrouter_site_url: str = ""
+    openrouter_app_name: str = ""
 
     @model_validator(mode="after")
     def reject_gguf_models(self) -> "Settings":
