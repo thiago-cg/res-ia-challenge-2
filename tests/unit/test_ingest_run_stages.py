@@ -13,7 +13,9 @@ from src.index.load_db import LoadReport
 from src.ingest import run as run_module
 from src.ingest.fetch import FetchResult
 from src.ingest.models import Norm, ParseResult
+from src.ingest.normalize import normalize_parse_result
 from src.ingest.validate import ValidationReport
+from tests.unit.db_fakes import FakeConnection as DbFakeConnection
 
 MANIFEST = """\
 sources:
@@ -132,11 +134,15 @@ def _patch_fetch(monkeypatch: pytest.MonkeyPatch, events: list[str]) -> None:
     monkeypatch.setattr(run_module, "fetch_source", fake_fetch)
 
 
-def _patch_parse(monkeypatch: pytest.MonkeyPatch, events: list[str]) -> None:
+def _patch_parse(
+    monkeypatch: pytest.MonkeyPatch,
+    events: list[str],
+    result: ParseResult | None = None,
+) -> None:
     def fake_parse(source: Any, path: Path) -> ParseResult:
         events.append("parse")
         assert Path(path).is_file()
-        return _parse_result()
+        return result or _parse_result()
 
     monkeypatch.setattr(run_module, "parse_downloaded_source", fake_parse)
 
@@ -155,6 +161,7 @@ def _patch_load(monkeypatch: pytest.MonkeyPatch, events: list[str]) -> None:
         return LoadReport(norm_id=result.norm.id, devices_loaded=1, versions_loaded=1)
 
     monkeypatch.setattr(run_module, "load_parse_result", fake_load)
+    monkeypatch.setattr(run_module, "load_current_versions", lambda conn, norm_id: [])
 
 
 def _patch_record(monkeypatch: pytest.MonkeyPatch, events: list[str]) -> None:
@@ -259,6 +266,7 @@ def test_load_failure_exits_one(
         raise RuntimeError("database exploded")
 
     monkeypatch.setattr(run_module, "load_parse_result", failing_load)
+    monkeypatch.setattr(run_module, "load_current_versions", lambda conn, norm_id: [])
     monkeypatch.setattr(run_module, "_connect", lambda url: conn)
 
     code = run_module.main(
@@ -309,6 +317,7 @@ def test_load_failure_records_error_after_rollback(
 
     monkeypatch.setattr(run_module, "record_ingest_run", fake_record)
     monkeypatch.setattr(run_module, "load_parse_result", failing_load)
+    monkeypatch.setattr(run_module, "load_current_versions", lambda conn, norm_id: [])
     monkeypatch.setattr(run_module, "_connect", lambda url: conn)
 
     code = run_module.main(
@@ -438,3 +447,143 @@ def test_parser_defaults_to_all_stage() -> None:
     assert args.stage == "all"
     assert args.offline is False
     assert args.out_jsonl is None
+
+
+def _variant(*, literal: str = "Texto literal.", start: date = date(2006, 9, 22)) -> ParseResult:
+    result = _parse_result()
+    result.versions[0] = result.versions[0].model_copy(
+        update={"texto_literal": literal, "vigencia_inicio": start}
+    )
+    return result
+
+
+def _current_rows(result: ParseResult) -> list[dict[str, Any]]:
+    normalized = normalize_parse_result(result)
+    return [
+        {
+            "device_id": version.device_id,
+            "content_hash": version.content_hash,
+            "norm_id": normalized.norm.id,
+            "vigencia_inicio": version.vigencia_inicio,
+        }
+        for version in normalized.versions
+    ]
+
+
+def _run_load(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    parse_result: ParseResult,
+    current: list[dict[str, Any]],
+) -> tuple[int, DbFakeConnection, list[str]]:
+    events: list[str] = []
+    conn = DbFakeConnection()
+    _patch_fetch(monkeypatch, events)
+    _patch_parse(monkeypatch, events, parse_result)
+    _patch_validate(monkeypatch, events)
+    _patch_record(monkeypatch, events)
+    monkeypatch.setattr(run_module, "load_current_versions", lambda connection, norm_id: current)
+    monkeypatch.setattr(run_module, "_connect", lambda url: conn)
+
+    code = run_module.main(
+        [
+            "--all",
+            "--manifest",
+            str(_manifest(tmp_path)),
+            "--database-url",
+            "postgresql://example.test/db",
+        ]
+    )
+    return code, conn, events
+
+
+def test_first_load_inserts_versions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, conn, _ = _run_load(
+        tmp_path,
+        monkeypatch,
+        parse_result=_parse_result(),
+        current=[],
+    )
+
+    assert code == 0
+    assert any(sql.startswith("INSERT INTO device_versions") for sql, _ in conn.executions)
+    assert "added=1" in capsys.readouterr().out
+
+
+def test_unchanged_reload_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    parse_result = _parse_result()
+    code, conn, _ = _run_load(
+        tmp_path,
+        monkeypatch,
+        parse_result=parse_result,
+        current=_current_rows(parse_result),
+    )
+
+    assert code == 0
+    assert not any(sql.startswith("INSERT INTO device_versions") for sql, _ in conn.executions)
+    assert not conn.updates
+    assert "unchanged=1" in capsys.readouterr().out
+
+
+def test_changed_device_creates_one_version_and_closes_old(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    original = _parse_result()
+    changed = _variant(literal="Texto novo.", start=date(2024, 1, 1))
+    code, conn, _ = _run_load(
+        tmp_path,
+        monkeypatch,
+        parse_result=changed,
+        current=_current_rows(original),
+    )
+
+    assert code == 0
+    inserts = [sql for sql, _ in conn.executions if sql.startswith("INSERT INTO device_versions")]
+    closes = [
+        (sql, params)
+        for sql, params in conn.updates
+        if sql.startswith("UPDATE device_versions") and "revogado" not in sql
+    ]
+    assert len(inserts) == 1
+    assert len(closes) == 1
+    assert closes[0][1][0] == date(2023, 12, 31)
+    assert "changed=1" in capsys.readouterr().out
+
+
+def test_future_version_exits_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    original = _parse_result()
+    future = _variant(literal="Texto novo.", start=date(2999, 1, 1))
+    code, conn, _ = _run_load(
+        tmp_path,
+        monkeypatch,
+        parse_result=future,
+        current=_current_rows(original),
+    )
+
+    assert code == 1
+    assert "future" in capsys.readouterr().err
+    assert not any(sql.startswith("INSERT INTO device_versions") for sql, _ in conn.executions)
+
+
+def test_earlier_version_exits_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    original = _parse_result()
+    earlier = _variant(literal="Texto novo.", start=date(2000, 1, 1))
+    code, conn, _ = _run_load(
+        tmp_path,
+        monkeypatch,
+        parse_result=earlier,
+        current=_current_rows(original),
+    )
+
+    assert code == 1
+    assert "must be after" in capsys.readouterr().err
+    assert not conn.updates

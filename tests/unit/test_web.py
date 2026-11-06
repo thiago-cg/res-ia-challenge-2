@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -122,6 +123,38 @@ def test_call_chat_api_posts_payload() -> None:
         )
     ]
     assert client.closed is False
+
+
+def test_build_facts_payload_only_when_a_date_is_set() -> None:
+    module = load_web_module()
+
+    assert module.build_facts_payload(None) is None
+    assert module.build_facts_payload(date(2026, 10, 1)) == {"data_fato": "2026-10-01"}
+
+
+def test_sidebar_exposes_an_optional_fact_date() -> None:
+    module = load_web_module()
+    target = FakeTarget(sidebar=True)
+
+    result = module.render_sidebar({"status": "ok"}, target)
+
+    assert "date_input" in target.names()
+    assert result is None
+
+
+def test_ui_payload_includes_facts_when_a_date_is_selected() -> None:
+    module = load_web_module()
+    client = FakeClient({"resposta": "ok"})
+
+    module.call_chat_api(
+        "Como pedir medida protetiva?",
+        "session-1",
+        module.build_facts_payload(date(2026, 10, 1)),
+        base_url="http://api.test",
+        client=client,
+    )
+
+    assert client.posts[0][1]["facts"] == {"data_fato": "2026-10-01"}
 
 
 def test_fetch_health_uses_get() -> None:

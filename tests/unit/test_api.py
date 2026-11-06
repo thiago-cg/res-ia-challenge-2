@@ -11,7 +11,10 @@ from fastapi.testclient import TestClient
 from src.api.main import (
     LazyChatPipeline,
     LegalRAGPipeline,
+    PgDenseSearcher,
+    PgFtsSearcher,
     PipelineResult,
+    PostgresRepo,
     SettingsHealthProbe,
     create_app,
     health_status,
@@ -54,6 +57,7 @@ def make_citation(device_id: str = "lmp/art22", version: int = 7) -> Citation:
         contexto="Contexto oficial do artigo.",
         vigencia="vigente",
         fonte_url="https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2006/lei/l11340.htm",
+        afirmacao="O dispositivo sustenta a afirmação.",
     )
 
 
@@ -625,6 +629,139 @@ def test_retrieved_device_vigencia_is_respected() -> None:
     assert any(call[0] == "lookup" for call in repo.calls)
 
 
+class DictRowCursor:
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self.rows = rows
+
+    def __enter__(self) -> DictRowCursor:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def execute(self, sql: str, params: Any = None) -> None:
+        return None
+
+    def fetchall(self) -> list[dict[str, Any]]:
+        return list(self.rows)
+
+
+class DictRowConnection:
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self.rows = rows
+
+    def cursor(self) -> DictRowCursor:
+        return DictRowCursor(self.rows)
+
+
+class DictRowConnectionContext:
+    def __init__(self, conn: DictRowConnection) -> None:
+        self.conn = conn
+
+    def __enter__(self) -> DictRowConnection:
+        return self.conn
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+
+class QueryEncoder:
+    def encode_query(self, text: str) -> list[float]:
+        return [0.1, 0.2, 0.3]
+
+
+def test_dict_row_searchers_reach_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = make_row(device_id="lmp/art22", version=7)
+    repo = FakeRepo([row], current_version=7)
+    dict_rows = [{"device_id": "lmp/art22", "norm_version_id": 7, "score": 0.9}]
+    conn = DictRowConnection(dict_rows)
+    monkeypatch.setattr(
+        "src.api.main._open_connection",
+        lambda database_url: DictRowConnectionContext(conn),
+    )
+    llm = FakeLLM([llm_json(["lmp/art22"])])
+    pipeline = LegalRAGPipeline(
+        repo=repo,
+        dense=PgDenseSearcher("postgresql://example.test/db", QueryEncoder()),
+        fts=PgFtsSearcher("postgresql://example.test/db"),
+        llm=llm,
+        data_atualizacao_base="2026-11-05",
+    )
+
+    result = pipeline.answer("Como pedir medida protetiva de urgência?")
+
+    assert result.answer.abstencao is False
+    assert result.retrieved_ids == ("lmp/art22",)
+    assert result.answer.citacoes[0].device_id == "lmp/art22"
+    assert result.claims_supported == (True,)
+    assert llm.calls
+
+
+def test_leaf_prompt_includes_article_context_after_hydration() -> None:
+    leaf = make_row(
+        device_id="lmp/art22/cpt/inc3",
+        version=7,
+        texto="Texto do inciso.",
+        contexto="Contexto do inciso (folha).",
+    )
+    article = make_row(
+        device_id="lmp/art22",
+        version=7,
+        texto="Caput do artigo completo.",
+        contexto="Contexto do artigo completo.",
+    )
+    repo = FakeRepo([leaf, article], current_version=7)
+    hit = RetrievedDevice(
+        device_id="lmp/art22/cpt/inc3",
+        norm_version_id=7,
+        score=0.9,
+        source="dense",
+        texto_literal="",
+        citacao="",
+    )
+    llm = FakeLLM([llm_json(["lmp/art22/cpt/inc3"])])
+    pipeline, _, _ = make_pipeline(
+        repo,
+        dense=SpySearcher([hit]),
+        fts=SpySearcher([hit.model_copy(update={"source": "bm25", "score": 0.4})]),
+        llm=llm,
+    )
+
+    result = pipeline.answer("Como pedir medida protetiva de urgência?")
+
+    prompt = llm.calls[0][1]
+    assert result.answer.abstencao is False
+    assert result.retrieved_ids == ("lmp/art22/cpt/inc3",)
+    assert "Contexto do inciso (folha)." in prompt
+    assert "Caput do artigo completo." in prompt
+    assert "Texto do inciso." in prompt
+
+
+def test_pipeline_extracts_data_fato_from_the_message() -> None:
+    row = make_row(device_id="lmp/art22", version=7)
+    repo = FakeRepo([row], current_version=7)
+    hit = RetrievedDevice(
+        device_id="lmp/art22",
+        norm_version_id=7,
+        score=0.9,
+        source="dense",
+        texto_literal="",
+        citacao="",
+    )
+    dense = SpySearcher([hit])
+    fts = SpySearcher([hit.model_copy(update={"source": "bm25", "score": 0.3})])
+    llm = FakeLLM([llm_json(["lmp/art22"])])
+    pipeline, _, _ = make_pipeline(repo, dense=dense, fts=fts, llm=llm)
+
+    pipeline.answer("O fato ocorreu em 01/06/2020. Como pedir medida protetiva de urgência?")
+
+    assert dense.calls[0][2] == date(2020, 6, 1)
+    assert fts.calls[0][2] == date(2020, 6, 1)
+    assert "2020-06-01" in llm.calls[0][1]
+
+
 def test_normal_retrieval_runs_dense_and_fts_and_hydrates() -> None:
     row = make_row(device_id="lmp/art22", version=7)
     repo = FakeRepo([row], current_version=7)
@@ -734,6 +871,51 @@ def test_settings_health_probe_derives_base_date_from_last_ingest() -> None:
 
     assert snapshot["status"] == "ok"
     assert snapshot["data_atualizacao_base"] == "2026-11-05"
+
+
+class OneRowCursor:
+    def __init__(self, row: Any) -> None:
+        self.row = row
+        self.sql = ""
+
+    def __enter__(self) -> OneRowCursor:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def execute(self, sql: str, params: Any = None) -> None:
+        self.sql = sql
+
+    def fetchone(self) -> Any:
+        return self.row
+
+
+class OneRowConnection:
+    def __init__(self, row: Any) -> None:
+        self.cursor_obj = OneRowCursor(row)
+
+    def cursor(self) -> OneRowCursor:
+        return self.cursor_obj
+
+
+def test_get_current_version_id_filters_status_and_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = OneRowConnection({"norm_version_id": 2})
+    monkeypatch.setattr(
+        "src.api.main._open_connection",
+        lambda database_url: DictRowConnectionContext(conn),  # type: ignore[arg-type]
+    )
+    repo = PostgresRepo("postgresql://example.test/db")
+
+    version = repo.get_current_version_id("lmp/art22")
+
+    assert version == 2
+    sql = " ".join(conn.cursor_obj.sql.split())
+    assert "dv.vigencia_status IN ('vigente', 'alterado')" in sql
+    assert "dv.vigencia_inicio <= %s" in sql
+    assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= %s" in sql
 
 
 def test_source_returns_metadata_and_date_resolution() -> None:

@@ -413,8 +413,8 @@ implementado, não executado no ambiente local; `[ ]` = pendente.
 >
 > Permanecem abertas: **EVA-04** (150 perguntas dependem de execução viva e
 > revisão humana); **OPS-01** (módulos de log/middleware implementados e
-> testados, mas `create_app` ainda não instala os middlewares e não há sink de
-> retenção); **OPS-02** (scripts e job de CI prontos, drill não executado aqui);
+> testados, e `create_app` instala os middlewares; não há sink de retenção);
+> **OPS-02** (scripts e job de CI prontos, drill não executado aqui);
 > **OPS-03** (README/runbook entregues, parecer jurídico **PENDENTE**).
 > FND-02, FND-03, FND-05, ING-01, ING-05, ING-06, IDX-03, IDX-04 e IDX-05
 > seguem `[~]` até execução real.
@@ -516,7 +516,7 @@ O plano está consolidado. A execução recomendada neste runtime é **nativa** 
 
 **Estado em 2026-11-05 (OPS-03):** o runbook/README foi entregue, mas o
 protótipo **não está liberado para demo nem publicação**. Os próximos passos
-reais são: ligar os middlewares em `create_app`; expor parsing/carga como CLI;
+reais são: criar um sink de retenção de logs e validar `X-Request-ID` ao vivo;
 obter safetensors e executar o smoke 9B/0.6B; implementar
 `build_eval_pipeline` e rodar as 150 perguntas com Postgres/Qdrant; e registrar
 a revisão jurídica humana. Sem isso, G4 e G6 continuam **não atingidos**.

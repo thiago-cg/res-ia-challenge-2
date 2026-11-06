@@ -67,6 +67,7 @@ class Citation(BaseModel):
     contexto: str
     vigencia: VigenciaStatus
     fonte_url: str
+    afirmacao: str = ""
 
 
 class Answer(BaseModel):
@@ -110,6 +111,7 @@ class VerificationResult(BaseModel):
     semantic_ok: bool | None = None
     issues: list[str] = Field(default_factory=list)
     action: Literal["accept", "regenerate", "abstain"]
+    claims_supported: list[bool] = Field(default_factory=list)
 
 
 class ModelFormatError(Exception):

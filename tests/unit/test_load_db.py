@@ -4,7 +4,12 @@ from datetime import date
 from uuid import NAMESPACE_URL, uuid5
 
 from src.contracts import Device, DeviceVersion
-from src.index.load_db import load_parse_result, load_versions, record_ingest_run
+from src.index.load_db import (
+    load_current_versions,
+    load_parse_result,
+    load_versions,
+    record_ingest_run,
+)
 from src.ingest.models import Norm, ParseResult
 from src.ingest.normalize import normalize_parse_result
 from tests.unit.db_fakes import FakeConnection
@@ -221,6 +226,72 @@ def test_load_parse_result_wires_ingest_run_counts() -> None:
             (2, 2, 42),
         )
     ]
+
+
+class CurrentVersionCursor:
+    def __init__(self, rows: list[object]) -> None:
+        self.rows = rows
+        self.executions: list[tuple[str, object]] = []
+
+    def __enter__(self) -> CurrentVersionCursor:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def execute(self, sql: str, params: object = None) -> None:
+        self.executions.append((sql, params))
+
+    def fetchall(self) -> list[object]:
+        return list(self.rows)
+
+
+class CurrentVersionConnection:
+    def __init__(self, rows: list[object]) -> None:
+        self.cursor_obj = CurrentVersionCursor(rows)
+
+    def cursor(self) -> CurrentVersionCursor:
+        return self.cursor_obj
+
+
+def test_load_current_versions_uses_current_status_and_date_window() -> None:
+    inicio = date(2020, 1, 1)
+    conn = CurrentVersionConnection(rows=[("lmp/art1", "hash-1", "lmp", inicio)])
+
+    rows = load_current_versions(conn, "lmp")
+
+    assert rows == [
+        {
+            "device_id": "lmp/art1",
+            "content_hash": "hash-1",
+            "norm_id": "lmp",
+            "vigencia_inicio": inicio,
+        }
+    ]
+    sql = " ".join(conn.cursor_obj.executions[-1][0].split())
+    assert "dv.vigencia_status IN ('vigente', 'alterado')" in sql
+    assert "dv.vigencia_inicio <= CURRENT_DATE" in sql
+    assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= CURRENT_DATE" in sql
+    assert "DISTINCT ON (dv.device_id)" in sql
+
+
+def test_load_current_versions_accepts_dict_rows() -> None:
+    inicio = date(2020, 1, 1)
+    conn = CurrentVersionConnection(
+        rows=[
+            {
+                "device_id": "lmp/art1",
+                "content_hash": "hash-1",
+                "norm_id": "lmp",
+                "vigencia_inicio": inicio,
+            }
+        ]
+    )
+
+    rows = load_current_versions(conn, "lmp")
+
+    assert rows[0]["device_id"] == "lmp/art1"
+    assert rows[0]["vigencia_inicio"] == inicio
 
 
 def test_record_ingest_run_inserts_and_updates() -> None:

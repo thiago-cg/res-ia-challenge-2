@@ -19,6 +19,13 @@ _NORM_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 _ARTICLE_RE = re.compile(r"\bartigo\s+(\d+)(?:-([a-z]))?\b")
+_PAR_UNICO_RE = re.compile(r"\bparagrafo\s+unico\b")
+_QUALIFIER_PATTERN = r"(?:paragrafo\s+(?:unico|\d+)|inciso\s+\d+|alinea\s+[a-z]|item\s+\d+)"
+_QUALIFIER_CONNECTOR = r"(?:do|da|de|dos|das|no|na|em)"
+_LEADING_QUALIFIERS_RE = re.compile(
+    rf"(?:{_QUALIFIER_PATTERN}\s+{_QUALIFIER_CONNECTOR}\s+)*"
+    rf"{_QUALIFIER_PATTERN}\s*(?:{_QUALIFIER_CONNECTOR}\s*)?$"
+)
 _PUNCTUATION = "\"'“”().,"
 
 
@@ -29,6 +36,7 @@ class ParsedCitation:
     artigo: int | None = None
     artigo_sufixo: str | None = None
     paragrafo: int | None = None
+    paragrafo_unico: bool = False
     inciso: int | None = None
     alinea: str | None = None
     item: int | None = None
@@ -72,12 +80,29 @@ def _extract_bare_tokens(
                 inciso = number
                 continue
         if alinea is None and len(token) == 1 and token.isalpha():
-            alinea = token
+            if inciso is not None or _is_quoted(raw_token):
+                alinea = token
     return inciso, alinea
 
 
+def _is_quoted(raw_token: str) -> bool:
+    return any(char in raw_token for char in "\"'“”")
+
+
+def _leading_qualifiers(text: str) -> str:
+    """Return the qualifier chain immediately before the article reference.
+
+    ``inciso IX do art. 22`` and ``alínea b do inciso III do art. 22`` carry the
+    leaf *before* the article; stop at the first word that is not a qualifier or
+    connector so surrounding prose is never parsed as part of the citation.
+    """
+
+    match = _LEADING_QUALIFIERS_RE.search(text)
+    return match.group(0).strip() if match else ""
+
+
 def parse_citation(text: str) -> ParsedCitation:
-    """Parse a citation such as ``art. 22, III, "b"``."""
+    """Parse a citation such as ``art. 22, III, "b"`` or ``inciso III do art. 22``."""
     normalized = normalize_citation_forms(text)
     norm_hint = detect_norm_hint(normalized)
 
@@ -88,9 +113,11 @@ def parse_citation(text: str) -> ParsedCitation:
     if match:
         artigo = int(match.group(1))
         sufixo = match.group(2)
-        remainder = f"{normalized[: match.start()]} {normalized[match.end() :]}"
+        leading = _leading_qualifiers(normalized[: match.start()])
+        remainder = f"{leading} {normalized[match.end() :]}".strip()
 
     paragrafo = _extract_number(remainder, "paragrafo")
+    paragrafo_unico = paragrafo is None and _PAR_UNICO_RE.search(remainder) is not None
     inciso = _extract_number(remainder, "inciso")
     alinea = _extract_letter(remainder, "alinea")
     item = _extract_number(remainder, "item")
@@ -102,6 +129,7 @@ def parse_citation(text: str) -> ParsedCitation:
         artigo=artigo,
         artigo_sufixo=sufixo,
         paragrafo=paragrafo,
+        paragrafo_unico=paragrafo_unico,
         inciso=inciso,
         alinea=alinea,
         item=item,
@@ -111,6 +139,29 @@ def parse_citation(text: str) -> ParsedCitation:
 def _artigo_id(norm_id: str, parsed: ParsedCitation) -> str:
     suffix = f"-{parsed.artigo_sufixo}" if parsed.artigo_sufixo else ""
     return f"{norm_id}/art{parsed.artigo}{suffix}"
+
+
+def _device_id(norm_id: str, parsed: ParsedCitation) -> str:
+    """Build the canonical leaf ID in parser order: cpt/par, inc, ali, item."""
+    base = _artigo_id(norm_id, parsed)
+    if parsed.artigo is None:
+        return base
+
+    parts = [base]
+    if parsed.paragrafo_unico:
+        parts.append("par-unico")
+    elif parsed.paragrafo is not None:
+        parts.append(f"par{parsed.paragrafo}")
+    elif any(value is not None for value in (parsed.inciso, parsed.alinea, parsed.item)):
+        parts.append("cpt")
+
+    if parsed.inciso is not None:
+        parts.append(f"inc{parsed.inciso}")
+    if parsed.alinea is not None:
+        parts.append(f"ali-{parsed.alinea}")
+    if parsed.item is not None:
+        parts.append(f"item-{parsed.item}")
+    return "/".join(parts)
 
 
 def _hit_field(hit: object, name: str) -> Any:
@@ -137,7 +188,7 @@ def resolve_explicit_citation(
     norm_id = norm_hint or parsed.norm_hint
 
     if parsed.artigo is None:
-        has_device_hint = any(
+        has_device_hint = parsed.paragrafo_unico or any(
             value is not None
             for value in (parsed.paragrafo, parsed.inciso, parsed.alinea, parsed.item)
         )
@@ -150,27 +201,28 @@ def resolve_explicit_citation(
         return CitationResolution(resolved=False, ambiguous=True, reason="norm_ambiguous")
 
     artigo_id = _artigo_id(norm_id, parsed)
+    device_id = _device_id(norm_id, parsed)
 
     if catalog is None:
         return CitationResolution(
             resolved=False, norm_id=norm_id, artigo_id=artigo_id, reason="no_catalog"
         )
 
-    hit = catalog.find(norm_id, artigo_id)
+    hit = catalog.find(norm_id, device_id)
     if hit is None:
         return CitationResolution(
             resolved=False, norm_id=norm_id, artigo_id=artigo_id, reason="not_found"
         )
 
-    device_id = _hit_field(hit, "device_id")
-    if not device_id:
+    resolved_device_id = _hit_field(hit, "device_id")
+    if not resolved_device_id:
         return CitationResolution(
             resolved=False, norm_id=norm_id, artigo_id=artigo_id, reason="not_found"
         )
 
     return CitationResolution(
         resolved=True,
-        device_id=device_id,
+        device_id=resolved_device_id,
         norm_id=_hit_field(hit, "norm_id") or norm_id,
         artigo_id=_hit_field(hit, "artigo_id") or artigo_id,
     )

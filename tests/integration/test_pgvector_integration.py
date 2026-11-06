@@ -176,5 +176,56 @@ def test_dense_and_fts_pick_the_version_that_was_in_force_on_the_fact_date() -> 
         conn.rollback()
 
 
+@pytest.mark.integration
+def test_current_search_and_current_version_exclude_rows_closed_by_diff() -> None:
+    from src.api.main import PostgresRepo
+    from src.index.load_db import load_current_versions, load_parse_result
+    from src.ingest.diff import apply_diff, diff_parse_result
+    from tests.integration.test_diff_integration import _result as diff_result
+
+    suffix = uuid.uuid4().hex[:8]
+    norm_id = f"fin-current-{suffix}"
+    device_id = f"{norm_id}/art1"
+    database_url = os.environ["TEST_DATABASE_URL"]
+
+    with _connect() as conn:
+        _ensure_schema(conn)
+        old = diff_result(norm_id, {device_id: "texto antigo"})
+        new = diff_result(norm_id, {device_id: "texto novo"}, start=date(2024, 1, 1))
+        load_parse_result(conn, old)
+        diff = diff_parse_result(load_current_versions(conn, norm_id), new)
+        apply_diff(conn, diff, data_fato=date(2024, 1, 1))
+        conn.commit()
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT norm_version_id FROM device_versions "
+                "WHERE device_id = %s ORDER BY vigencia_inicio",
+                (device_id,),
+            )
+            old_version, new_version = [row[0] for row in cur.fetchall()]
+
+        update_embedding(conn, device_id, old_version, _vector(0), "test", "rev", "old")
+        update_embedding(conn, device_id, new_version, _vector(0), "test", "rev", "new")
+
+        current_hits = [
+            hit for hit in dense_search(conn, _vector(0), limit=50) if hit.device_id == device_id
+        ]
+        assert [hit.norm_version_id for hit in current_hits] == [new_version]
+
+        historical_hits = [
+            hit
+            for hit in dense_search(conn, _vector(0), limit=50, data_fato=date(2020, 6, 1))
+            if hit.device_id == device_id
+        ]
+        assert [hit.norm_version_id for hit in historical_hits] == [old_version]
+
+        repo = PostgresRepo(database_url)
+        assert repo.get_current_version_id(device_id) == new_version
+        assert repo.get_current_version_id(device_id, date(2020, 6, 1)) == old_version
+
+        conn.rollback()
+
+
 def _literal(vector: list[float]) -> str:
     return "[" + ",".join(repr(value) for value in vector) + "]"

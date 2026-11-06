@@ -43,9 +43,15 @@ def verify(
         devices_by_id.setdefault(item.device_id, []).append(item)
 
     issues: list[str] = []
+    claims_supported: list[bool] = []
 
     for citation in answer.citacoes:
-        issues.extend(_check_citation(citation, by_pair, devices_by_id, repo))
+        citation_issues = _check_citation(citation, by_pair, devices_by_id, repo)
+        issues.extend(citation_issues)
+        afirmacao_issue = _check_afirmacao(citation)
+        if afirmacao_issue is not None:
+            issues.append(afirmacao_issue)
+        claims_supported.append(not citation_issues and afirmacao_issue is None)
 
     issues.extend(_check_quotes(answer.resposta, devices, repo))
     issues.extend(_check_claim_has_citation(answer))
@@ -53,6 +59,8 @@ def verify(
     semantic_issues: list[str] = []
     if judge is not None:
         semantic_issues = _run_judge(judge, answer, devices)
+        if semantic_issues:
+            claims_supported = [False] * len(claims_supported)
 
     deterministic_ok = not issues
     semantic_ok = None if judge is None else not semantic_issues
@@ -72,6 +80,7 @@ def verify(
         semantic_ok=semantic_ok,
         issues=all_issues,
         action=action,
+        claims_supported=claims_supported,
     )
 
 
@@ -170,6 +179,14 @@ def _check_claim_has_citation(answer: Answer) -> list[str]:
     if answer.resposta.strip() and not answer.citacoes:
         return ["legal claim without citation"]
     return []
+
+
+def _check_afirmacao(citation: Citation) -> str | None:
+    """Every citation must declare the claim it supports; never infer one."""
+
+    if not citation.afirmacao.strip():
+        return f"citation has no afirmacao for {citation.device_id}"
+    return None
 
 
 _JUDGE_TEXT_PARAMS = frozenset({"resposta", "text", "texto", "claim", "afirmacao", "statement"})

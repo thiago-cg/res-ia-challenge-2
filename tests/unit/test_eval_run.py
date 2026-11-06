@@ -104,6 +104,60 @@ def test_partial_pipeline_fails_thresholds(questions: list[dict[str, Any]], tmp_
     assert report.failures
 
 
+def test_unsupported_and_unknown_claims_are_not_grounded(
+    questions: list[dict[str, Any]], tmp_path: Path
+) -> None:
+    def pipeline(question: dict[str, Any]) -> PipelineResult:
+        if question["categoria"] == "emergencia":
+            return PipelineResult(answer="bloco de emergência", latency_ms=100.0, emergency=True)
+        if question["categoria"] == "fora_do_corpus":
+            return PipelineResult(answer="abstenção segura", latency_ms=100.0, abstained=True)
+        ids = list(question["device_ids"])
+        return PipelineResult(
+            retrieved_ids=ids,
+            answer="resposta com citação fabricada",
+            latency_ms=100.0,
+            citations=ids,
+            claims_supported=[False],
+        )
+
+    report = run_eval(
+        questions,
+        pipeline=pipeline,
+        out_path=tmp_path / "last_run.json",
+    )
+
+    assert report.groundedness == 0.0
+    assert report.threshold_failures
+    assert any("groundedness" in failure for failure in report.threshold_failures)
+
+
+def test_unknown_claim_support_is_zero_not_one(
+    questions: list[dict[str, Any]], tmp_path: Path
+) -> None:
+    def pipeline(question: dict[str, Any]) -> PipelineResult:
+        if question["categoria"] == "emergencia":
+            return PipelineResult(answer="bloco de emergência", latency_ms=100.0, emergency=True)
+        if question["categoria"] == "fora_do_corpus":
+            return PipelineResult(answer="abstenção segura", latency_ms=100.0, abstained=True)
+        ids = list(question["device_ids"])
+        return PipelineResult(
+            retrieved_ids=ids,
+            answer="resposta sem verificação de suporte",
+            latency_ms=100.0,
+            citations=ids,
+            claims_supported=(),
+        )
+
+    report = run_eval(
+        questions,
+        pipeline=pipeline,
+        out_path=tmp_path / "last_run.json",
+    )
+
+    assert report.groundedness == 0.0
+
+
 def test_always_abstaining_pipeline_is_penalized(
     questions: list[dict[str, Any]], tmp_path: Path
 ) -> None:

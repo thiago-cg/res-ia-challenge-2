@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -75,6 +76,12 @@ def fetch_health(
             active.close()
 
 
+def build_facts_payload(data_fato: date | None) -> dict[str, str] | None:
+    if data_fato is None:
+        return None
+    return {"data_fato": data_fato.isoformat()}
+
+
 def render_emergency(target: Any = st) -> None:
     target.error(EMERGENCY_BLOCK)
 
@@ -131,11 +138,17 @@ def render_response(response: dict[str, Any], target: Any = st) -> None:
     target.caption(legal_notice(response.get("data_atualizacao_base")))
 
 
-def render_sidebar(health: dict[str, Any] | None, target: Any = st) -> None:
+def render_sidebar(health: dict[str, Any] | None, target: Any = st) -> date | None:
     with target.sidebar:
         target.header("Sobre esta orientação")
         target.caption(LEGAL_NOTICE_PREFIX)
         target.caption(NO_PII_NOTICE)
+        selected = target.date_input(
+            "Data do fato (opcional)",
+            value=None,
+            key="data_fato",
+            help="Informe apenas se souber a data; ela define a versão da lei aplicável.",
+        )
 
         target.subheader("Status dos serviços")
         if health is None:
@@ -160,6 +173,8 @@ def render_sidebar(health: dict[str, Any] | None, target: Any = st) -> None:
             st.session_state.pop("pending_prompt", None)
             st.rerun()
 
+    return selected if isinstance(selected, date) else None
+
 
 def _render_history(target: Any = st) -> None:
     for entry in st.session_state.get("messages", []):
@@ -182,7 +197,7 @@ def main() -> None:
         st.session_state["messages"] = []
 
     health = fetch_health()
-    render_sidebar(health)
+    data_fato = render_sidebar(health)
 
     st.title("Orientação jurídica para violência doméstica")
     st.caption(LEGAL_NOTICE_PREFIX)
@@ -203,6 +218,7 @@ def main() -> None:
             response = call_chat_api(
                 prompt,
                 st.session_state["session_id"],
+                build_facts_payload(data_fato),
             )
         except Exception:
             st.error(

@@ -57,7 +57,7 @@ from src.retrieve.citations import CitationCatalog, resolve_explicit_citation
 from src.retrieve.expand import dedupe_by_artigo, expand_to_article
 from src.retrieve.hybrid import DenseSearcher, FtsSearcher, QdrantSearcher, hybrid_search
 from src.retrieve.hydrate import hydrate, resolve_citation
-from src.retrieve.query import default_facts, understand_query
+from src.retrieve.query import default_facts, extract_data_fato, understand_query
 from src.retrieve.rerank import MultiVectorEncoder, Rescore, rerank
 from src.safety.risk import classify_risk, emergency_answer
 
@@ -73,6 +73,7 @@ class PipelineResult:
     emergencia: bool = False
     data_atualizacao_base: str | None = None
     retrieved_ids: tuple[str, ...] = ()
+    claims_supported: tuple[bool, ...] = ()
 
 
 class ChatPipeline(Protocol):
@@ -175,6 +176,7 @@ class PostgresRepo:
             SELECT dv.norm_version_id
             FROM device_versions dv
             WHERE dv.device_id = %s
+              AND dv.vigencia_status IN ('vigente', 'alterado')
               AND dv.vigencia_inicio <= %s
               AND (dv.vigencia_fim IS NULL OR dv.vigencia_fim >= %s)
             ORDER BY dv.vigencia_inicio DESC
@@ -192,7 +194,7 @@ class PostgresRepo:
             SELECT d.id AS device_id, d.norm_id, d.artigo_id
             FROM devices d
             WHERE d.norm_id = %s
-              AND d.artigo_id = %s
+              AND d.id = %s
               AND EXISTS (
                   SELECT 1 FROM device_versions dv WHERE dv.device_id = d.id
               )
@@ -360,6 +362,8 @@ class LegalRAGPipeline:
         if classify_risk(message).immediate:
             return self._result(emergency_answer(), emergencia=True)
 
+        facts = self._with_extracted_data_fato(message, facts)
+
         try:
             resolution = resolve_explicit_citation(
                 message,
@@ -412,7 +416,7 @@ class LegalRAGPipeline:
                 top_k=self.settings.max_devices,
                 rescore=self.rescore,
             )
-            selected = self._expand(dedupe_by_artigo(ranked))[: self.settings.max_devices]
+            selected = dedupe_by_artigo(ranked)[: self.settings.max_devices]
         except Exception as exc:
             logger.warning("ranking_failed error=%s", type(exc).__name__)
             return self._abstain("erro_recuperacao")
@@ -424,7 +428,20 @@ class LegalRAGPipeline:
             return self._abstain("erro_recuperacao")
         if not hydrated:
             return self._abstain("contexto_incompleto")
-        return self._generate(message, plan.fatos, plan.subperguntas, hydrated)
+        expanded = self._expand(hydrated)
+        return self._generate(message, plan.fatos, plan.subperguntas, expanded)
+
+    @staticmethod
+    def _with_extracted_data_fato(message: str, facts: QueryFacts | None) -> QueryFacts | None:
+        """Fill a missing fact date from the question; never override the client."""
+
+        if facts is not None and facts.data_fato is not None:
+            return facts
+        extracted = extract_data_fato(message)
+        if extracted is None:
+            return facts
+        base = facts if facts is not None else default_facts()
+        return base.model_copy(update={"data_fato": extracted})
 
     @property
     def llm(self) -> LLMClient:
@@ -445,7 +462,8 @@ class LegalRAGPipeline:
         if version is None:
             return []
         hydrated = hydrate([(device_id, int(version))], repo=self.repo).devices
-        return [item.model_copy(update={"source": "explicit"}) for item in hydrated]
+        explicit = [item.model_copy(update={"source": "explicit"}) for item in hydrated]
+        return self._expand(explicit)
 
     def _expand(self, devices: list[RetrievedDevice]) -> list[RetrievedDevice]:
         if not hasattr(self.repo, "lookup"):
@@ -542,7 +560,12 @@ class LegalRAGPipeline:
                 logger.warning("verification_failed error=%s", type(exc).__name__)
                 return self._abstain("erro_recuperacao", retrieved_ids=retrieved_ids)
             if verification.action == "accept":
-                return self._result(answer, emergencia=False, retrieved_ids=retrieved_ids)
+                return self._result(
+                    answer,
+                    emergencia=False,
+                    retrieved_ids=retrieved_ids,
+                    claims_supported=verification.claims_supported,
+                )
             if verification.action == "regenerate" and attempt == 1:
                 prompt = self._feedback_prompt(prompt, "; ".join(verification.issues))
                 continue
@@ -565,9 +588,8 @@ class LegalRAGPipeline:
             if pair in seen:
                 continue
             seen.add(pair)
-            citations.append(
-                resolve_citation(device.device_id, device.norm_version_id, repo=self.repo)
-            )
+            citation = resolve_citation(device.device_id, device.norm_version_id, repo=self.repo)
+            citations.append(citation.model_copy(update={"afirmacao": cited.afirmacao}))
 
         return Answer(
             resposta=output.resposta,
@@ -617,9 +639,16 @@ class LegalRAGPipeline:
         *,
         emergencia: bool,
         retrieved_ids: Sequence[str] = (),
+        claims_supported: Sequence[bool] = (),
     ) -> PipelineResult:
         data = self._data_atualizacao_base if emergencia else self.data_atualizacao_base
-        return PipelineResult(answer, emergencia, data, tuple(retrieved_ids))
+        return PipelineResult(
+            answer,
+            emergencia,
+            data,
+            tuple(retrieved_ids),
+            tuple(claims_supported),
+        )
 
 
 class LazyChatPipeline:

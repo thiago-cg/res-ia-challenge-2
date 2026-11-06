@@ -27,6 +27,12 @@ LMP_CATALOG = FakeCatalog(
         ("lmp", "lmp/art7"): CatalogHit("lmp/art7", "lmp", "lmp/art7"),
         ("lmp", "lmp/art24-a"): CatalogHit("lmp/art24-a", "lmp", "lmp/art24-a"),
         ("lmp", "lmp/art22"): CatalogHit("lmp/art22", "lmp", "lmp/art22"),
+        ("lmp", "lmp/art22/cpt/inc3"): CatalogHit("lmp/art22/cpt/inc3", "lmp", "lmp/art22"),
+        ("lmp", "lmp/art22/cpt/inc3/ali-b"): CatalogHit(
+            "lmp/art22/cpt/inc3/ali-b", "lmp", "lmp/art22"
+        ),
+        ("lmp", "lmp/art22/par1/inc3"): CatalogHit("lmp/art22/par1/inc3", "lmp", "lmp/art22"),
+        ("lmp", "lmp/art22/par-unico"): CatalogHit("lmp/art22/par-unico", "lmp", "lmp/art22"),
     }
 )
 
@@ -73,6 +79,22 @@ def test_parse_bare_inciso_and_quoted_alinea() -> None:
     assert parsed.alinea == "b"
 
 
+def test_parse_article_in_prose_does_not_capture_a_prose_letter() -> None:
+    parsed = parse_citation("O que diz o art. 7º da Lei Maria da Penha?")
+
+    assert parsed.artigo == 7
+    assert parsed.alinea is None
+
+
+def test_parse_paragrafo_unico() -> None:
+    parsed = parse_citation("art. 22, parágrafo único, inciso III")
+
+    assert parsed.artigo == 22
+    assert parsed.paragrafo is None
+    assert parsed.paragrafo_unico is True
+    assert parsed.inciso == 3
+
+
 def test_parse_returns_empty_citation() -> None:
     parsed = parse_citation("como faço para denunciar?")
     assert parsed == ParsedCitation(
@@ -109,6 +131,87 @@ def test_resolve_hyphenated_article() -> None:
     assert result.resolved is True
     assert result.device_id == "lmp/art24-a"
     assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art24-a")
+
+
+def test_resolve_leaf_citation_uses_the_full_canonical_device_id() -> None:
+    result = resolve_explicit_citation(
+        'art. 22, III, "b" da Lei Maria da Penha', catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is True
+    assert result.device_id == "lmp/art22/cpt/inc3/ali-b"
+    assert result.artigo_id == "lmp/art22"
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/cpt/inc3/ali-b")
+
+
+def test_resolve_paragraph_leaf_without_caput_segment() -> None:
+    result = resolve_explicit_citation(
+        "art. 22, § 1º, inciso III da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is True
+    assert result.device_id == "lmp/art22/par1/inc3"
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/par1/inc3")
+
+
+def test_nonexistent_inciso_under_existing_article_abstains() -> None:
+    result = resolve_explicit_citation(
+        "art. 22, inciso IX da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is False
+    assert result.reason == "not_found"
+    assert result.device_id is None
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/cpt/inc9")
+
+
+def test_leading_inciso_attaches_to_the_following_article() -> None:
+    result = resolve_explicit_citation(
+        "inciso III do art. 22 da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is True
+    assert result.device_id == "lmp/art22/cpt/inc3"
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/cpt/inc3")
+
+
+def test_missing_leading_inciso_abstains_without_parent_fallback() -> None:
+    result = resolve_explicit_citation(
+        "inciso IX do art. 22 da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is False
+    assert result.reason == "not_found"
+    assert result.device_id is None
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/cpt/inc9")
+
+
+def test_leading_paragrafo_unico_attaches_to_the_article() -> None:
+    result = resolve_explicit_citation(
+        "parágrafo único do art. 22 da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is True
+    assert result.device_id == "lmp/art22/par-unico"
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/par-unico")
+
+
+def test_leading_full_chain_attaches_in_canonical_order() -> None:
+    result = resolve_explicit_citation(
+        "alínea b do inciso III do art. 22 da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is True
+    assert result.device_id == "lmp/art22/cpt/inc3/ali-b"
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/cpt/inc3/ali-b")
+
+
+def test_leading_qualifiers_parse_even_after_prose() -> None:
+    parsed = parse_citation("O que diz o inciso III do art. 22 da Lei Maria da Penha?")
+
+    assert parsed.artigo == 22
+    assert parsed.inciso == 3
+    assert parsed.alinea is None
 
 
 def test_resolve_uses_norm_hint_argument() -> None:

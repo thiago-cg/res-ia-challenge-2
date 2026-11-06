@@ -5,7 +5,11 @@ from datetime import date
 import pytest
 
 from src.contracts import QueryFacts
-from src.retrieve.query import QUERY_UNDERSTANDING_PROMPT_V1, understand_query
+from src.retrieve.query import (
+    QUERY_UNDERSTANDING_PROMPT_V1,
+    extract_data_fato,
+    understand_query,
+)
 
 VALID_PAYLOAD = {
     "fatos": {
@@ -30,6 +34,34 @@ def make_facts(**overrides: object) -> QueryFacts:
     }
     data.update(overrides)
     return QueryFacts(**data)
+
+
+def test_extract_data_fato_accepts_brazilian_and_iso_dates() -> None:
+    assert extract_data_fato("O fato ocorreu em 05/03/2023.") == date(2023, 3, 5)
+    assert extract_data_fato("O fato ocorreu em 2023-03-05.") == date(2023, 3, 5)
+
+
+def test_extract_data_fato_accepts_a_year_reference() -> None:
+    assert extract_data_fato("Ele me agrediu em 2023.") == date(2023, 1, 1)
+
+
+def test_extract_data_fato_accepts_relative_years() -> None:
+    assert extract_data_fato("Ele me agrediu há 2 anos.", today=date(2026, 11, 6)) == date(
+        2024, 11, 6
+    )
+
+
+def test_extract_data_fato_accepts_relative_months() -> None:
+    assert extract_data_fato("A ameaça foi há 6 meses.", today=date(2026, 11, 6)) == date(
+        2026, 5, 6
+    )
+
+
+def test_extract_data_fato_never_invents_when_ambiguous() -> None:
+    assert extract_data_fato("Foi em 05/03/2023 ou 06/03/2023.") is None
+    assert extract_data_fato("Foi em 2023 e há 2 anos.", today=date(2026, 11, 6)) is None
+    assert extract_data_fato("Como pedir medida protetiva?") is None
+    assert extract_data_fato("Foi em 31/02/2023.") is None
 
 
 def test_prompt_is_versioned_and_contains_schema() -> None:
