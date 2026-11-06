@@ -305,7 +305,15 @@ def test_cli_returns_zero_on_success(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(run_module, "fetch_source", fake_fetch)
     code = run_module.main(
-        ["--all", "--manifest", str(manifest), "--dest-dir", str(tmp_path / "raw")]
+        [
+            "--all",
+            "--stage",
+            "download",
+            "--manifest",
+            str(manifest),
+            "--dest-dir",
+            str(tmp_path / "raw"),
+        ]
     )
 
     assert code == 0
@@ -332,7 +340,15 @@ def test_cli_returns_one_when_enabled_source_fails(
 
     monkeypatch.setattr(run_module, "fetch_source", fake_fetch)
     code = run_module.main(
-        ["--all", "--manifest", str(manifest), "--dest-dir", str(tmp_path / "raw")]
+        [
+            "--all",
+            "--stage",
+            "download",
+            "--manifest",
+            str(manifest),
+            "--dest-dir",
+            str(tmp_path / "raw"),
+        ]
     )
 
     assert code == 1
