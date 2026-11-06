@@ -241,6 +241,7 @@ def test_emergency_blocks_before_any_retrieval() -> None:
     result = pipeline.answer("Ele está me batendo agora.")
 
     assert result.emergencia is True
+    assert result.retrieved_ids == ()
     assert "190" in result.answer.resposta
     assert "180" in result.answer.resposta
     assert "100" in result.answer.resposta
@@ -383,6 +384,7 @@ def test_resolved_explicit_citation_hydrates_pair_and_skips_hybrid() -> None:
     result = pipeline.answer("O que diz o art. 7º da Lei Maria da Penha?")
 
     assert result.answer.abstencao is False
+    assert result.retrieved_ids == ("lmp/art7",)
     assert len(result.answer.citacoes) == 1
     citation = result.answer.citacoes[0]
     assert citation.device_id == "lmp/art7"
@@ -642,6 +644,7 @@ def test_normal_retrieval_runs_dense_and_fts_and_hydrates() -> None:
     result = pipeline.answer("Como pedir medida protetiva de urgência?")
 
     assert result.answer.abstencao is False
+    assert result.retrieved_ids == ("lmp/art22",)
     assert result.answer.citacoes[0].texto == row["texto_literal"]
     assert dense.calls and fts.calls
     assert ("get_device_version", "lmp/art22", 7) in repo.calls

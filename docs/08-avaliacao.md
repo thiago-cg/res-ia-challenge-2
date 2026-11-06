@@ -302,7 +302,7 @@ Saída:
 
 - **Métricas pendentes de execução com Postgres/Qdrant.** Nenhum valor de recall, citação, groundedness, abstenção ou latência foi produzido neste ciclo; os números de §3 e §10 continuam metas, não resultados.
 - **Revisão jurídica humana PENDENTE.** Não houve revisão por advogada, defensora ou pessoa da rede de atendimento. As perguntas e as respostas esperadas são hipóteses de avaliação, não parecer jurídico.
-- O adaptador real (`src.api.main.build_eval_pipeline`) ainda não existe neste branch; a CLI falha com mensagem clara e o harness só roda com pipeline injetado.
+- O adaptador real (`src.api.main.build_eval_pipeline`) existe e sonda Postgres e encoder antes de rodar. Sem DB, revisão pinada ou modelo utilizável, a CLI falha com mensagem clara; o harness também roda com pipeline injetado.
 - Todos os `device_ids` usados são canônicos (docs/04 §3). Emergência e fora do corpus não têm `device_ids`. `stf-adi-4424` vem de uma semente curada em `data/seed/stf-adi-4424.json` (não raspada; precisa ser carregada no corpus). Não foi criada pergunta de violência vicária porque não há dispositivo verificado no corpus.
 - O checklist de aceite do MVP (§10) permanece intocado: nenhuma caixa deve ser marcada sem execução real e revisão humana.
 

@@ -17,7 +17,8 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Protocol
+from pathlib import Path
+from typing import Any, Protocol, cast
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -71,6 +72,7 @@ class PipelineResult:
     answer: Answer
     emergencia: bool = False
     data_atualizacao_base: str | None = None
+    retrieved_ids: tuple[str, ...] = ()
 
 
 class ChatPipeline(Protocol):
@@ -321,7 +323,7 @@ class LegalRAGPipeline:
         dense: DenseSearcher | None = None,
         fts: FtsSearcher | None = None,
         qdrant: QdrantSearcher | None = None,
-        encoder: MultiVectorEncoder | None = None,
+        encoder: Encoder | MultiVectorEncoder | None = None,
         rescore: Rescore | None = None,
         judge: Callable[..., Any] | None = None,
         catalog: CitationCatalog | None = None,
@@ -406,7 +408,7 @@ class LegalRAGPipeline:
             ranked = rerank(
                 plan.consulta_juridica,
                 candidates,
-                encoder=self.encoder,
+                encoder=_as_rerank_encoder(self.encoder),
                 top_k=self.settings.max_devices,
                 rescore=self.rescore,
             )
@@ -475,6 +477,7 @@ class LegalRAGPipeline:
         if not retrieved:
             return self._abstain("contexto_incompleto")
 
+        retrieved_ids = tuple(item.device_id for item in retrieved)
         prompt = build_user_prompt(
             message,
             fatos,
@@ -512,6 +515,7 @@ class LegalRAGPipeline:
                         data_atualizacao=self.data_atualizacao_base,
                     ),
                     emergencia=False,
+                    retrieved_ids=retrieved_ids,
                 )
 
             try:
@@ -523,7 +527,7 @@ class LegalRAGPipeline:
                 return self._safe_answer(retrieved, "citacao_invalida")
             except Exception as exc:
                 logger.warning("citation_render_failed error=%s", type(exc).__name__)
-                return self._abstain("erro_recuperacao")
+                return self._abstain("erro_recuperacao", retrieved_ids=retrieved_ids)
 
             try:
                 verification = verify(
@@ -536,13 +540,13 @@ class LegalRAGPipeline:
                 )
             except Exception as exc:
                 logger.warning("verification_failed error=%s", type(exc).__name__)
-                return self._abstain("erro_recuperacao")
+                return self._abstain("erro_recuperacao", retrieved_ids=retrieved_ids)
             if verification.action == "accept":
-                return self._result(answer, emergencia=False)
+                return self._result(answer, emergencia=False, retrieved_ids=retrieved_ids)
             if verification.action == "regenerate" and attempt == 1:
                 prompt = self._feedback_prompt(prompt, "; ".join(verification.issues))
                 continue
-            return self._abstain("verificacao_falhou")
+            return self._abstain("verificacao_falhou", retrieved_ids=retrieved_ids)
 
         return self._safe_answer(retrieved, "nao_foi_possivel_gerar")
 
@@ -596,18 +600,26 @@ class LegalRAGPipeline:
             build_safe_answer(retrieved, reason),
             False,
             self.data_atualizacao_base,
+            tuple(item.device_id for item in retrieved),
         )
 
-    def _abstain(self, reason: str) -> PipelineResult:
+    def _abstain(self, reason: str, *, retrieved_ids: Sequence[str] = ()) -> PipelineResult:
         return PipelineResult(
             fallback_abstain(reason, data_atualizacao=self.data_atualizacao_base),
             False,
             self.data_atualizacao_base,
+            tuple(retrieved_ids),
         )
 
-    def _result(self, answer: Answer, *, emergencia: bool) -> PipelineResult:
+    def _result(
+        self,
+        answer: Answer,
+        *,
+        emergencia: bool,
+        retrieved_ids: Sequence[str] = (),
+    ) -> PipelineResult:
         data = self._data_atualizacao_base if emergencia else self.data_atualizacao_base
-        return PipelineResult(answer, emergencia, data)
+        return PipelineResult(answer, emergencia, data, tuple(retrieved_ids))
 
 
 class LazyChatPipeline:
@@ -630,12 +642,25 @@ class LazyChatPipeline:
         return pipeline.answer(message, facts)
 
 
+def _as_rerank_encoder(
+    encoder: Encoder | MultiVectorEncoder | None,
+) -> MultiVectorEncoder | None:
+    """Rerank needs token multivectors; dense encoders keep the RRF order."""
+
+    if encoder is None:
+        return None
+    if callable(getattr(encoder, "encode_document", None)):
+        return cast(MultiVectorEncoder, encoder)
+    return None
+
+
 def build_default_pipeline(
     settings: Settings, data_atualizacao_base: str | None
 ) -> LegalRAGPipeline:
     repo = PostgresRepo(settings.database_url)
     dense: DenseSearcher | None = None
     fts: FtsSearcher | None = None
+    encoder: Encoder | None = None
 
     if settings.retrieval_path == "target":
         raise ValueError(
@@ -652,8 +677,96 @@ def build_default_pipeline(
         settings=settings,
         dense=dense,
         fts=fts,
+        encoder=encoder,
         data_atualizacao_base=data_atualizacao_base,
     )
+
+
+def build_eval_pipeline() -> Callable[[Mapping[str, Any]], Any]:
+    """Build the real pipeline adapter consumed by ``src.eval.run``.
+
+    The evaluation CLI reports the ``RuntimeError`` below when Postgres or the
+    encoder is unavailable, instead of failing one question at a time. The
+    encoder is probed once, during this call only, so a missing model artifact
+    does not silently degrade every question into an abstention.
+    """
+
+    from src.eval.pipeline import make_eval_pipeline
+
+    try:
+        settings = get_settings()
+        pipeline = build_default_pipeline(settings, None)
+        checker = getattr(pipeline.repo, "health_snapshot", None)
+        if callable(checker):
+            checker()
+    except Exception as exc:
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: não foi possível montar "
+            "Postgres/encoder. Verifique DATABASE_URL, EMBEDDING_MODEL_REVISION e o "
+            "extra 'ml'; modelos GGUF não são suportados, o caminho exige safetensors "
+            "e, sem GPU, use RETRIEVAL_PATH=fallback. "
+            f"Detalhe: {type(exc).__name__}: {exc}"
+        ) from exc
+    _probe_eval_encoder(settings, getattr(pipeline, "encoder", None))
+    return make_eval_pipeline(pipeline)
+
+
+def _probe_eval_encoder(settings: Settings, encoder: Any) -> None:
+    """Fail fast when the configured encoder cannot produce an embedding."""
+
+    if encoder is None:
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: o pipeline não expôs encoder. "
+            "Use RETRIEVAL_PATH=fallback com um encoder Harrier configurado."
+        )
+
+    configured_revision = getattr(settings, "embedding_model_revision", "")
+    revision = str(getattr(encoder, "revision", None) or configured_revision)
+    if not revision or revision.lower() == "main":
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: EMBEDDING_MODEL_REVISION deve "
+            "estar pinado em um commit/tag; vazio ou 'main' não serve."
+        )
+
+    configured_path = _encoder_model_path(settings)
+    if configured_path:
+        model_path = Path(configured_path)
+        if not model_path.exists():
+            raise RuntimeError(
+                "pipeline real de avaliação indisponível: caminho do modelo não existe: "
+                f"{model_path}. Aponte para um diretório safetensors válido ou use "
+                "RETRIEVAL_PATH=fallback."
+            )
+        if model_path.suffix.lower() == ".gguf":
+            raise RuntimeError(
+                "pipeline real de avaliação indisponível: GGUF (llama.cpp) não é "
+                "suportado; use checkpoints safetensors ou RETRIEVAL_PATH=fallback."
+            )
+
+    encode = getattr(encoder, "encode_query", None)
+    if not callable(encode):
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: encoder sem encode_query; "
+            "use o encoder Harrier do caminho fallback."
+        )
+    try:
+        encode("probe")
+    except Exception as exc:
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: o encoder não gerou o embedding "
+            "de teste. Use checkpoints safetensors (GGUF/llama.cpp não é suportado), "
+            "confira EMBEDDING_MODEL_REVISION e os caminhos de modelo; sem GPU, use "
+            "RETRIEVAL_PATH=fallback. "
+            f"Detalhe: {type(exc).__name__}: {exc}"
+        ) from exc
+
+
+def _encoder_model_path(settings: Settings) -> str | None:
+    if getattr(settings, "embedding_provider", "harrier") == "harrier":
+        return getattr(settings, "harrier_model_path", "") or None
+    if getattr(settings, "retrieval_path", "fallback") == "target":
+        return getattr(settings, "ppx_9b_model_path", "") or None
+    return getattr(settings, "ppx_06b_model_path", "") or None
 
 
 def create_app(

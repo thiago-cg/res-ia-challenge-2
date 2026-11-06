@@ -41,9 +41,9 @@ antes de usar qualquer número deste repositório.
 | --- | --- |
 | Caminho fallback (Harrier + pgvector + FTS/RRF) | Implementado e coberto por testes unitários. Não foi executado de ponta a ponta neste ambiente. |
 | Caminho alvo (pplx 9B/0.6B + Qdrant) | Código presente, atrás de `RETRIEVAL_PATH=target`. O app padrão não monta o searcher Qdrant; é preciso injetar um pipeline. Sem GPU/safetensors validados. |
-| Ingestão | `src.ingest.run` **apenas baixa** os arquivos brutos e calcula hash. Não há CLI de parsing/carga neste branch. |
+| Ingestão | CLI completa com `--stage download|parse|validate|load|all`, `--offline`, JSONL atômico (`--out-jsonl`) e carga idempotente. Coberta por testes sem rede/DB; a execução ao vivo não foi feita neste ambiente. |
 | Índice | `src.index.run --path fallback` existe, mas exige `EMBEDDING_MODEL_REVISION` pinado e o extra `ml`. |
-| Avaliação | Harness e 150 perguntas existem. **Métricas PENDENTES**: nenhum recall, citação, groundedness ou latência foi medido contra Postgres/Qdrant ao vivo. O adaptador real `build_eval_pipeline` ainda não existe; a CLI falha com mensagem clara. |
+| Avaliação | Harness, 150 perguntas e adaptador real (`build_eval_pipeline`) existem. **Métricas PENDENTES**: nenhum recall, citação, groundedness ou latência foi medido contra Postgres/Qdrant ao vivo. Sem DB/encoder, a CLI falha com mensagem clara. |
 | Revisão jurídica | **PENDENTE**. Nenhuma advogada, defensora ou pessoa da rede de atendimento revisou prompt, textos ou respostas. Não há parecer. |
 | Modelos locais | Os artefatos locais são **GGUF** (llama.cpp). O caminho alvo precisa de **safetensors**. GGUF levanta `ModelFormatError`; o fallback é o padrão. |
 | Docker/Postgres/Qdrant | `docker-compose.yml` e CI existem, mas **não há Docker, Postgres ou Qdrant ao vivo** no ambiente em que este status foi escrito. Testes de integração não foram executados aqui. |
@@ -158,50 +158,46 @@ Dentro de um virtualenv ativado, `python scripts/apply_migrations.py` também
 funciona. O script aplica todos os `migrations/*.sql` em ordem e faz commit por
 arquivo.
 
-### 5. Ingestão (download dos textos oficiais)
+### 5. Ingestão (download, parsing, validação e carga)
+
+O comando padrão roda o pipeline inteiro (`--stage all`): baixa, parseia,
+valida e carrega no Postgres.
 
 ```powershell
 uv run python -m src.ingest.run --priority P0
 ```
 
-Opções reais da CLI: `--source <id>`, `--priority P0|P1` ou `--all`
-(mutuamente exclusivas), além de `--manifest`, `--dest-dir`, `--timeout` e
-`--retries`. Os arquivos vão para `data/raw/` com sidecar `.meta.json` e hash
-SHA-256; a execução é idempotente.
+Opções de seleção: `--source <id>`, `--priority P0|P1` ou `--all` (mutuamente
+exclusivas), além de `--manifest`, `--dest-dir`, `--timeout` e `--retries`. Os
+arquivos brutos vão para `data/raw/` com sidecar `.meta.json` e hash SHA-256; o
+download é idempotente.
 
-**Importante:** essa CLI **só baixa**. Ela não parseia nem carrega o Postgres.
-Não há CLI de carga neste branch.
-
-### 6. Carga do corpus (sem CLI dedicada)
-
-Depois do download, parseie e carregue com as funções existentes:
+`--stage` escolhe até onde ir:
 
 ```powershell
-uv run python -c @"
-import psycopg
-from src.config import get_settings
-from src.index.load_db import load_parse_result
-from src.ingest.fetch import fetch_source, load_sources
-from src.ingest.run import parse_downloaded_source
-
-settings = get_settings()
-with psycopg.connect(settings.database_url) as conn:
-    for source in load_sources("data/sources.yaml"):
-        if not source.enabled:
-            continue
-        fetched = fetch_source(source, "data/raw")
-        result = parse_downloaded_source(source, fetched.path)
-        report = load_parse_result(conn, result)
-        conn.commit()
-        print(source.id, report.devices_loaded, report.versions_loaded)
-"@
+uv run python -m src.ingest.run --source lmp --stage download
+uv run python -m src.ingest.run --source lmp --offline --stage parse --out-jsonl data/processed
+uv run python -m src.ingest.run --priority P0 --offline --stage load --database-url "postgresql://app:app@localhost:5432/violencia"
 ```
 
-Esse bloco é o caminho suportado hoje; ele não substitui uma CLI de ingestão
-completa e pode precisar de ajuste para fontes cujo parser exija tratamento
-específico.
+- `download`: apenas baixa (não parseia).
+- `parse`: baixa (ou usa `--offline`) e parseia; não valida nem carrega.
+- `validate`: para no checklist de validação.
+- `load` / `all`: baixa (ou `--offline`), parseia, valida e carrega.
+- `--offline`: não baixa; usa `data/raw/<source>.*` e falha se o arquivo não
+  existir.
+- `--out-jsonl PATH`: grava um JSONL atômico por fonte em
+  `PATH/<source>.jsonl` (com um único source, `PATH` pode ser um arquivo
+  `.jsonl`). Cada linha traz a versão parseada e os campos de identidade do
+  dispositivo usados pelo loader.
+- `--database-url`: cai para `DATABASE_URL` e para o default de `Settings`. Em
+  `load`/`all`, uma conexão inacessível encerra com código 1 e mensagem clara.
 
-### 7. Índice fallback
+O relatório por fonte mostra `devices`, `changed` e `errors`; qualquer falha
+retorna código 1. A carga usa o mesmo `load_parse_result` do índice e registra
+`ingest_runs` com `record_ingest_run` (`running` → `ok`/`error`).
+
+### 6. Índice fallback
 
 ```powershell
 uv run python -m src.index.run --path fallback
@@ -221,7 +217,7 @@ uv run python -m src.index.run --path target
 Sem um encoder que exponha `encode_multivectors` com vetores de 128 dimensões,
 o comando falha com `ModelFormatError`. Os GGUF locais não servem.
 
-### 8. API e interface
+### 7. API e interface
 
 ```powershell
 uv run uvicorn src.api.main:app --no-access-log
@@ -241,7 +237,7 @@ para outro endereço. Endpoints: `POST /chat`, `GET /health`,
 O `/health` reporta `degraded` quando Postgres ou Qdrant estão inacessíveis;
 nunca finge `ok`.
 
-### 9. Testes e qualidade
+### 8. Testes e qualidade
 
 ```powershell
 uv run pytest -m "not integration"
@@ -320,9 +316,10 @@ Comando do harness:
 uv run python -m src.eval.run --questions data/eval/questions_150.jsonl --out data/eval/last_run.json
 ```
 
-Neste branch, o comando falha com mensagem clara porque
-`src.api.main.build_eval_pipeline` ainda não existe. O harness só roda com um
-pipeline injetado em teste. **Nenhuma métrica foi produzida.**
+O adaptador real (`src.api.main.build_eval_pipeline`) existe e mapeia a saída do
+pipeline para o harness. Sem Postgres, encoder ou `EMBEDDING_MODEL_REVISION`
+válidos, o comando falha com mensagem clara em vez de fingir execução. O harness
+também aceita um pipeline injetado nos testes. **Nenhuma métrica foi produzida.**
 
 `G4` (eval 20 + revisão humana), `G6` (150 + parecer) e a revisão jurídica humana
 permanecem **PENDENTES**. Os números de `docs/08` são metas, não resultados.
@@ -379,14 +376,14 @@ CI, mas **não foi executado no ambiente deste status**.
 
 Limitações atuais:
 
-- Não há um comando único de ingestão ponta a ponta: a CLI baixa, mas parsing e
-  carga precisam do bloco Python da seção 6.
+- A ingestão ao vivo (download das fontes oficiais + carga no Postgres) não foi
+  executada neste ambiente; os testes de parsing/carga usam mocks.
 - O caminho alvo (9B/Qdrant) não está operacional com os artefatos locais; os
   GGUF não servem e não há safetensors validados.
 - O caminho alvo de recuperação não é montado pelo `create_app` padrão; exige
   injeção de pipeline/searcher.
-- O adaptador de avaliação real (`build_eval_pipeline`) não existe; as métricas
-  seguem pendentes.
+- O adaptador de avaliação existe, mas as métricas seguem pendentes: não houve
+  execução contra Postgres/Qdrant ao vivo.
 - LLM `local`/`api` sem campos de URL/chave em `Settings`/`.env.example`.
 - Middlewares de request ID/segurança não estão ligados em `create_app`.
 - Nenhuma revisão jurídica humana; nenhum gate G4/G6.
@@ -394,9 +391,9 @@ Limitações atuais:
 Próximos passos, na ordem:
 
 1. Fechar a fiação dos middlewares e expor `X-Request-ID` com testes de API.
-2. Criar a CLI/etapa de parsing + carga e um smoke de ingestão → índice.
+2. Rodar um smoke de ingestão real (`--stage all`) → índice com Postgres vivo.
 3. Conseguir checkpoints safetensors e executar o smoke 9B/0.6B (G5).
-4. Implementar `build_eval_pipeline` e rodar as 150 perguntas com Postgres/Qdrant.
+4. Rodar as 150 perguntas com `build_eval_pipeline` contra Postgres/Qdrant.
 5. Submeter prompt, textos e respostas à revisão jurídica humana (G4/G6).
 
 ## Licença e proveniência
