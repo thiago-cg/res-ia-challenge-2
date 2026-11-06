@@ -20,6 +20,12 @@ _NORM_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 
 _ARTICLE_RE = re.compile(r"\bartigo\s+(\d+)(?:-([a-z]))?\b")
 _PAR_UNICO_RE = re.compile(r"\bparagrafo\s+unico\b")
+_QUALIFIER_PATTERN = r"(?:paragrafo\s+(?:unico|\d+)|inciso\s+\d+|alinea\s+[a-z]|item\s+\d+)"
+_QUALIFIER_CONNECTOR = r"(?:do|da|de|dos|das|no|na|em)"
+_LEADING_QUALIFIERS_RE = re.compile(
+    rf"(?:{_QUALIFIER_PATTERN}\s+{_QUALIFIER_CONNECTOR}\s+)*"
+    rf"{_QUALIFIER_PATTERN}\s*(?:{_QUALIFIER_CONNECTOR}\s*)?$"
+)
 _PUNCTUATION = "\"'“”().,"
 
 
@@ -83,8 +89,20 @@ def _is_quoted(raw_token: str) -> bool:
     return any(char in raw_token for char in "\"'“”")
 
 
+def _leading_qualifiers(text: str) -> str:
+    """Return the qualifier chain immediately before the article reference.
+
+    ``inciso IX do art. 22`` and ``alínea b do inciso III do art. 22`` carry the
+    leaf *before* the article; stop at the first word that is not a qualifier or
+    connector so surrounding prose is never parsed as part of the citation.
+    """
+
+    match = _LEADING_QUALIFIERS_RE.search(text)
+    return match.group(0).strip() if match else ""
+
+
 def parse_citation(text: str) -> ParsedCitation:
-    """Parse a citation such as ``art. 22, III, "b"``."""
+    """Parse a citation such as ``art. 22, III, "b"`` or ``inciso III do art. 22``."""
     normalized = normalize_citation_forms(text)
     norm_hint = detect_norm_hint(normalized)
 
@@ -95,7 +113,8 @@ def parse_citation(text: str) -> ParsedCitation:
     if match:
         artigo = int(match.group(1))
         sufixo = match.group(2)
-        remainder = normalized[match.end() :]
+        leading = _leading_qualifiers(normalized[: match.start()])
+        remainder = f"{leading} {normalized[match.end() :]}".strip()
 
     paragrafo = _extract_number(remainder, "paragrafo")
     paragrafo_unico = paragrafo is None and _PAR_UNICO_RE.search(remainder) is not None

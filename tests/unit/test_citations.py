@@ -32,6 +32,7 @@ LMP_CATALOG = FakeCatalog(
             "lmp/art22/cpt/inc3/ali-b", "lmp", "lmp/art22"
         ),
         ("lmp", "lmp/art22/par1/inc3"): CatalogHit("lmp/art22/par1/inc3", "lmp", "lmp/art22"),
+        ("lmp", "lmp/art22/par-unico"): CatalogHit("lmp/art22/par-unico", "lmp", "lmp/art22"),
     }
 )
 
@@ -162,6 +163,55 @@ def test_nonexistent_inciso_under_existing_article_abstains() -> None:
     assert result.reason == "not_found"
     assert result.device_id is None
     assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/cpt/inc9")
+
+
+def test_leading_inciso_attaches_to_the_following_article() -> None:
+    result = resolve_explicit_citation(
+        "inciso III do art. 22 da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is True
+    assert result.device_id == "lmp/art22/cpt/inc3"
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/cpt/inc3")
+
+
+def test_missing_leading_inciso_abstains_without_parent_fallback() -> None:
+    result = resolve_explicit_citation(
+        "inciso IX do art. 22 da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is False
+    assert result.reason == "not_found"
+    assert result.device_id is None
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/cpt/inc9")
+
+
+def test_leading_paragrafo_unico_attaches_to_the_article() -> None:
+    result = resolve_explicit_citation(
+        "parágrafo único do art. 22 da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is True
+    assert result.device_id == "lmp/art22/par-unico"
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/par-unico")
+
+
+def test_leading_full_chain_attaches_in_canonical_order() -> None:
+    result = resolve_explicit_citation(
+        "alínea b do inciso III do art. 22 da Lei Maria da Penha", catalog=LMP_CATALOG
+    )
+
+    assert result.resolved is True
+    assert result.device_id == "lmp/art22/cpt/inc3/ali-b"
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22/cpt/inc3/ali-b")
+
+
+def test_leading_qualifiers_parse_even_after_prose() -> None:
+    parsed = parse_citation("O que diz o inciso III do art. 22 da Lei Maria da Penha?")
+
+    assert parsed.artigo == 22
+    assert parsed.inciso == 3
+    assert parsed.alinea is None
 
 
 def test_resolve_uses_norm_hint_argument() -> None:
