@@ -691,6 +691,12 @@ def build_default_pipeline(
     fts: FtsSearcher | None = None
     encoder: Encoder | None = None
 
+    if settings.embedding_provider == "openrouter" and settings.retrieval_path == "target":
+        raise ValueError(
+            "EMBEDDING_PROVIDER=openrouter has no multivector/late-interaction model; "
+            "the pplx-embed-v2-late models are not available on OpenRouter. "
+            "Use RETRIEVAL_PATH=fallback with OpenRouter."
+        )
     if settings.retrieval_path == "target":
         raise ValueError(
             "target retrieval path requires an injected qdrant searcher; "
@@ -791,7 +797,10 @@ def _probe_eval_encoder(settings: Settings, encoder: Any) -> None:
 
 
 def _encoder_model_path(settings: Settings) -> str | None:
-    if getattr(settings, "embedding_provider", "harrier") == "harrier":
+    provider = getattr(settings, "embedding_provider", "harrier")
+    if provider == "openrouter":
+        return None
+    if provider == "harrier":
         return getattr(settings, "harrier_model_path", "") or None
     if getattr(settings, "retrieval_path", "fallback") == "target":
         return getattr(settings, "ppx_9b_model_path", "") or None
