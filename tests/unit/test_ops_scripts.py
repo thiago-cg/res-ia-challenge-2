@@ -48,7 +48,8 @@ def test_backup_script_contract() -> None:
     assert text.startswith(("#!/usr/bin/env sh", "#!/bin/sh"))
     assert re.search(r"^set -eu$", text, re.MULTILINE)
     assert "${DATABASE_URL" in text
-    assert "pg_dump" in text
+    assert "${PG_DUMP:-pg_dump}" in text
+    assert '"$PG_DUMP"' in text
     assert "--format=custom" in text
     assert "--no-owner" in text
     assert "--no-privileges" in text
@@ -66,7 +67,8 @@ def test_restore_script_contract() -> None:
     assert text.startswith(("#!/usr/bin/env sh", "#!/bin/sh"))
     assert re.search(r"^set -eu$", text, re.MULTILINE)
     assert "${DATABASE_URL" in text
-    assert "pg_restore" in text
+    assert "${PG_RESTORE:-pg_restore}" in text
+    assert '"$PG_RESTORE"' in text
     assert "--clean" in text
     assert "--if-exists" in text
     assert "--no-owner" in text
@@ -80,7 +82,8 @@ def test_restore_script_contract() -> None:
 def test_backup_powershell_contract() -> None:
     text = _read(SCRIPTS / "backup.ps1")
     assert "DATABASE_URL" in text
-    assert "pg_dump" in text
+    assert "$env:PG_DUMP" in text
+    assert "$PgDump" in text
     assert "--format=custom" in text
     assert "--no-owner" in text
     assert "--no-privileges" in text
@@ -114,10 +117,15 @@ def test_ci_has_backup_restore_job() -> None:
     assert "pg_dump" in text or "postgresql-client" in text
 
     job = workflow["jobs"]["backup-restore"]
+    assert job["env"]["PG_DUMP"] == "/usr/lib/postgresql/17/bin/pg_dump"
+    assert job["env"]["PG_RESTORE"] == "/usr/lib/postgresql/17/bin/pg_restore"
+    assert "/usr/lib/postgresql/17/bin/psql" in text
+    assert "/usr/lib/postgresql/17/bin/pg_dump" in text
+    assert "/usr/lib/postgresql/17/bin/pg_restore" in text
     assert "services" in job
     assert "db" in job["services"]
     assert job["services"]["db"]["image"].startswith("pgvector/pgvector:pg17")
-    job_text = yaml.safe_dump(job)
+    job_text = " ".join(yaml.safe_dump(job).split())
     assert "INSERT INTO norms" in job_text
     assert "SELECT" in job_text
     assert "ALLOW_PROD_RESTORE" not in job_text

@@ -35,6 +35,10 @@ class FakeCursor:
                 self._rows = [(self.conn.norm_versions[key],)]
         elif normalized.startswith("INSERT INTO devices"):
             self.conn.devices.add(str(values[0]))
+        elif normalized.startswith("SELECT 1 FROM device_versions"):
+            key = (str(values[0]), int(values[1]))
+            if key in self.conn.device_versions:
+                self._rows = [(1,)]
         elif normalized.startswith("INSERT INTO device_versions"):
             key = (str(values[0]), int(values[2]))
             if key not in self.conn.device_versions:

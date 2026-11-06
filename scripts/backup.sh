@@ -8,8 +8,10 @@ if [ -z "${DATABASE_URL:-}" ]; then
     exit 1
 fi
 
-if ! command -v pg_dump >/dev/null 2>&1; then
-    echo "error: pg_dump not found in PATH" >&2
+PG_DUMP="${PG_DUMP:-pg_dump}"
+
+if ! command -v "$PG_DUMP" >/dev/null 2>&1; then
+    echo "error: ${PG_DUMP} not found in PATH" >&2
     exit 1
 fi
 
@@ -18,7 +20,7 @@ mkdir -p "$BACKUP_DIR"
 
 dump_path="${BACKUP_DIR}/violencia-$(date -u +%Y%m%dT%H%M%SZ).dump"
 
-pg_dump \
+"$PG_DUMP" \
     --dbname="$DATABASE_URL" \
     --format=custom \
     --no-owner \

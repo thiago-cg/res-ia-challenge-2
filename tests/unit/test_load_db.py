@@ -102,6 +102,20 @@ def test_load_parse_result_is_idempotent_and_never_overwrites_versions() -> None
     assert not any(sql.startswith("UPDATE device_versions") for sql, _ in conn.executions)
 
 
+def test_existing_device_version_skips_insert_before_overlap_trigger() -> None:
+    conn = FakeConnection()
+    result = _result()
+    load_parse_result(conn, result)
+    conn.executions.clear()
+
+    second = load_parse_result(conn, result)
+
+    assert second.versions_loaded == 0
+    assert second.versions_skipped == 2
+    assert not any(sql.startswith("INSERT INTO device_versions") for sql, _ in conn.executions)
+    assert sum(sql.startswith("SELECT 1 FROM device_versions") for sql, _ in conn.executions) == 2
+
+
 def test_device_versions_insert_does_not_touch_embedding_columns() -> None:
     conn = FakeConnection()
     load_parse_result(conn, _result())

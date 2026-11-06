@@ -19,8 +19,10 @@ if [ ! -f "$dump_path" ]; then
     exit 1
 fi
 
-if ! command -v pg_restore >/dev/null 2>&1; then
-    echo "error: pg_restore not found in PATH" >&2
+PG_RESTORE="${PG_RESTORE:-pg_restore}"
+
+if ! command -v "$PG_RESTORE" >/dev/null 2>&1; then
+    echo "error: ${PG_RESTORE} not found in PATH" >&2
     exit 1
 fi
 
@@ -40,7 +42,7 @@ case "$db_name" in
 esac
 
 echo "restoring ${dump_path} into database '${db_name}'"
-pg_restore \
+"$PG_RESTORE" \
     --dbname="$DATABASE_URL" \
     --clean \
     --if-exists \

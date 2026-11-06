@@ -142,6 +142,10 @@ def _insert_device_version(
         version.contexto, version.texto_literal, version.citacao
     )
     point_id = models.qdrant_point_id(version.device_id, norm_version_id)
+    exists_sql = """
+        SELECT 1 FROM device_versions
+        WHERE device_id = %s AND norm_version_id = %s
+    """
     sql = """
         INSERT INTO device_versions (
             device_id, norm_id, norm_version_id, texto_literal, texto_anterior,
@@ -153,6 +157,9 @@ def _insert_device_version(
         RETURNING id
     """
     with conn.cursor() as cur:
+        cur.execute(exists_sql, (version.device_id, norm_version_id))
+        if cur.fetchone() is not None:
+            return False
         cur.execute(
             sql,
             (

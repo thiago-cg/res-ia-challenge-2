@@ -94,6 +94,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://app:app@localhost:5432/violencia
       BACKUP_DIR: backups
+      PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
+      PG_RESTORE: /usr/lib/postgresql/17/bin/pg_restore
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -112,19 +114,19 @@ jobs:
       - name: Apply migrations
         run: uv run python scripts/apply_migrations.py
       - name: Insert drill row
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "INSERT INTO norms (id, tipo, numero, ano, fonte_url) VALUES ('ci-restore-drill', 'lei', '1', 2020, 'https://example.test');"
+        run: /usr/lib/postgresql/17/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "INSERT INTO norms (id, tipo, numero, ano, fonte_url) VALUES ('ci-restore-drill', 'lei', '1', 2020, 'https://example.test');"
       - name: Backup
         run: sh scripts/backup.sh
       - name: Verify checksum sidecar
         run: sha256sum -c backups/*.dump.sha256
       - name: Create throwaway restore database
-        run: psql "postgresql://app:app@localhost:5432/postgres" -v ON_ERROR_STOP=1 -c "CREATE DATABASE violencia_restore;"
+        run: /usr/lib/postgresql/17/bin/psql "postgresql://app:app@localhost:5432/postgres" -v ON_ERROR_STOP=1 -c "CREATE DATABASE violencia_restore;"
       - name: Restore into throwaway database
         env:
           DATABASE_URL: postgresql://app:app@localhost:5432/violencia_restore
         run: sh scripts/restore.sh backups/*.dump
       - name: Assert drill row survived
         run: |
-          count="$(psql "postgresql://app:app@localhost:5432/violencia_restore" -tAc "SELECT count(*) FROM norms WHERE id = 'ci-restore-drill';")"
+          count="$(/usr/lib/postgresql/17/bin/psql "postgresql://app:app@localhost:5432/violencia_restore" -tAc "SELECT count(*) FROM norms WHERE id = 'ci-restore-drill';")"
           test "$count" = "1"
           echo "restore drill ok: $count row(s) survived"

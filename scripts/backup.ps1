@@ -17,8 +17,14 @@ if ([string]::IsNullOrWhiteSpace($DatabaseUrl)) {
     exit 1
 }
 
-if (-not (Get-Command pg_dump -ErrorAction SilentlyContinue)) {
-    Write-Error 'pg_dump not found in PATH'
+if ([string]::IsNullOrWhiteSpace($env:PG_DUMP)) {
+    $PgDump = 'pg_dump'
+} else {
+    $PgDump = $env:PG_DUMP
+}
+
+if (-not (Get-Command $PgDump -ErrorAction SilentlyContinue)) {
+    Write-Error "$PgDump not found in PATH"
     exit 1
 }
 
@@ -27,7 +33,7 @@ New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
 $timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
 $dumpPath = Join-Path $BackupDir "violencia-$timestamp.dump"
 
-& pg_dump `
+& $PgDump `
     --dbname="$DatabaseUrl" `
     --format=custom `
     --no-owner `
