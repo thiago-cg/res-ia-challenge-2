@@ -37,7 +37,9 @@ def make_eval_pipeline(
             emergency=emergency,
             citations=citations,
             abstained=abstained,
-            claims_supported=[] if abstained or emergency else [True] * len(citations),
+            claims_supported=(
+                [] if abstained or emergency else list(getattr(result, "claims_supported", ()))
+            ),
         )
 
     return run

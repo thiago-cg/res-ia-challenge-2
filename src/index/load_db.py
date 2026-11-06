@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Any, Literal
 
@@ -233,6 +233,53 @@ def load_parse_result(
         )
 
     return report
+
+
+def load_current_versions(conn: Any, norm_id: str) -> list[dict[str, Any]]:
+    """Read one current row per device for ``norm_id``.
+
+    The date/status window matches the retrieval default, so the ingest CLI
+    diffs against exactly the rows a ``data_fato=None`` query would consider.
+    Rows may come back as mappings (``dict_row``) or tuples.
+    """
+
+    sql = """
+        SELECT DISTINCT ON (dv.device_id)
+               dv.device_id,
+               dv.content_hash,
+               dv.norm_id,
+               dv.vigencia_inicio
+        FROM device_versions dv
+        WHERE dv.norm_id = %s
+          AND dv.vigencia_status IN ('vigente', 'alterado')
+          AND dv.vigencia_inicio <= CURRENT_DATE
+          AND (dv.vigencia_fim IS NULL OR dv.vigencia_fim >= CURRENT_DATE)
+        ORDER BY dv.device_id, dv.vigencia_inicio DESC
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (norm_id,))
+        rows = cur.fetchall()
+
+    return [_current_row(row) for row in rows]
+
+
+def _current_row(row: Any) -> dict[str, Any]:
+    if isinstance(row, Mapping):
+        return {
+            "device_id": row.get("device_id"),
+            "content_hash": row.get("content_hash"),
+            "norm_id": row.get("norm_id"),
+            "vigencia_inicio": row.get("vigencia_inicio"),
+        }
+    values = list(row)
+    if len(values) < 4:
+        raise ValueError(f"unsupported current-version row: {row!r}")
+    return {
+        "device_id": values[0],
+        "content_hash": values[1],
+        "norm_id": values[2],
+        "vigencia_inicio": values[3],
+    }
 
 
 def _update_ingest_run_counts(

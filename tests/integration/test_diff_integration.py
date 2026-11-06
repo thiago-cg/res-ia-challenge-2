@@ -53,7 +53,9 @@ def _ensure_schema(conn) -> None:
     apply_migrations(os.environ["TEST_DATABASE_URL"], ROOT / "migrations")
 
 
-def _result(norm_id: str, literals: dict[str, str]) -> ParseResult:
+def _result(
+    norm_id: str, literals: dict[str, str], *, start: date = date(2020, 1, 1)
+) -> ParseResult:
     device_ids = sorted(literals)
     devices = [
         Device(
@@ -78,7 +80,7 @@ def _result(norm_id: str, literals: dict[str, str]) -> ParseResult:
             citacao=f"Norma de teste, art. {index}",
             vigencia_status="vigente",
             redacao_dada_por=None,
-            vigencia_inicio=date(2020, 1, 1),
+            vigencia_inicio=start,
             vigencia_fim=None,
             fonte_url="https://example.test",
             content_hash="placeholder",

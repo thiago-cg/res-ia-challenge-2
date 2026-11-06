@@ -79,8 +79,26 @@ def expand_to_article(
             result.incomplete_context.append((artigo, candidate.norm_version_id))
             result.devices.append(candidate)
             continue
-        result.devices.append(candidate.model_copy(update={"contexto": article_text}))
+        result.devices.append(
+            candidate.model_copy(
+                update={"contexto": _merge_context(candidate.contexto, article_text)}
+            )
+        )
     return result
+
+
+def _merge_context(existing: str | None, article_text: str) -> str:
+    """Keep the leaf context and add the full article/caput text once."""
+
+    current = (existing or "").strip()
+    article = str(article_text).strip()
+    if not current:
+        return article
+    if not article or article in current:
+        return current
+    if current in article:
+        return article
+    return f"{current}\n\n{article}"
 
 
 def _is_better(candidate: RetrievedDevice, current: RetrievedDevice) -> bool:

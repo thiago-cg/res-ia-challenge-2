@@ -80,3 +80,12 @@ class FakeConnection:
 
     def cursor(self) -> FakeCursor:
         return FakeCursor(self)
+
+    def commit(self) -> None:
+        return None
+
+    def rollback(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None

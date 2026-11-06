@@ -215,9 +215,15 @@ def test_query_target_uses_bm25_prefetch_then_late_rescore() -> None:
     assert query["query"] == late_matrix()
     assert query["limit"] == 10
     assert query["with_payload"] is True
-    status_filter = query["query_filter"].must[0]
+    must = query["query_filter"].must
+    status_filter = must[0]
     assert status_filter.key == "vigencia_status"
     assert status_filter.match.any == ["vigente", "alterado"]
+    assert must[1].key == "vigencia_inicio"
+    assert must[1].range.lte == date.today()
+    assert must[2].should[0].key == "vigencia_fim"
+    assert must[2].should[0].range.gte == date.today()
+    assert must[2].should[1].is_null.key == "vigencia_fim"
     assert len(hits) == 1
     assert hits[0].device_id == chunk.device_id
     assert hits[0].norm_version_id == chunk.norm_version_id

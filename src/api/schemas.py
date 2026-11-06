@@ -61,6 +61,7 @@ class CitationResponse(BaseModel):
     contexto: str = ""
     vigencia: VigenciaStatus
     fonte_url: str
+    afirmacao: str = ""
 
     @classmethod
     def from_citation(cls, citation: Citation) -> CitationResponse:

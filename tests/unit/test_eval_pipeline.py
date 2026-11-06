@@ -23,6 +23,7 @@ def _citation(device_id: str = "lmp/art1") -> Citation:
         contexto="Contexto.",
         vigencia="vigente",
         fonte_url="https://example.test/lmp.htm",
+        afirmacao="O dispositivo sustenta a afirmação.",
     )
 
 
@@ -81,6 +82,7 @@ class FakeDefaultPipeline:
             emergencia=False,
             data_atualizacao_base=None,
             retrieved_ids=("lmp/art1",),
+            claims_supported=(True,),
         )
 
 
@@ -91,6 +93,7 @@ def test_adapter_maps_question_answer_and_retrieved_ids() -> None:
             emergencia=False,
             data_atualizacao_base=None,
             retrieved_ids=("lmp/art1",),
+            claims_supported=(True,),
         )
     )
     adapter = make_eval_pipeline(chat)
@@ -121,6 +124,34 @@ def test_adapter_accepts_missing_data_fato() -> None:
     facts = chat.calls[0][1]
     assert facts is not None
     assert facts.data_fato is None
+
+
+def test_adapter_maps_per_citation_claim_support() -> None:
+    chat = FakeChatPipeline(
+        ApiPipelineResult(
+            answer=_answer([_citation(), _citation("lmp/art2")]),
+            retrieved_ids=("lmp/art1", "lmp/art2"),
+            claims_supported=(True, False),
+        )
+    )
+
+    result = make_eval_pipeline(chat)({"pergunta": "Pergunta"})
+
+    assert result.claims_supported == [True, False]
+
+
+def test_adapter_keeps_unknown_claims_empty_instead_of_asserting_support() -> None:
+    chat = FakeChatPipeline(
+        ApiPipelineResult(
+            answer=_answer([_citation()]),
+            retrieved_ids=("lmp/art1",),
+            claims_supported=(),
+        )
+    )
+
+    result = make_eval_pipeline(chat)({"pergunta": "Pergunta"})
+
+    assert result.claims_supported == []
 
 
 def test_adapter_clears_claims_when_pipeline_abstains() -> None:

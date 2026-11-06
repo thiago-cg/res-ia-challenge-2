@@ -370,8 +370,8 @@ Permitir que a equipe jurídica revise amostras e casos sinalizados.
   (`LOG_QUESTION_TEXT=false`); quando habilitada, passa por `redact_pii` (CPF,
   telefone, e-mail, CEP). Retenção padrão de 7 dias (`LOG_RETENTION_DAYS`), com
   `0` = sem persistência. Ainda não existe sink de arquivo/banco; a retenção é
-  contratual. Os middlewares de request ID/headers existem e são testados, mas
-  `src.api.main.create_app` ainda não os instala.
+  contratual. Os middlewares de request ID/headers existem, são testados e
+  `src.api.main.create_app` os instala.
 - **Revisão jurídica humana: PENDENTE.** Nenhuma advogada, defensora ou pessoa
   da rede de atendimento revisou prompt, textos, respostas ou casos de teste.
   Não há parecer jurídico. O checklist da seção 13 permanece com as caixas

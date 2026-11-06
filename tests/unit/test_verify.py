@@ -46,6 +46,7 @@ def citation(
     version: int = 1,
     citacao: str = "Lei nº 11.340/2006, art. 22, inciso III",
     texto: str = "contato com a ofendida",
+    afirmacao: str | None = "A lei permite requerer medida protetiva.",
 ) -> Citation:
     return Citation(
         device_id=device_id,
@@ -55,6 +56,7 @@ def citation(
         contexto="Art. 22",
         vigencia="vigente",
         fonte_url="https://www.planalto.gov.br",
+        afirmacao="" if afirmacao is None else afirmacao,
     )
 
 
@@ -88,6 +90,7 @@ def test_clean_answer_is_accepted() -> None:
     assert result.semantic_ok is None
     assert result.issues == []
     assert result.action == "accept"
+    assert result.claims_supported == [True]
 
 
 def test_unknown_citation_id_is_rejected() -> None:
@@ -235,6 +238,32 @@ def test_fabricated_citation_text_is_rejected() -> None:
 
     assert result.ok is False
     assert any("not inside the hydrated literal" in issue for issue in result.issues)
+    assert result.claims_supported == [False]
+
+
+def test_citation_without_afirmacao_is_rejected() -> None:
+    result = verify(
+        answer(citacoes=[citation(afirmacao=None)]),
+        [retrieved()],
+        repo=FakeRepo({("lmp/art22", 1): row()}),
+    )
+
+    assert result.ok is False
+    assert any("afirmacao" in issue for issue in result.issues)
+    assert result.claims_supported == [False]
+
+
+def test_semantic_judge_failure_marks_claims_unsupported() -> None:
+    result = verify(
+        answer(),
+        [retrieved()],
+        repo=FakeRepo({("lmp/art22", 1): row()}),
+        judge=lambda answer, retrieved: False,
+    )
+
+    assert result.ok is False
+    assert result.semantic_ok is False
+    assert result.claims_supported == [False]
 
 
 def test_citation_text_matches_literal_after_whitespace_normalization() -> None:

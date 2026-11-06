@@ -331,12 +331,26 @@ def _as_matrix(value: Any) -> list[list[float]]:
 
 def _vigencia_filter(models: Any, data_fato: date | None) -> Any:
     if data_fato is None:
+        today = date.today()
         return models.Filter(
             must=[
                 models.FieldCondition(
                     key="vigencia_status",
                     match=models.MatchAny(any=["vigente", "alterado"]),
-                )
+                ),
+                models.FieldCondition(
+                    key="vigencia_inicio",
+                    range=models.DatetimeRange(lte=today),
+                ),
+                models.Filter(
+                    should=[
+                        models.FieldCondition(
+                            key="vigencia_fim",
+                            range=models.DatetimeRange(gte=today),
+                        ),
+                        models.IsNullCondition(is_null=models.PayloadField(key="vigencia_fim")),
+                    ]
+                ),
             ]
         )
 

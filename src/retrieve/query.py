@@ -1,9 +1,11 @@
 """Query understanding with a deterministic fallback (RET-02)."""
 
+import calendar
 import json
 import logging
 import re
 from collections.abc import Callable, Mapping
+from datetime import date
 from typing import Any
 
 from src.contracts import QueryFacts, QueryPlan
@@ -34,6 +36,94 @@ Regras:
 """
 
 _MAX_CONTRACT_SUBQUESTIONS = 3
+
+_BR_DATE_RE = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{4})(?!\d)")
+_ISO_DATE_RE = re.compile(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)")
+_YEAR_RE = re.compile(r"\bem\s+(\d{4})\b", re.IGNORECASE)
+_RELATIVE_RE = re.compile(r"\bh[aá]\s+(\d+)\s+(anos?|m[eê]s(?:es)?)\b", re.IGNORECASE)
+_MIN_YEAR = 1900
+_MAX_RELATIVE = 120
+
+
+def extract_data_fato(text: str, *, today: date | None = None) -> date | None:
+    """Deterministically extract a fact date; return ``None`` when ambiguous.
+
+    Full dates win over year/month references. Multiple distinct full dates, or
+    conflicting year/relative references, are treated as ambiguous so the
+    pipeline never invents a version-selection date.
+    """
+
+    if not text or not text.strip():
+        return None
+    reference = today or date.today()
+
+    full_dates = _full_dates(text)
+    if len(full_dates) > 1:
+        return None
+    if full_dates:
+        return full_dates[0]
+
+    candidates = _years(text, reference) | _relative_dates(text, reference)
+    if len(candidates) == 1:
+        return candidates.pop()
+    return None
+
+
+def _full_dates(text: str) -> list[date]:
+    found: set[date] = set()
+    for day_raw, month_raw, year_raw in _BR_DATE_RE.findall(text):
+        candidate = _safe_date(int(year_raw), int(month_raw), int(day_raw))
+        if candidate is not None:
+            found.add(candidate)
+    for year_raw, month_raw, day_raw in _ISO_DATE_RE.findall(text):
+        candidate = _safe_date(int(year_raw), int(month_raw), int(day_raw))
+        if candidate is not None:
+            found.add(candidate)
+    return sorted(found)
+
+
+def _years(text: str, reference: date) -> set[date]:
+    years = {
+        date(int(year), 1, 1)
+        for year in _YEAR_RE.findall(text)
+        if _MIN_YEAR <= int(year) <= reference.year
+    }
+    return years
+
+
+def _relative_dates(text: str, reference: date) -> set[date]:
+    found: set[date] = set()
+    for amount_raw, unit in _RELATIVE_RE.findall(text):
+        amount = int(amount_raw)
+        if amount <= 0 or amount > _MAX_RELATIVE:
+            continue
+        if unit.startswith("ano"):
+            found.add(_subtract_years(reference, amount))
+        else:
+            found.add(_subtract_months(reference, amount))
+    return found
+
+
+def _safe_date(year: int, month: int, day: int) -> date | None:
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def _subtract_years(reference: date, years: int) -> date:
+    try:
+        return reference.replace(year=reference.year - years)
+    except ValueError:
+        return reference.replace(year=reference.year - years, day=28)
+
+
+def _subtract_months(reference: date, months: int) -> date:
+    total = reference.year * 12 + (reference.month - 1) - months
+    year, month_index = divmod(total, 12)
+    month = month_index + 1
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, min(reference.day, last_day))
 
 
 def default_facts() -> QueryFacts:

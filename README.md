@@ -47,7 +47,7 @@ antes de usar qualquer número deste repositório.
 | Revisão jurídica | **PENDENTE**. Nenhuma advogada, defensora ou pessoa da rede de atendimento revisou prompt, textos ou respostas. Não há parecer. |
 | Modelos locais | Os artefatos locais são **GGUF** (llama.cpp). O caminho alvo precisa de **safetensors**. GGUF levanta `ModelFormatError`; o fallback é o padrão. |
 | Docker/Postgres/Qdrant | `docker-compose.yml` e CI existem, mas **não há Docker, Postgres ou Qdrant ao vivo** no ambiente em que este status foi escrito. Testes de integração não foram executados aqui. |
-| Observabilidade | Módulos de log estruturado e middleware existem e têm testes, mas `create_app` ainda **não instala** os middlewares. Não há garantia de `X-Request-ID` na API hoje. |
+| Observabilidade | Módulos de log estruturado e middleware existem, com testes. `create_app` instala `RequestContextMiddleware` e `SecurityHeadersMiddleware`; não houve execução ponta a ponta ao vivo neste ambiente. |
 | LLM | Padrão `LLM_PROVIDER=mock`. Os provedores `local`/`api` existem no código, mas `llm_base_url`/`llm_api_key` não estão em `Settings` nem no `.env.example`; não são configuráveis de ponta a ponta. |
 
 ## Arquitetura e fluxo
@@ -340,9 +340,9 @@ permanecem **PENDENTES**. Os números de `docs/08` são metas, não resultados.
   banco, busca ou LLM.
 - **UI:** a barra lateral repete o aviso de não substituição e orienta a não
   informar nome, CPF, endereço, telefone ou documentos.
-- **Risco conhecido:** os middlewares de correlação e headers de segurança
-  existem e são testados, mas `create_app` ainda não os instala; não trate
-  `X-Request-ID` como disponível na API até essa fiação ser feita.
+- **Observabilidade:** `create_app` instala `RequestContextMiddleware` e
+  `SecurityHeadersMiddleware`; `X-Request-ID` é propagado e há teste de API.
+  Ainda não há sink de retenção de logs nem execução ao vivo aqui.
 
 ## Backup e restauração
 
@@ -385,12 +385,13 @@ Limitações atuais:
 - O adaptador de avaliação existe, mas as métricas seguem pendentes: não houve
   execução contra Postgres/Qdrant ao vivo.
 - LLM `local`/`api` sem campos de URL/chave em `Settings`/`.env.example`.
-- Middlewares de request ID/segurança não estão ligados em `create_app`.
+- Middlewares de request ID/segurança estão ligados em `create_app`, mas não
+  houve validação em execução ao vivo.
 - Nenhuma revisão jurídica humana; nenhum gate G4/G6.
 
 Próximos passos, na ordem:
 
-1. Fechar a fiação dos middlewares e expor `X-Request-ID` com testes de API.
+1. Criar um sink de retenção de logs e validar `X-Request-ID` em execução ao vivo.
 2. Rodar um smoke de ingestão real (`--stage all`) → índice com Postgres vivo.
 3. Conseguir checkpoints safetensors e executar o smoke 9B/0.6B (G5).
 4. Rodar as 150 perguntas com `build_eval_pipeline` contra Postgres/Qdrant.

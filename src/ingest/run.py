@@ -17,7 +17,13 @@ from pathlib import Path
 from typing import Any
 
 from src.config import get_settings
-from src.index.load_db import load_parse_result, record_ingest_run, source_content_hash
+from src.index.load_db import (
+    load_current_versions,
+    load_parse_result,
+    record_ingest_run,
+    source_content_hash,
+)
+from src.ingest.diff import apply_diff, diff_parse_result
 from src.ingest.fetch import (
     FetchError,
     Source,
@@ -58,13 +64,20 @@ class IngestStageError(Exception):
 class SourceReport:
     source_id: str
     devices: int = 0
+    added: int = 0
     changed: int = 0
+    removed: int = 0
+    unchanged: int = 0
     errors: int = 0
     error: str | None = None
 
     @property
     def ok(self) -> bool:
         return self.errors == 0
+
+    @property
+    def loads(self) -> int:
+        return self.added + self.changed + self.removed
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -237,17 +250,28 @@ def _run_source(
 
         ingest_run_id = record_ingest_run(conn, source.id, "running")
         conn.commit()
-        loaded = load_parse_result(conn, parsed, ingest_run_id=ingest_run_id)
         normalized = normalize_parse_result(parsed)
+        current = load_current_versions(conn, normalized.norm.id)
+        if not current:
+            loaded = load_parse_result(conn, normalized, ingest_run_id=ingest_run_id)
+            report.added = loaded.devices_loaded
+        else:
+            diff = diff_parse_result(current, normalized)
+            reindexed = apply_diff(conn, diff)
+            report.added = len(reindexed.added)
+            report.changed = len(reindexed.changed)
+            report.removed = len(reindexed.removed)
+            report.unchanged = len(reindexed.unchanged)
         record_ingest_run(
             conn,
             source.id,
             "ok",
             ingest_run_id=ingest_run_id,
             content_hash=source_content_hash(normalized.norm, normalized.versions),
+            devices_seen=len(normalized.devices),
+            devices_changed=report.loads,
         )
         conn.commit()
-        report.changed = loaded.versions_loaded
         return report
     except Exception as exc:
         report.errors = max(report.errors, 1)
@@ -288,7 +312,8 @@ def _print_report(report: SourceReport) -> None:
     state = "OK  " if report.ok else "FAIL"
     print(
         f"{state} {report.source_id} devices={report.devices} "
-        f"changed={report.changed} errors={report.errors}"
+        f"added={report.added} changed={report.changed} removed={report.removed} "
+        f"unchanged={report.unchanged} errors={report.errors}"
     )
     if report.error:
         print(f"     {report.error}", file=sys.stderr)

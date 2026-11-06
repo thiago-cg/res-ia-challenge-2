@@ -13,7 +13,7 @@ from src.index.pgvector import (
 
 
 class FakeCursor:
-    def __init__(self, rows: list[tuple] | None = None) -> None:
+    def __init__(self, rows: list[object] | None = None) -> None:
         self.rows = rows or []
         self.executions: list[tuple[str, object]] = []
 
@@ -26,12 +26,12 @@ class FakeCursor:
     def execute(self, sql: str, params=None) -> None:
         self.executions.append((sql, params))
 
-    def fetchall(self) -> list[tuple]:
+    def fetchall(self) -> list[object]:
         return self.rows
 
 
 class FakeConnection:
-    def __init__(self, rows: list[tuple] | None = None) -> None:
+    def __init__(self, rows: list[object] | None = None) -> None:
         self.cursor_obj = FakeCursor(rows)
 
     def cursor(self) -> FakeCursor:
@@ -46,8 +46,12 @@ def normalized(sql: str) -> str:
     return " ".join(sql.split())
 
 
+def dict_row(device_id: str = "lmp/art22", version: int = 42, score: float = 0.87) -> dict:
+    return {"device_id": device_id, "norm_version_id": version, "score": score}
+
+
 def test_dense_search_uses_cosine_distance_and_current_vigencia() -> None:
-    conn = FakeConnection(rows=[("lmp/art22", 42, 0.87)])
+    conn = FakeConnection(rows=[dict_row()])
 
     hits = dense_search(conn, [0.5, 0.25])
 
@@ -57,7 +61,19 @@ def test_dense_search_uses_cosine_distance_and_current_vigencia() -> None:
     assert "ORDER BY dv.embedding <=> %s" in compact
     assert "dv.embedding IS NOT NULL" in compact
     assert "dv.vigencia_status IN ('vigente', 'alterado')" in compact
+    assert "dv.vigencia_inicio <= CURRENT_DATE" in compact
+    assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= CURRENT_DATE" in compact
     assert params == ["[0.5,0.25]", "[0.5,0.25]", 50]
+    assert hits == [
+        SearchHit(device_id="lmp/art22", norm_version_id=42, score=0.87, source="dense")
+    ]
+
+
+def test_dense_search_accepts_default_tuple_rows() -> None:
+    conn = FakeConnection(rows=[("lmp/art22", 42, 0.87)])
+
+    hits = dense_search(conn, [0.5, 0.25])
+
     assert hits == [
         SearchHit(device_id="lmp/art22", norm_version_id=42, score=0.87, source="dense")
     ]
@@ -65,7 +81,7 @@ def test_dense_search_uses_cosine_distance_and_current_vigencia() -> None:
 
 def test_dense_search_with_data_fato_uses_date_range_and_no_status_filter() -> None:
     fato = date(2010, 5, 1)
-    conn = FakeConnection(rows=[("lmp/art22", 42, 0.9)])
+    conn = FakeConnection(rows=[dict_row()])
 
     dense_search(conn, [1.0], data_fato=fato, limit=10)
 
@@ -77,7 +93,7 @@ def test_dense_search_with_data_fato_uses_date_range_and_no_status_filter() -> N
 
 
 def test_fts_search_uses_portuguese_websearch_and_ts_rank_cd() -> None:
-    conn = FakeConnection(rows=[("lmp/art22/cpt/inc3/ali-b", 42, 0.42)])
+    conn = FakeConnection(rows=[dict_row("lmp/art22/cpt/inc3/ali-b", 42, 0.42)])
 
     hits = fts_search(conn, "medida protetiva")
 
@@ -87,9 +103,24 @@ def test_fts_search_uses_portuguese_websearch_and_ts_rank_cd() -> None:
     assert "dv.search_vector @@ websearch_to_tsquery('portuguese', %s)" in compact
     assert "ORDER BY score DESC" in compact
     assert "dv.vigencia_status IN ('vigente', 'alterado')" in compact
+    assert "dv.vigencia_inicio <= CURRENT_DATE" in compact
+    assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= CURRENT_DATE" in compact
     assert conn.last_execution[1] == ["medida protetiva", "medida protetiva", 50]
     assert hits[0].source == "bm25"
     assert hits[0].score == 0.42
+
+
+def test_fts_search_accepts_default_tuple_rows() -> None:
+    conn = FakeConnection(rows=[("lmp/art22", 42, 0.42)])
+
+    hits = fts_search(conn, "medida protetiva")
+
+    assert hits == [SearchHit(device_id="lmp/art22", norm_version_id=42, score=0.42, source="bm25")]
+
+
+def test_search_rejects_malformed_rows() -> None:
+    with pytest.raises(ValueError, match="missing required fields"):
+        dense_search(FakeConnection(rows=[dict_row(device_id=None)]), [1.0])
 
 
 def test_fts_search_with_data_fato_uses_date_range() -> None:
