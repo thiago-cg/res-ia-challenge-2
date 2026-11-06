@@ -357,3 +357,28 @@ Permitir que a equipe jurídica revise amostras e casos sinalizados.
 - [ ] Os logs não guardam texto integral?
 - [ ] Há aviso de não substituição e data de atualização?
 - [ ] Uma advogada ou defensora revisou os textos e os casos de teste?
+
+## 14. Status de implementação (OPS-03, 2026-11-05)
+
+- **Implementado e testado (unitário):** prompt com IDs, schema de saída
+  validado, resolvedor de citação, verificador com regeneração/abstenção,
+  roteador de risco com emergência antes do RAG, abstenção com encaminhamento e
+  respostas seguras para falha de LLM/recuperação. Evidência em
+  `tests/unit/test_prompt.py`, `test_verify.py`, `test_safety.py`,
+  `test_fallback.py`, `test_api.py` e `test_web.py`.
+- **Logs e PII:** por padrão a pergunta/resposta não é registrada
+  (`LOG_QUESTION_TEXT=false`); quando habilitada, passa por `redact_pii` (CPF,
+  telefone, e-mail, CEP). Retenção padrão de 7 dias (`LOG_RETENTION_DAYS`), com
+  `0` = sem persistência. Ainda não existe sink de arquivo/banco; a retenção é
+  contratual. Os middlewares de request ID/headers existem e são testados, mas
+  `src.api.main.create_app` ainda não os instala.
+- **Revisão jurídica humana: PENDENTE.** Nenhuma advogada, defensora ou pessoa
+  da rede de atendimento revisou prompt, textos, respostas ou casos de teste.
+  Não há parecer jurídico. O checklist da seção 13 permanece com as caixas
+  desmarcadas.
+- **Métricas: PENDENTES.** Não houve execução com Postgres/Qdrant ao vivo.
+  Números de recall, citação, groundedness, abstenção e latência não foram
+  produzidos; ver `docs/08` §12.
+- **Limite conhecido:** os provedores LLM `local`/`api` existem no código, mas
+  `llm_base_url`/`llm_api_key` não estão em `Settings`/`.env.example`; o caminho
+  configurável de ponta a ponta é `LLM_PROVIDER=mock`.

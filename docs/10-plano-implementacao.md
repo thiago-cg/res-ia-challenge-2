@@ -10,7 +10,11 @@
 
 **Spec:** `docs/README.md`, `docs/01-visao-e-escopo.md` a `docs/09-roadmap-prototipo.md`; este documento é a fonte executável.
 
-**Status:** pronto para desenvolvimento em 2026-11-05.
+**Status:** implementação avançada no caminho fallback em 2026-11-05, com
+métricas e revisão jurídica **PENDENTES**. Não há Docker, Postgres ou Qdrant ao
+vivo no ambiente de verificação; os artefatos locais de modelo são **GGUF** e não
+servem ao caminho alvo, que exige **safetensors**. Nenhum número de avaliação foi
+produzido e os gates G4/G6 não foram atingidos.
 
 ---
 
@@ -92,12 +96,12 @@ Comandos de referência:
 
 ```bash
 docker compose up -d db
-uv sync
+uv sync --extra dev
 uv run python -m src.ingest.run --source lmp
 uv run python -m src.index.run --path fallback
-uv run uvicorn src.api.main:app
+uv run uvicorn src.api.main:app --no-access-log
 uv run streamlit run web/app.py
-uv run pytest
+uv run pytest -m "not integration"
 ```
 
 Se o time não usar `uv`, os mesmos comandos funcionam com `python -m venv .venv && pip install -e ".[dev]"`.
@@ -361,34 +365,37 @@ Legenda: **S** ≤ 2 h, **M** 2–4 h, **L** 4–8 h.
 
 ### 8.1 Checklist de execução
 
-- [ ] FND-01 Scaffold
-- [ ] FND-02 Infra local
-- [ ] FND-03 Migração inicial
-- [ ] FND-04 Contratos e config
-- [ ] FND-05 CI e qualidade
-- [ ] ING-01 Manifesto e downloader
-- [ ] ING-02 Parser Planalto
-- [ ] ING-03 Parser CNJ e súmulas
-- [ ] ING-04 Normalização
-- [ ] ING-05 Loader e validação
-- [ ] ING-06 Diff e reindexação
-- [ ] IDX-01 Chunker estrutural
-- [ ] IDX-02 Embeddings
-- [ ] IDX-03 Qdrant
-- [ ] IDX-04 pgvector/FTS
-- [ ] IDX-05 CLI de índice e smoke
-- [ ] RET-01 Citação explícita
-- [ ] RET-02 Entendimento da consulta
-- [ ] RET-03 Busca BM25/densa
-- [ ] RET-04 MaxSim
-- [ ] RET-05 Dedupe/expansão
-- [ ] RET-06 Hidratação/render
-- [ ] RET-07 Verificador
-- [ ] GEN-01 Prompt e schema
-- [ ] GEN-02 Cliente LLM
-- [ ] GEN-03 Roteador de risco
-- [ ] GEN-04 Abstenção/encaminhamento
-- [ ] GEN-05 API e UI
+Legenda: `[x]` = aceite executado e verificado no ambiente local; `[~]` =
+implementado, não executado no ambiente local; `[ ]` = pendente.
+
+- [x] FND-01 Scaffold
+- [~] FND-02 Infra local
+- [~] FND-03 Migração inicial
+- [x] FND-04 Contratos e config
+- [~] FND-05 CI e qualidade
+- [~] ING-01 Manifesto e downloader
+- [x] ING-02 Parser Planalto
+- [x] ING-03 Parser CNJ e súmulas
+- [x] ING-04 Normalização
+- [~] ING-05 Loader e validação
+- [~] ING-06 Diff e reindexação
+- [x] IDX-01 Chunker estrutural
+- [x] IDX-02 Embeddings
+- [~] IDX-03 Qdrant
+- [~] IDX-04 pgvector/FTS
+- [~] IDX-05 CLI de índice e smoke
+- [x] RET-01 Citação explícita
+- [x] RET-02 Entendimento da consulta
+- [x] RET-03 Busca BM25/densa
+- [x] RET-04 MaxSim
+- [x] RET-05 Dedupe/expansão
+- [x] RET-06 Hidratação/render
+- [x] RET-07 Verificador
+- [x] GEN-01 Prompt e schema
+- [x] GEN-02 Cliente LLM
+- [x] GEN-03 Roteador de risco
+- [x] GEN-04 Abstenção/encaminhamento
+- [x] GEN-05 API e UI
 - [x] EVA-01 20 perguntas semeadas
 - [x] EVA-02 Harness
 - [x] EVA-03 Regressões legais
@@ -397,7 +404,24 @@ Legenda: **S** ≤ 2 h, **M** 2–4 h, **L** 4–8 h.
 - [ ] OPS-02 Backup e CI
 - [ ] OPS-03 Runbook e gate jurídico
 
-> EVA-04 permanece aberta: as 150 perguntas e as regressões foram criadas, mas a execução com Postgres/Qdrant e a revisão jurídica humana estão pendentes. Nenhuma métrica foi produzida e nenhum parecer jurídico foi emitido (ver `docs/08` §12). Os gates G4 e G6 não foram atingidos.
+> Atualização OPS-03 (2026-11-05): as caixas `[x]` têm aceite verificado com
+> testes locais (suíte `pytest -m "not integration"`, ruff, format e mypy). As
+> caixas `[~]` têm implementação e evidência unitária/estática, mas o aceite
+> depende de Docker, Postgres, Qdrant, download real, migração real ou execução
+> observada do CI, e **não** foi executado neste ambiente. As caixas `[x]` e
+> `[~]` não afirmam funcionamento ponta a ponta.
+>
+> Permanecem abertas: **EVA-04** (150 perguntas dependem de execução viva e
+> revisão humana); **OPS-01** (módulos de log/middleware implementados e
+> testados, mas `create_app` ainda não instala os middlewares e não há sink de
+> retenção); **OPS-02** (scripts e job de CI prontos, drill não executado aqui);
+> **OPS-03** (README/runbook entregues, parecer jurídico **PENDENTE**).
+> FND-02, FND-03, FND-05, ING-01, ING-05, ING-06, IDX-03, IDX-04 e IDX-05
+> seguem `[~]` até execução real.
+>
+> Nenhuma métrica foi produzida e nenhum parecer jurídico foi emitido (ver
+> `docs/08` §12). Os gates **G4** e **G6** não foram atingidos. Os artefatos
+> locais de modelo são GGUF; o caminho alvo exige safetensors.
 
 ## 9. Ordem de execução e paralelismo
 
@@ -432,6 +456,16 @@ O caminho de fallback não depende de GPU. O caminho alvo (9B/Qdrant) é uma tri
 | G6   | 150 perguntas + parecer jurídico           | Publicação       |
 | G7   | Backup/restore + LGPD + runbook            | Produção         |
 
+Gates ainda abertos em 2026-11-05:
+
+- [ ] G4 — Eval 20 + revisão humana
+- [ ] G5 — Smoke 9B/0.6B (sem GPU/safetensors validados)
+- [ ] G6 — 150 perguntas + parecer jurídico
+
+> G1 e G2 dependem de execução com Postgres/Qdrant e não foram verificados
+> neste ambiente. G3 tem cobertura unitária de verificador e emergência, mas
+> não foi reexecutado em integração. G4, G5 e G6 permanecem **não atingidos**.
+
 ## 11. Riscos e mitigação
 
 | Risco                                    | Impacto | Mitigação                                                |
@@ -453,12 +487,17 @@ O caminho de fallback não depende de GPU. O caminho alvo (9B/Qdrant) é uma tri
 - [ ] `migrations/001_init.sql` aplica em banco vazio.
 - [ ] Ingestão P0 idempotente e validada.
 - [ ] Índice fallback funcional; índice alvo com smoke test.
-- [ ] Citação explícita, hidratação por pares e verificação por versão funcionando.
-- [ ] Emergência e abstenção com testes.
+- [x] Citação explícita, hidratação por pares e verificação por versão funcionando
+      (evidência unitária; sem execução integrada).
+- [x] Emergência e abstenção com testes.
 - [ ] 20 perguntas semeadas com métricas; 150 no ciclo seguinte.
-- [ ] API e UI com aviso legal e fontes.
+- [x] API e UI com aviso legal e fontes (evidência unitária; sem Postgres/Qdrant).
 - [ ] CI verde; logs sem PII; backup/restore testado.
 - [ ] Revisão jurídica registrada antes de qualquer usuária real.
+
+> As caixas marcadas acima têm evidência unitária, não execução ponta a ponta.
+> Docker, migração em banco vazio, ingestão real, índice real, métricas, CI
+> observado e revisão jurídica continuam **pendentes**.
 
 ## 13. Decisões abertas (não bloqueiam o código)
 
@@ -475,4 +514,9 @@ O caminho de fallback não depende de GPU. O caminho alvo (9B/Qdrant) é uma tri
 
 O plano está consolidado. A execução recomendada neste runtime é **nativa** (uma task por vez, com teste), porque a delegação de subagentes está retornando vazio. Se o runtime for corrigido para OpenCode 1.18.29, a execução pode ser subagent-driven.
 
-Comece por **FND-01, FND-02 e FND-03**; eles liberam toda a trilha de dados.
+**Estado em 2026-11-05 (OPS-03):** o runbook/README foi entregue, mas o
+protótipo **não está liberado para demo nem publicação**. Os próximos passos
+reais são: ligar os middlewares em `create_app`; expor parsing/carga como CLI;
+obter safetensors e executar o smoke 9B/0.6B; implementar
+`build_eval_pipeline` e rodar as 150 perguntas com Postgres/Qdrant; e registrar
+a revisão jurídica humana. Sem isso, G4 e G6 continuam **não atingidos**.
