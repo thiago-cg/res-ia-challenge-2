@@ -71,6 +71,7 @@ class PipelineResult:
     answer: Answer
     emergencia: bool = False
     data_atualizacao_base: str | None = None
+    retrieved_ids: tuple[str, ...] = ()
 
 
 class ChatPipeline(Protocol):
@@ -475,6 +476,7 @@ class LegalRAGPipeline:
         if not retrieved:
             return self._abstain("contexto_incompleto")
 
+        retrieved_ids = tuple(item.device_id for item in retrieved)
         prompt = build_user_prompt(
             message,
             fatos,
@@ -512,6 +514,7 @@ class LegalRAGPipeline:
                         data_atualizacao=self.data_atualizacao_base,
                     ),
                     emergencia=False,
+                    retrieved_ids=retrieved_ids,
                 )
 
             try:
@@ -523,7 +526,7 @@ class LegalRAGPipeline:
                 return self._safe_answer(retrieved, "citacao_invalida")
             except Exception as exc:
                 logger.warning("citation_render_failed error=%s", type(exc).__name__)
-                return self._abstain("erro_recuperacao")
+                return self._abstain("erro_recuperacao", retrieved_ids=retrieved_ids)
 
             try:
                 verification = verify(
@@ -536,13 +539,13 @@ class LegalRAGPipeline:
                 )
             except Exception as exc:
                 logger.warning("verification_failed error=%s", type(exc).__name__)
-                return self._abstain("erro_recuperacao")
+                return self._abstain("erro_recuperacao", retrieved_ids=retrieved_ids)
             if verification.action == "accept":
-                return self._result(answer, emergencia=False)
+                return self._result(answer, emergencia=False, retrieved_ids=retrieved_ids)
             if verification.action == "regenerate" and attempt == 1:
                 prompt = self._feedback_prompt(prompt, "; ".join(verification.issues))
                 continue
-            return self._abstain("verificacao_falhou")
+            return self._abstain("verificacao_falhou", retrieved_ids=retrieved_ids)
 
         return self._safe_answer(retrieved, "nao_foi_possivel_gerar")
 
@@ -596,18 +599,26 @@ class LegalRAGPipeline:
             build_safe_answer(retrieved, reason),
             False,
             self.data_atualizacao_base,
+            tuple(item.device_id for item in retrieved),
         )
 
-    def _abstain(self, reason: str) -> PipelineResult:
+    def _abstain(self, reason: str, *, retrieved_ids: Sequence[str] = ()) -> PipelineResult:
         return PipelineResult(
             fallback_abstain(reason, data_atualizacao=self.data_atualizacao_base),
             False,
             self.data_atualizacao_base,
+            tuple(retrieved_ids),
         )
 
-    def _result(self, answer: Answer, *, emergencia: bool) -> PipelineResult:
+    def _result(
+        self,
+        answer: Answer,
+        *,
+        emergencia: bool,
+        retrieved_ids: Sequence[str] = (),
+    ) -> PipelineResult:
         data = self._data_atualizacao_base if emergencia else self.data_atualizacao_base
-        return PipelineResult(answer, emergencia, data)
+        return PipelineResult(answer, emergencia, data, tuple(retrieved_ids))
 
 
 class LazyChatPipeline:
@@ -654,6 +665,30 @@ def build_default_pipeline(
         fts=fts,
         data_atualizacao_base=data_atualizacao_base,
     )
+
+
+def build_eval_pipeline() -> Callable[[Mapping[str, Any]], Any]:
+    """Build the real pipeline adapter consumed by ``src.eval.run``.
+
+    The evaluation CLI reports the ``RuntimeError`` below when Postgres or the
+    encoder is unavailable, instead of failing one question at a time.
+    """
+
+    from src.eval.pipeline import make_eval_pipeline
+
+    settings = get_settings()
+    try:
+        pipeline = build_default_pipeline(settings, None)
+        checker = getattr(pipeline.repo, "health_snapshot", None)
+        if callable(checker):
+            checker()
+    except Exception as exc:
+        raise RuntimeError(
+            "pipeline real de avaliação indisponível: não foi possível montar "
+            "Postgres/encoder. Verifique DATABASE_URL, EMBEDDING_MODEL_REVISION e o "
+            f"extra 'ml'. Detalhe: {type(exc).__name__}: {exc}"
+        ) from exc
+    return make_eval_pipeline(pipeline)
 
 
 def create_app(
