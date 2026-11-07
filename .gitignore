@@ -28,5 +28,9 @@ data/processed/*
 .superpowers/
 .claude/progress/
 .opencode/
+
+# Benchmark scratch
+data/eval/cache/
+data/eval/benchmark_run.log
 .DS_Store
 Thumbs.db
