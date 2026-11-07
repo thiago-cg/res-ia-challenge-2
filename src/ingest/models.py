@@ -90,8 +90,7 @@ SOURCE_NORMS: dict[str, _SourceNorm] = {
         apelido=None,
         urn_lexml=None,
         fonte_url="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/l15438.htm",
-        vigencia_inicio=date(2026, 12, 31),
-        data_exata=False,
+        vigencia_inicio=date(2026, 6, 18),
     ),
     "lei-14994-2024": _SourceNorm(
         tipo="lei",
@@ -100,8 +99,7 @@ SOURCE_NORMS: dict[str, _SourceNorm] = {
         apelido=None,
         urn_lexml=None,
         fonte_url="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2024/lei/l14994.htm",
-        vigencia_inicio=date(2024, 12, 31),
-        data_exata=False,
+        vigencia_inicio=date(2024, 10, 9),
     ),
     "cf": _SourceNorm(
         tipo="constituicao",
@@ -211,6 +209,14 @@ def build_norm(source_id: str, *, title: str | None = None, fonte_url: str | Non
         urn_lexml=meta.urn_lexml,
         fonte_url=fonte_url or meta.fonte_url,
     )
+
+
+def known_source_date(numero: str, ano: int) -> date | None:
+    """Return the exact publication date when the cited law is in the manifest."""
+    for meta in SOURCE_NORMS.values():
+        if meta.numero == numero and meta.ano == ano and meta.data_exata:
+            return meta.vigencia_inicio
+    return None
 
 
 def default_vigencia_inicio(source_id: str, *, ano: int | None = None) -> date:
