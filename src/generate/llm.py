@@ -305,7 +305,7 @@ def get_llm(settings: object, *, model: str | None = None) -> LLMClient:
             api_key=api_key,
             model_name=model_name,
             max_retries=int(getattr(settings, "openrouter_max_retries", 2)),
-            max_tokens=int(getattr(settings, "llm_max_tokens", 1024)),
+            max_tokens=int(getattr(settings, "llm_max_tokens", 0)),
             site_url=str(getattr(settings, "openrouter_site_url", "") or ""),
             app_name=str(getattr(settings, "openrouter_app_name", "") or ""),
         )

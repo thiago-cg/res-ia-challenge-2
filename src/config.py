@@ -76,9 +76,11 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     log_level: str = "INFO"
 
-    #: Hard cap on generated tokens.  Without it the provider may generate an
-    #: unbounded answer, which shows up as multi-second-to-timeout latency.
-    llm_max_tokens: int = Field(default=1024, gt=0)
+    #: Hard cap on generated tokens; 0 means no cap.  The configured chat model
+    #: spends tokens on a reasoning trace before the answer, so a small cap
+    #: truncates the JSON and the answer is rejected by verification.  The
+    #: reranker uses rerank_max_tokens with its own non-reasoning model.
+    llm_max_tokens: int = Field(default=0, ge=0)
 
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
