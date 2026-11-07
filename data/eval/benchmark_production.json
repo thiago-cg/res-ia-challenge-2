@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-11-07T15:21:00.250343+00:00",
-  "git_commit": "d3544f2de02d5241b06a5a0490724fd4c865d8db",
+  "generated_at": "2026-11-07T16:23:59.788105+00:00",
+  "git_commit": "6607cb08e3b577894d70e2f2f69f5d1c66f5b59b",
   "backend": "postgres-fts+qdrant-dense",
   "models": {
     "llm": "deepseek/deepseek-v4.1-flash-1017",
     "embedding": "qwen/qwen3-embedding-8b",
     "embedding_dimensions": 4096,
-    "prompt_version": "v1",
+    "prompt_version": "v2",
     "query_instruction": "Instruct: Dada uma pergunta jurídica de uma vítima de violência doméstica, recupere o dispositivo legal que a responde. Query:"
   },
   "database": {
@@ -24,16 +24,16 @@
     "dense": {
       "recall_at_10": 0.5833333333333333,
       "recall_per_question": 0.4,
-      "mrr_at_10": 0.4583333333333333,
-      "ndcg_at_10": 0.4382378401800079,
-      "citation_precision": 0.22666666666666666,
+      "mrr_at_10": 0.4833333333333333,
+      "ndcg_at_10": 0.4555813629181674,
+      "citation_precision": 0.24333333333333335,
       "citation_coverage": 0.5333333333333333,
       "groundedness": 1.0,
       "abstention_accuracy": 1.0,
       "emergency_routing": 1.0,
-      "latency_p50_ms": 7698.426100076176,
-      "latency_p95_ms": 26245.611499994993,
-      "run_id": "2026-11-07T15-11-14",
+      "latency_p50_ms": 11155.002700048499,
+      "latency_p95_ms": 21570.148000027984,
+      "run_id": "2026-11-07T16-18-06",
       "n_questions": 20,
       "thresholds": {
         "recall_at_10": 0.85,
@@ -58,11 +58,11 @@
       "threshold_failures": [
         "recall_at_10=0.5833 < 0.8500",
         "recall_per_question=0.4000 < 0.7000",
-        "mrr_at_10=0.4583 < 0.6000",
-        "ndcg_at_10=0.4382 < 0.7000",
-        "citation_precision=0.2267 < 0.9500",
+        "mrr_at_10=0.4833 < 0.6000",
+        "ndcg_at_10=0.4556 < 0.7000",
+        "citation_precision=0.2433 < 0.9500",
         "citation_coverage=0.5333 < 0.8000",
-        "latency_p95_ms=26245.6115 > 8000.0000"
+        "latency_p95_ms=21570.1480 > 8000.0000"
       ],
       "passed": false,
       "by_category": {
@@ -71,27 +71,27 @@
           "recall_per_question": 0.5,
           "mrr_at_10": 1.0,
           "ndcg_at_10": 0.7346393630113782,
-          "citation_precision": 0.375,
+          "citation_precision": 0.41666666666666663,
           "citation_coverage": 0.6666666666666666,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 26245.611499994993,
-          "latency_p95_ms": 41520.81309992354,
+          "latency_p50_ms": 10171.717399964109,
+          "latency_p95_ms": 15715.943299932405,
           "count": 2
         },
         "acao_penal": {
           "recall_at_10": 0.5,
           "recall_per_question": 0.5,
-          "mrr_at_10": 0.16666666666666666,
-          "ndcg_at_10": 0.25,
-          "citation_precision": 0.08333333333333333,
+          "mrr_at_10": 0.25,
+          "ndcg_at_10": 0.31546487678572877,
+          "citation_precision": 0.125,
           "citation_coverage": 0.5,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 12923.395000048913,
-          "latency_p95_ms": 16656.922699999996,
+          "latency_p50_ms": 8942.828300059773,
+          "latency_p95_ms": 35333.595799980685,
           "count": 2
         },
         "medida_protetiva": {
@@ -104,22 +104,22 @@
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 7698.426100076176,
-          "latency_p95_ms": 9706.153400009498,
+          "latency_p50_ms": 13023.122499929741,
+          "latency_p95_ms": 21570.148000027984,
           "count": 4
         },
         "servicos": {
           "recall_at_10": 0.75,
           "recall_per_question": 0.5,
-          "mrr_at_10": 0.20833333333333331,
-          "ndcg_at_10": 0.35983663608002564,
+          "mrr_at_10": 0.25,
+          "ndcg_at_10": 0.3810893729850948,
           "citation_precision": 0.2,
           "citation_coverage": 0.5,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 6745.283800060861,
-          "latency_p95_ms": 8590.181500068866,
+          "latency_p50_ms": 9721.324699930847,
+          "latency_p95_ms": 11155.002700048499,
           "count": 2
         },
         "emergencia": {
@@ -132,8 +132,8 @@
           "groundedness": 0.0,
           "abstention_accuracy": null,
           "emergency_routing": 1.0,
-          "latency_p50_ms": 0.10439998004585505,
-          "latency_p95_ms": 0.15680002979934216,
+          "latency_p50_ms": 0.07339997682720423,
+          "latency_p95_ms": 0.12320000678300858,
           "count": 5
         },
         "fora_do_corpus": {
@@ -146,8 +146,8 @@
           "groundedness": 0.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 7938.823299948126,
-          "latency_p95_ms": 17571.714199963026,
+          "latency_p50_ms": 12723.660700023174,
+          "latency_p95_ms": 20017.598500009626,
           "count": 5
         }
       },
@@ -162,36 +162,36 @@
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": 1.0,
-          "latency_p50_ms": 0.10439998004585505,
-          "latency_p95_ms": 41520.81309992354,
+          "latency_p50_ms": 0.08260004688054323,
+          "latency_p95_ms": 12764.596699969843,
           "count": 6
         },
         "media": {
           "recall_at_10": 0.36666666666666664,
           "recall_per_question": 0.2,
-          "mrr_at_10": 0.36666666666666664,
-          "ndcg_at_10": 0.27122630665145964,
-          "citation_precision": 0.13333333333333333,
+          "mrr_at_10": 0.4,
+          "ndcg_at_10": 0.2974122573657511,
+          "citation_precision": 0.16666666666666666,
           "citation_coverage": 0.36666666666666664,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": 1.0,
-          "latency_p50_ms": 8685.420599998906,
-          "latency_p95_ms": 26245.611499994993,
+          "latency_p50_ms": 13023.122499929741,
+          "latency_p95_ms": 35333.595799980685,
           "count": 8
         },
         "baixa": {
           "recall_at_10": 0.8333333333333334,
           "recall_per_question": 0.6666666666666666,
-          "mrr_at_10": 0.47222222222222227,
-          "ndcg_at_10": 0.5732244240533504,
+          "mrr_at_10": 0.5,
+          "ndcg_at_10": 0.5873929153233965,
           "citation_precision": 0.3,
           "citation_coverage": 0.6666666666666666,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 7938.823299948126,
-          "latency_p95_ms": 17571.714199963026,
+          "latency_p50_ms": 11612.44010005612,
+          "latency_p95_ms": 20017.598500009626,
           "count": 6
         }
       }
@@ -201,14 +201,14 @@
       "recall_per_question": 0.4,
       "mrr_at_10": 0.4583333333333333,
       "ndcg_at_10": 0.4382378401800079,
-      "citation_precision": 0.22666666666666666,
-      "citation_coverage": 0.5333333333333333,
+      "citation_precision": 0.2733333333333333,
+      "citation_coverage": 0.4666666666666667,
       "groundedness": 0.9,
       "abstention_accuracy": 0.9333333333333333,
       "emergency_routing": 1.0,
-      "latency_p50_ms": 7489.417799981311,
-      "latency_p95_ms": 21395.822999998927,
-      "run_id": "2026-11-07T15-19-50",
+      "latency_p50_ms": 12017.463500029407,
+      "latency_p95_ms": 31016.341599985026,
+      "run_id": "2026-11-07T16-22-06",
       "n_questions": 20,
       "thresholds": {
         "recall_at_10": 0.85,
@@ -236,10 +236,10 @@
         "recall_per_question=0.4000 < 0.7000",
         "mrr_at_10=0.4583 < 0.6000",
         "ndcg_at_10=0.4382 < 0.7000",
-        "citation_precision=0.2267 < 0.9500",
-        "citation_coverage=0.5333 < 0.8000",
+        "citation_precision=0.2733 < 0.9500",
+        "citation_coverage=0.4667 < 0.8000",
         "groundedness=0.9000 < 0.9500",
-        "latency_p95_ms=21395.8230 > 8000.0000"
+        "latency_p95_ms=31016.3416 > 8000.0000"
       ],
       "passed": false,
       "by_category": {
@@ -248,13 +248,13 @@
           "recall_per_question": 0.5,
           "mrr_at_10": 1.0,
           "ndcg_at_10": 0.7346393630113782,
-          "citation_precision": 0.375,
-          "citation_coverage": 0.6666666666666666,
+          "citation_precision": 0.25,
+          "citation_coverage": 0.3333333333333333,
           "groundedness": 0.5,
           "abstention_accuracy": 0.5,
           "emergency_routing": null,
-          "latency_p50_ms": 21395.822999998927,
-          "latency_p95_ms": 378404.5592000475,
+          "latency_p50_ms": 17532.435899949633,
+          "latency_p95_ms": 18550.920699955896,
           "count": 2
         },
         "acao_penal": {
@@ -262,13 +262,13 @@
           "recall_per_question": 0.5,
           "mrr_at_10": 0.16666666666666666,
           "ndcg_at_10": 0.25,
-          "citation_precision": 0.08333333333333333,
+          "citation_precision": 0.125,
           "citation_coverage": 0.5,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 9540.649399976246,
-          "latency_p95_ms": 13976.881699985825,
+          "latency_p50_ms": 20254.933899967,
+          "latency_p95_ms": 31016.341599985026,
           "count": 2
         },
         "medida_protetiva": {
@@ -276,13 +276,13 @@
           "recall_per_question": 0.25,
           "mrr_at_10": 0.4583333333333333,
           "ndcg_at_10": 0.4233566009043177,
-          "citation_precision": 0.2375,
+          "citation_precision": 0.3958333333333333,
           "citation_coverage": 0.5,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 7489.417799981311,
-          "latency_p95_ms": 12989.086300018243,
+          "latency_p50_ms": 12017.463500029407,
+          "latency_p95_ms": 16414.79900002014,
           "count": 4
         },
         "servicos": {
@@ -295,8 +295,8 @@
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 6160.267999977805,
-          "latency_p95_ms": 6171.182599966414,
+          "latency_p50_ms": 24375.432200031355,
+          "latency_p95_ms": 35690.83279999904,
           "count": 2
         },
         "emergencia": {
@@ -309,8 +309,8 @@
           "groundedness": 0.0,
           "abstention_accuracy": null,
           "emergency_routing": 1.0,
-          "latency_p50_ms": 0.058399979025125504,
-          "latency_p95_ms": 0.22030004765838385,
+          "latency_p50_ms": 0.036800047382712364,
+          "latency_p95_ms": 0.06930006202310324,
           "count": 5
         },
         "fora_do_corpus": {
@@ -323,8 +323,8 @@
           "groundedness": 0.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 8518.966599949636,
-          "latency_p95_ms": 16403.78600009717,
+          "latency_p50_ms": 8165.175899979658,
+          "latency_p95_ms": 13058.427500072867,
           "count": 5
         }
       },
@@ -334,13 +334,13 @@
           "recall_per_question": 0.5,
           "mrr_at_10": 0.6666666666666666,
           "ndcg_at_10": 0.6532867981913646,
-          "citation_precision": 0.35,
-          "citation_coverage": 0.75,
-          "groundedness": 0.5,
-          "abstention_accuracy": 0.6666666666666666,
+          "citation_precision": 0.29166666666666663,
+          "citation_coverage": 0.41666666666666663,
+          "groundedness": 1.0,
+          "abstention_accuracy": 1.0,
           "emergency_routing": 1.0,
-          "latency_p50_ms": 0.07599999662488699,
-          "latency_p95_ms": 378404.5592000475,
+          "latency_p50_ms": 0.04169996827840805,
+          "latency_p95_ms": 17532.435899949633,
           "count": 6
         },
         "media": {
@@ -348,13 +348,13 @@
           "recall_per_question": 0.2,
           "mrr_at_10": 0.36666666666666664,
           "ndcg_at_10": 0.27122630665145964,
-          "citation_precision": 0.13333333333333333,
+          "citation_precision": 0.15,
           "citation_coverage": 0.36666666666666664,
-          "groundedness": 1.0,
-          "abstention_accuracy": 1.0,
+          "groundedness": 0.8,
+          "abstention_accuracy": 0.8333333333333334,
           "emergency_routing": 1.0,
-          "latency_p50_ms": 8518.966599949636,
-          "latency_p95_ms": 21395.822999998927,
+          "latency_p50_ms": 12733.258499996737,
+          "latency_p95_ms": 31016.341599985026,
           "count": 8
         },
         "baixa": {
@@ -362,13 +362,13 @@
           "recall_per_question": 0.6666666666666666,
           "mrr_at_10": 0.47222222222222227,
           "ndcg_at_10": 0.5732244240533504,
-          "citation_precision": 0.3,
+          "citation_precision": 0.4666666666666666,
           "citation_coverage": 0.6666666666666666,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 7489.417799981311,
-          "latency_p95_ms": 16403.78600009717,
+          "latency_p50_ms": 8165.175899979658,
+          "latency_p95_ms": 35690.83279999904,
           "count": 6
         }
       }
@@ -378,14 +378,14 @@
       "recall_per_question": 1.0,
       "mrr_at_10": 1.0,
       "ndcg_at_10": 1.0,
-      "citation_precision": 0.9,
-      "citation_coverage": 0.9,
-      "groundedness": 0.9,
-      "abstention_accuracy": 0.9333333333333333,
+      "citation_precision": 1.0,
+      "citation_coverage": 0.9666666666666666,
+      "groundedness": 1.0,
+      "abstention_accuracy": 1.0,
       "emergency_routing": 1.0,
-      "latency_p50_ms": 0.13280007988214493,
-      "latency_p95_ms": 8544.51640008483,
-      "run_id": "2026-11-07T15-21-00",
+      "latency_p50_ms": 0.12360000982880592,
+      "latency_p95_ms": 19216.4189000614,
+      "run_id": "2026-11-07T16-23-59",
       "n_questions": 20,
       "thresholds": {
         "recall_at_10": 0.85,
@@ -400,12 +400,10 @@
         "latency_p95_ms": 8000.0
       },
       "failures": [
-        "q008"
+        "q001"
       ],
       "threshold_failures": [
-        "citation_precision=0.9000 < 0.9500",
-        "groundedness=0.9000 < 0.9500",
-        "latency_p95_ms=8544.5164 > 8000.0000"
+        "latency_p95_ms=19216.4189 > 8000.0000"
       ],
       "passed": false,
       "by_category": {
@@ -415,12 +413,12 @@
           "mrr_at_10": 1.0,
           "ndcg_at_10": 1.0,
           "citation_precision": 1.0,
-          "citation_coverage": 1.0,
+          "citation_coverage": 0.8333333333333333,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 8544.51640008483,
-          "latency_p95_ms": 11776.809499948286,
+          "latency_p50_ms": 17535.49319994636,
+          "latency_p95_ms": 19216.4189000614,
           "count": 2
         },
         "acao_penal": {
@@ -433,8 +431,8 @@
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 4268.690000055358,
-          "latency_p95_ms": 6072.739699971862,
+          "latency_p50_ms": 9618.729699985124,
+          "latency_p95_ms": 21234.52390008606,
           "count": 2
         },
         "medida_protetiva": {
@@ -447,8 +445,8 @@
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 6433.288599946536,
-          "latency_p95_ms": 6780.752900056541,
+          "latency_p50_ms": 7302.110399934463,
+          "latency_p95_ms": 12389.128199894913,
           "count": 4
         },
         "servicos": {
@@ -456,13 +454,13 @@
           "recall_per_question": 1.0,
           "mrr_at_10": 1.0,
           "ndcg_at_10": 1.0,
-          "citation_precision": 0.5,
-          "citation_coverage": 0.5,
-          "groundedness": 0.5,
-          "abstention_accuracy": 0.5,
+          "citation_precision": 1.0,
+          "citation_coverage": 1.0,
+          "groundedness": 1.0,
+          "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 4456.89599995967,
-          "latency_p95_ms": 8184.073199983686,
+          "latency_p50_ms": 4274.697699933313,
+          "latency_p95_ms": 5948.132800054736,
           "count": 2
         },
         "emergencia": {
@@ -475,8 +473,8 @@
           "groundedness": 0.0,
           "abstention_accuracy": null,
           "emergency_routing": 1.0,
-          "latency_p50_ms": 0.08410005830228329,
-          "latency_p95_ms": 0.13280007988214493,
+          "latency_p50_ms": 0.08649996016174555,
+          "latency_p95_ms": 0.12360000982880592,
           "count": 5
         },
         "fora_do_corpus": {
@@ -489,8 +487,8 @@
           "groundedness": 0.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 0.0754999928176403,
-          "latency_p95_ms": 0.09430001955479383,
+          "latency_p50_ms": 0.06889994256198406,
+          "latency_p95_ms": 0.08080003317445517,
           "count": 5
         }
       },
@@ -501,12 +499,12 @@
           "mrr_at_10": 1.0,
           "ndcg_at_10": 1.0,
           "citation_precision": 1.0,
-          "citation_coverage": 1.0,
+          "citation_coverage": 0.8333333333333333,
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": 1.0,
-          "latency_p50_ms": 0.08410005830228329,
-          "latency_p95_ms": 8544.51640008483,
+          "latency_p50_ms": 0.08430005982518196,
+          "latency_p95_ms": 19216.4189000614,
           "count": 6
         },
         "media": {
@@ -519,8 +517,8 @@
           "groundedness": 1.0,
           "abstention_accuracy": 1.0,
           "emergency_routing": 1.0,
-          "latency_p50_ms": 4268.690000055358,
-          "latency_p95_ms": 11776.809499948286,
+          "latency_p50_ms": 7302.110399934463,
+          "latency_p95_ms": 21234.52390008606,
           "count": 8
         },
         "baixa": {
@@ -528,13 +526,13 @@
           "recall_per_question": 1.0,
           "mrr_at_10": 1.0,
           "ndcg_at_10": 1.0,
-          "citation_precision": 0.6666666666666666,
-          "citation_coverage": 0.6666666666666666,
-          "groundedness": 0.6666666666666666,
-          "abstention_accuracy": 0.8333333333333334,
+          "citation_precision": 1.0,
+          "citation_coverage": 1.0,
+          "groundedness": 1.0,
+          "abstention_accuracy": 1.0,
           "emergency_routing": null,
-          "latency_p50_ms": 0.09059999138116837,
-          "latency_p95_ms": 8184.073199983686,
+          "latency_p50_ms": 0.08080003317445517,
+          "latency_p95_ms": 7241.8580000521615,
           "count": 6
         }
       }
