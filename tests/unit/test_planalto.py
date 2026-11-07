@@ -217,17 +217,17 @@ def test_malformed_input_raises_parse_error(tmp_path: Path) -> None:
         parse_source("lmp", empty)
 
 
-def test_new_laws_use_the_publication_date_from_the_official_header() -> None:
+def test_new_laws_use_the_official_vigencia_start_date() -> None:
     from src.ingest.models import default_vigencia_inicio
 
-    assert default_vigencia_inicio("lei-15438-2026") == date(2026, 6, 18)
-    assert default_vigencia_inicio("lei-14994-2024") == date(2024, 10, 9)
+    assert default_vigencia_inicio("lei-15438-2026") == date(2026, 6, 19)
+    assert default_vigencia_inicio("lei-14994-2024") == date(2024, 10, 10)
 
 
-def test_annotation_resolves_known_law_publication_date() -> None:
+def test_annotation_resolves_known_law_vigencia_start_date() -> None:
     from src.ingest.parse_planalto import resolve_annotation_date
 
-    assert resolve_annotation_date("Incluído pela Lei nº 15.438, de 2026") == (
-        date(2026, 6, 18),
+    assert resolve_annotation_date("Incluido pela Lei n 15.438, de 2026") == (
+        date(2026, 6, 19),
         True,
     )

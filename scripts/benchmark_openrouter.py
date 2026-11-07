@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 import time
 from datetime import UTC, datetime
@@ -36,6 +37,7 @@ from src.eval.inmemory import (
 from src.eval.pipeline import make_eval_pipeline
 from src.eval.run import EvalQuestion, load_questions, run_eval
 from src.generate.llm import get_llm
+from src.generate.prompt import PROMPT_VERSION
 from src.index.embed import get_encoder
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -151,17 +153,24 @@ def main(argv: list[str] | None = None) -> int:
 
     payload = {
         "generated_at": datetime.now(UTC).isoformat(),
+        "git_commit": _git_commit(),
         "models": {
             "llm": settings.openrouter_model,
             "embedding": settings.openrouter_embedding_model,
             "embedding_dimensions": encoder.dimension,
+            "prompt_version": PROMPT_VERSION,
         },
         "corpus": {
             "rows": len(rows),
             "fingerprint": fingerprint,
+            "metadata_fingerprint": _metadata_fingerprint(rows),
+            "path": str(args.corpus),
             "sources": [path.name for path in corpus_paths],
         },
         "questions": len(questions),
+        "questions_file": str(args.questions),
+        "questions_sha256": hashlib.sha256(args.questions.read_bytes()).hexdigest(),
+        "limit": args.limit,
         "scenarios": reports,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -191,6 +200,37 @@ def _fingerprint(items: list[tuple[tuple[str, int], str]]) -> str:
     for (device_id, version), text in items:
         digest.update(f"{device_id}::{version}::{text}\n".encode())
     return digest.hexdigest()
+
+
+def _metadata_fingerprint(rows: list[dict[str, Any]]) -> str:
+    digest = hashlib.sha256()
+    for row in rows:
+        fields = [
+            str(row.get("device_id")),
+            str(row.get("norm_version_id")),
+            str(row.get("vigencia_status")),
+            str(row.get("vigencia_inicio")),
+            str(row.get("vigencia_fim")),
+            str(row.get("search_text")),
+        ]
+        digest.update("::".join(fields).encode("utf-8") + b"\n")
+    return digest.hexdigest()
+
+
+def _git_commit() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    value = result.stdout.strip()
+    return value or None
 
 
 def _cache_path(cache_dir: Path, model: str, dimension: int) -> Path:
@@ -313,7 +353,10 @@ def _markdown(payload: dict[str, Any]) -> str:
         f"- Embeddings: `{payload['models']['embedding']}` "
         f"({payload['models']['embedding_dimensions']}d)",
         f"- Corpus: {payload['corpus']['rows']} dispositivos",
+        f"- Fingerprint: `{payload['corpus']['fingerprint'][:16]}…`",
         f"- Perguntas: {payload['questions']}",
+        f"- Commit: `{payload.get('git_commit') or 'desconhecido'}`",
+        f"- Prompt: `{payload['models'].get('prompt_version', 'desconhecido')}`",
         "",
         "| Cenário | Recall@10 | Recall/pergunta | MRR@10 | nDCG@10 | Precisão citação | "
         "Cobertura citação | Groundedness | Abstenção | Emergência | p50 (ms) | p95 (ms) |",
@@ -345,6 +388,7 @@ def _markdown(payload: dict[str, Any]) -> str:
             "das fontes oficiais; o fingerprint identifica a execução.",
             "- Harness em memória: BM25 aproximado (não é o FTS português do Postgres) "
             "e vetores em RAM. Não é o caminho de produção.",
+            "- `passed` e `threshold_failures` de cada cenário estão no JSON, não na tabela.",
             "",
         ]
     )

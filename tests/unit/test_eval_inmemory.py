@@ -244,3 +244,13 @@ def test_dedupe_corpus_rows_prefers_the_latest_vigencia():
 
     assert len(deduped) == 1
     assert deduped[0]["texto_literal"] == "novo"
+
+
+def test_lookup_prefers_the_article_row_over_a_child():
+    rows = [
+        _row("lmp/art1/par1", texto="parágrafo", artigo_id="lmp/art1"),
+        _row("lmp/art1", texto="artigo completo", artigo_id="lmp/art1"),
+    ]
+    repo = InMemoryRepo(rows)
+
+    assert repo.lookup("lmp/art1", 1)["texto_literal"] == "artigo completo"

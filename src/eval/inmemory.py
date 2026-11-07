@@ -158,7 +158,7 @@ def _in_force(row: Mapping[str, Any], on_date: date) -> bool:
     """Date window only; mirrors dated ``dense_search``/``fts_search`` SQL."""
     inicio = _as_date(row.get("vigencia_inicio"))
     fim = _as_date(row.get("vigencia_fim"))
-    if inicio is not None and inicio > on_date:
+    if inicio is None or inicio > on_date:
         return False
     if fim is not None and fim < on_date:
         return False
@@ -196,7 +196,10 @@ class InMemoryRepo:
             self._by_pair.setdefault(pair, row)
             self._by_device[pair[0]].append(row)
             artigo = str(row.get("artigo_id") or pair[0])
-            self._by_article.setdefault((artigo, pair[1]), row)
+            article_key = (artigo, pair[1])
+            current = self._by_article.get(article_key)
+            if current is None or pair[0] == artigo:
+                self._by_article[article_key] = row
 
     def get_device_version(self, device_id: str, norm_version_id: int) -> CorpusRow | None:
         return self._by_pair.get((device_id, int(norm_version_id)))
