@@ -516,7 +516,7 @@ DENSE_BACKEND=qdrant
 EMBEDDING_PROVIDER=openrouter
 OPENROUTER_EMBEDDING_MODEL=qwen/qwen3-embedding-8b
 OPENROUTER_EMBEDDING_DIMENSIONS=4096
-OPENROUTER_QUERY_INSTRUCTION=Instruct: Given a legal question from a domestic violence victim, retrieve the legal provision that answers it. Query: 
+OPENROUTER_QUERY_INSTRUCTION=Instruct: Dada uma pergunta jurídica de uma vítima de violência doméstica, recupere o dispositivo legal que a responde. Query: 
 DATABASE_URL=postgresql://app:app@localhost:5432/violencia
 QDRANT_URL=http://localhost:6333
 ```
@@ -529,8 +529,13 @@ Local run with real services:
 #    qdrant Windows binary for the live benchmark.
 uv run python scripts/apply_migrations.py --database-url $env:DATABASE_URL
 
-# 2. Load the parsed corpus into Postgres
-uv run python scripts/load_parsed_corpus.py --database-url $env:DATABASE_URL
+# 2. Load the validated corpus with the production ingest path
+uv run python -m src.ingest.run --all --offline --stage load `
+  --database-url $env:DATABASE_URL
+
+# 2b. STJ súmulas are a curated seed (no raw PDF in this workspace)
+uv run python scripts/load_parsed_corpus.py --sources "" `
+  --database-url $env:DATABASE_URL
 
 # 3. Embed into Qdrant (production indexer)
 uv run python -m src.index.run --path qdrant-dense `

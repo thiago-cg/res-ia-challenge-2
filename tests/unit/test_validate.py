@@ -119,6 +119,28 @@ def test_strike_markup_in_literal_is_an_error() -> None:
     assert any("struck" in error for error in report.errors)
 
 
+def test_vigencia_fim_before_inicio_is_an_error() -> None:
+    result = _valid_result()
+    result.versions[0] = _version("lmp/art1", fim=date(2005, 1, 1))
+
+    report = validate_parse_result(normalize_parse_result(result))
+
+    assert any("vigencia_fim" in error and "precedes" in error for error in report.errors)
+
+
+def test_parenthetical_struck_note_does_not_block_validation() -> None:
+    result = _valid_result()
+    result.versions[0] = _version(
+        "lmp/art1",
+        literal="Texto vigente. (Regulamento)",
+        anterior="(Regulamento)",
+    )
+
+    report = validate_parse_result(normalize_parse_result(result))
+
+    assert not any("struck" in error for error in report.errors)
+
+
 def test_citation_must_be_present() -> None:
     result = _valid_result()
     result.versions[0] = _version("lmp/art1", citacao="")

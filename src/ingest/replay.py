@@ -1,10 +1,10 @@
-"""Replay parsed JSONL corpora into Postgres for local benchmarks.
+"""Load parsed JSONL corpora into Postgres for benchmarks and curated seeds.
 
-The production ingest CLI validates every source before loading.  Some large
-compiled sources (CP/CPP) still emit duplicate devices and overlapping
-versions; this replay path keeps the load deterministic for the benchmark while
-the validation debt remains visible.  It never invents text: every row comes
-from ``data/processed/*.jsonl`` or a curated seed.
+The production ingest CLI validates every source before loading.  This path is
+still useful for replaying previously parsed JSONL and for curated seeds (for
+example the STJ súmulas) that have no raw source file.  It never invents text:
+every row comes from ``data/processed/*.jsonl`` or a curated seed.  Parent and
+window repair is explicit and can be disabled by the caller.
 """
 
 from __future__ import annotations

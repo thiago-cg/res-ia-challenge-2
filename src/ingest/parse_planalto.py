@@ -500,18 +500,37 @@ class _StructuralParser:
             self.warnings.append(f"orphan text without parent: {base[:60]}")
 
     def build_result(self) -> ParseResult:
-        devices: list[Device] = []
+        devices_by_id: dict[str, Device] = {}
         versions: list[DeviceVersion] = []
         norm_title = norm_display(self.norm)
 
         for node in self.nodes:
             literal = collapse_whitespace(" ".join(node.texto_parts))
             anterior = collapse_whitespace(" ".join(node.anterior_parts)) or None
+            if node.id not in devices_by_id:
+                devices_by_id[node.id] = Device(
+                    id=node.id,
+                    norm_id=self.norm.id,
+                    parent_id=node.parent_id,
+                    artigo_id=node.artigo_id,
+                    tipo=node.tipo,  # type: ignore[arg-type]
+                    rotulo=node.rotulo,
+                    caminho=node.caminho,
+                    ordem=node.ordem,
+                )
             if not literal:
                 self.warnings.append(f"{node.id}: empty literal text was not indexed")
                 continue
 
+            vigencia_inicio = node.vigencia_inicio
             vigencia_fim = node.vigencia_fim
+            if vigencia_fim is not None and vigencia_fim < vigencia_inicio:
+                fallback = default_vigencia_inicio(self.norm.id, ano=self.norm.ano)
+                vigencia_inicio = min(fallback, vigencia_fim)
+                self.warnings.append(
+                    f"{node.id}: revocation {vigencia_fim.isoformat()} precedes version "
+                    f"start {node.vigencia_inicio.isoformat()}; using {vigencia_inicio.isoformat()}"
+                )
             contexto = "\n".join(
                 [norm_title, *node.headings_display, ", ".join(node.contexto_levels)]
             )
@@ -530,23 +549,11 @@ class _StructuralParser:
                 texto_anterior=anterior,
                 vigencia_status=node.status,
                 redacao_dada_por=node.redacao,
-                vigencia_inicio=node.vigencia_inicio,
+                vigencia_inicio=vigencia_inicio,
                 vigencia_fim=vigencia_fim,
                 fonte_url=self.norm.fonte_url,
             )
 
-            devices.append(
-                Device(
-                    id=node.id,
-                    norm_id=self.norm.id,
-                    parent_id=node.parent_id,
-                    artigo_id=node.artigo_id,
-                    tipo=node.tipo,  # type: ignore[arg-type]
-                    rotulo=node.rotulo,
-                    caminho=node.caminho,
-                    ordem=node.ordem,
-                )
-            )
             versions.append(
                 DeviceVersion(
                     device_id=node.id,
@@ -557,7 +564,7 @@ class _StructuralParser:
                     citacao=citacao,
                     vigencia_status=node.status,  # type: ignore[arg-type]
                     redacao_dada_por=node.redacao,
-                    vigencia_inicio=node.vigencia_inicio,
+                    vigencia_inicio=vigencia_inicio,
                     vigencia_fim=vigencia_fim,
                     fonte_url=self.norm.fonte_url,
                     content_hash=content_hash,
@@ -566,11 +573,11 @@ class _StructuralParser:
                 )
             )
 
-        by_id = {device.id: device for device in devices}
+        devices = list(devices_by_id.values())
         closed = close_version_windows(versions)
         rehashed = [
             version.model_copy(
-                update={"content_hash": _version_hash(version, by_id[version.device_id])}
+                update={"content_hash": _version_hash(version, devices_by_id[version.device_id])}
             )
             for version in closed
         ]

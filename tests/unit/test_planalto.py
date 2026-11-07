@@ -7,6 +7,7 @@ import pytest
 
 from src.ingest.models import SOURCE_NORMS, ParseError, ParseResult
 from src.ingest.parse_planalto import parse_source
+from src.ingest.validate import validate_parse_result
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "lmp_art22.html"
 
@@ -231,3 +232,42 @@ def test_annotation_resolves_known_law_vigencia_start_date() -> None:
         date(2026, 6, 19),
         True,
     )
+
+
+def test_repeated_article_versions_keep_a_single_device_identity(tmp_path: Path) -> None:
+    path = tmp_path / "versions.html"
+    path.write_text(
+        '<!doctype html><html><head><meta charset="utf-8"></head><body>'
+        "<p>Art. 1º Texto original.</p>"
+        "<p>Art. 1º Texto alterado. "
+        "(Redação dada pela Lei nº 2, de 10 de janeiro de 2023)</p>"
+        "</body></html>",
+        encoding="utf-8",
+    )
+
+    result = parse_source("cp", path)
+
+    ids = [device.id for device in result.devices]
+    assert ids == ["cp/art1", "cp/art1/cpt"]
+    assert len(ids) == len(set(ids))
+    assert len(result.versions) == 4
+    assert validate_parse_result(result).ok
+
+
+def test_empty_parent_with_text_children_keeps_its_identity(tmp_path: Path) -> None:
+    path = tmp_path / "empty-parent.html"
+    path.write_text(
+        '<!doctype html><html><head><meta charset="utf-8"></head><body>'
+        "<p>Art. 2º Texto do caput.</p>"
+        "<p>§ 5º</p>"
+        "<p>I - primeiro inciso;</p>"
+        "<p>II - segundo inciso.</p>"
+        "</body></html>",
+        encoding="utf-8",
+    )
+
+    result = parse_source("cp", path)
+
+    assert device_by_id(result, "cp/art2/par5")
+    assert [version.device_id for version in result.versions].count("cp/art2/par5") == 0
+    assert validate_parse_result(result).ok

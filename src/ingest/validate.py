@@ -76,6 +76,11 @@ def validate_parse_result(
             report.errors.append(f"{version.device_id}: version has no matching device identity")
             continue
 
+        if version.vigencia_fim is not None and version.vigencia_fim < version.vigencia_inicio:
+            report.errors.append(
+                f"{version.device_id}: vigencia_fim {version.vigencia_fim} precedes "
+                f"vigencia_inicio {version.vigencia_inicio}"
+            )
         _validate_literal(
             report,
             version,
@@ -139,8 +144,9 @@ def _validate_literal(
     if has_struck_markup(literal):
         report.errors.append(f"{version.device_id}: struck text markup remains in texto_literal")
     elif version.texto_anterior and len(version.texto_anterior.strip()) >= 3:
-        struck = version.texto_anterior.strip().lower()
-        if struck in literal.lower():
+        struck = version.texto_anterior.strip()
+        is_note = struck.startswith("(") and struck.endswith(")")
+        if not is_note and struck.lower() in literal.lower():
             report.errors.append(f"{version.device_id}: struck text remains in texto_literal")
 
     device_text = f"{version.contexto}\n{literal}"
