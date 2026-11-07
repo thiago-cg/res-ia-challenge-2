@@ -209,6 +209,7 @@ class OpenRouterEncoder:
         zdr: bool = True,
         site_url: str = "",
         app_name: str = "",
+        query_instruction: str = "",
         backoff_base: float = 0.5,
         client: httpx.Client | None = None,
     ) -> None:
@@ -240,6 +241,7 @@ class OpenRouterEncoder:
         self.zdr = zdr
         self.site_url = site_url
         self.app_name = app_name
+        self.query_instruction = query_instruction
         self.backoff_base = backoff_base
         self.base_url = base_url.rstrip("/")
         self._api_key = api_key
@@ -293,7 +295,8 @@ class OpenRouterEncoder:
         return vectors
 
     def encode_query(self, text: str) -> list[float]:
-        return self._encode_batch([text])[0]
+        query = f"{self.query_instruction}{text}" if self.query_instruction else text
+        return self._encode_batch([query])[0]
 
     def _encode_batch(self, batch: list[str]) -> list[list[float]]:
         attempts = self.max_retries + 1
@@ -406,6 +409,7 @@ def get_encoder(settings: Any) -> Encoder:
             zdr=bool(getattr(settings, "openrouter_zdr", True)),
             site_url=str(getattr(settings, "openrouter_site_url", "") or ""),
             app_name=str(getattr(settings, "openrouter_app_name", "") or ""),
+            query_instruction=str(getattr(settings, "openrouter_query_instruction", "") or ""),
         )
 
     revision = _revision(settings)

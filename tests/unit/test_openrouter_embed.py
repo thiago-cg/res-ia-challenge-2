@@ -361,3 +361,21 @@ def test_get_encoder_openrouter_ignores_local_model_paths() -> None:
         assert encoder.dimension == 4
     finally:
         encoder.close()
+
+
+def test_query_instruction_is_prepended_only_to_queries() -> None:
+    seen: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return _embedding_response([[1.0, 0.0, 0.0]])
+
+    encoder = _encoder(handler, query_instruction="Instruct: x Query: ")
+    try:
+        encoder.encode_documents(["documento"])
+        encoder.encode_query("pergunta")
+    finally:
+        encoder.close()
+
+    assert seen[0]["input"] == ["documento"]
+    assert seen[1]["input"] == ["Instruct: x Query: pergunta"]

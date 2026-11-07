@@ -82,7 +82,7 @@ class Answer(BaseModel):
 
 
 class IndexReport(BaseModel):
-    path: Literal["target", "fallback"]
+    path: Literal["target", "fallback", "qdrant_dense"]
     indexed: int
     skipped: int = 0
     errors: list[str] = Field(default_factory=list)

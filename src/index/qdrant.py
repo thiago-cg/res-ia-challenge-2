@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING, Any
@@ -36,6 +36,11 @@ PHYSICAL_COLLECTION_NAME = COLLECTION_PHYSICAL_NAME
 LATE_VECTOR = "late"
 BM25_VECTOR = "bm25"
 LATE_SIZE = 128
+
+DENSE_VECTOR = "dense"
+DENSE_COLLECTION_PHYSICAL_NAME = "devices_qdrant_dense_v1"
+DENSE_ALIAS = "devices_qdrant_dense_current"
+DENSE_UPSERT_BATCH_SIZE = 64
 
 PREFETCH_LIMIT = 100
 MAX_RESCORE = 150
@@ -388,7 +393,7 @@ def payload_for(chunk: Chunk) -> dict[str, Any]:
     }
 
 
-def _retrieved(point: Any) -> RetrievedDevice:
+def _retrieved(point: Any, source: str = "maxsim") -> RetrievedDevice:
     payload = dict(getattr(point, "payload", None) or {})
     missing = [
         field
@@ -402,7 +407,7 @@ def _retrieved(point: Any) -> RetrievedDevice:
         device_id=str(payload["device_id"]),
         norm_version_id=int(payload["norm_version_id"]),
         score=float(getattr(point, "score", 0.0)),
-        source="maxsim",
+        source=source,  # type: ignore[arg-type]
         texto_literal="",
         citacao="",
         vigencia=payload["vigencia_status"],
@@ -420,3 +425,169 @@ def _token_index(token: str) -> int:
 
     digest = hashlib.blake2b(token.encode("utf-8"), digest_size=4).digest()
     return int.from_bytes(digest, "big")
+
+
+def ensure_dense_collection(
+    client: QdrantClient,
+    *,
+    size: int,
+    collection_name: str = DENSE_COLLECTION_PHYSICAL_NAME,
+    alias_name: str | None = DENSE_ALIAS,
+) -> str:
+    """Create the dense Qdrant collection and point the alias at it."""
+
+    from qdrant_client import models
+
+    if size <= 0:
+        raise ValueError("dense collection size must be positive")
+    if not client.collection_exists(collection_name):
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config={
+                DENSE_VECTOR: models.VectorParams(
+                    size=size,
+                    distance=models.Distance.COSINE,
+                    datatype=models.Datatype.FLOAT16,
+                )
+            },
+        )
+        for field, schema in (
+            ("norm_id", models.PayloadSchemaType.KEYWORD),
+            ("vigencia_status", models.PayloadSchemaType.KEYWORD),
+            ("vigencia_inicio", models.PayloadSchemaType.DATETIME),
+            ("vigencia_fim", models.PayloadSchemaType.DATETIME),
+        ):
+            client.create_payload_index(
+                collection_name=collection_name,
+                field_name=field,
+                field_schema=schema,
+            )
+    if alias_name:
+        _ensure_alias(client, collection_name, alias_name)
+        return alias_name
+    return collection_name
+
+
+def upsert_dense_chunks(
+    client: QdrantClient,
+    chunks: Iterable[Any],
+    *,
+    collection_name: str = DENSE_ALIAS,
+    batch_size: int = DENSE_UPSERT_BATCH_SIZE,
+) -> int:
+    """Upsert one dense point per ``(device_id, norm_version_id)``.
+
+    Accepts ``EmbeddedChunk`` (``chunk`` + ``embedding``) or ``Chunk`` with an
+    ``embedding`` attribute.  The payload never carries legal text.
+    """
+
+    from qdrant_client import models
+
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+
+    points: list[Any] = []
+    for item in chunks:
+        chunk = getattr(item, "chunk", item)
+        if not isinstance(chunk, Chunk):
+            raise TypeError(f"expected a Chunk or an object with .chunk, got {type(item)!r}")
+        embedding = getattr(item, "embedding", None)
+        if embedding is None:
+            raise ValueError(f"chunk {chunk.device_id!r} has no dense embedding")
+        payload = payload_for(chunk)
+        payload.update(
+            {
+                "embedding_model": getattr(item, "model", ""),
+                "embedding_model_revision": getattr(item, "revision", ""),
+                "embedding_text_hash": getattr(item, "text_hash", ""),
+            }
+        )
+        points.append(
+            models.PointStruct(
+                id=str(point_id(chunk.device_id, chunk.norm_version_id)),
+                vector={DENSE_VECTOR: [float(value) for value in embedding]},
+                payload=payload,
+            )
+        )
+
+    for start in range(0, len(points), batch_size):
+        client.upsert(
+            collection_name=collection_name,
+            points=points[start : start + batch_size],
+            wait=True,
+        )
+    return len(points)
+
+
+def query_dense(
+    client: QdrantClient,
+    vector: Sequence[float],
+    *,
+    limit: int = 50,
+    data_fato: date | None = None,
+    collection_name: str = DENSE_ALIAS,
+) -> list[RetrievedDevice]:
+    """Dense cosine query with the same vigência window as Postgres."""
+
+    from qdrant_client import models
+
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+    if not vector:
+        return []
+    response = client.query_points(
+        collection_name=collection_name,
+        query=[float(value) for value in vector],
+        using=DENSE_VECTOR,
+        query_filter=_vigencia_filter(models, data_fato),
+        limit=limit,
+        with_payload=True,
+    )
+    return [_retrieved(point, "dense") for point in getattr(response, "points", response)]
+
+
+class QdrantDenseSearcher:
+    """``DenseSearcher`` adapter backed by a real Qdrant server."""
+
+    def __init__(
+        self,
+        url: str,
+        encoder: Any,
+        *,
+        collection_name: str = DENSE_ALIAS,
+        client: Any | None = None,
+    ) -> None:
+        from qdrant_client import QdrantClient
+
+        self.encoder = encoder
+        self.collection_name = collection_name
+        self._owns_client = client is None
+        self._client = client or QdrantClient(url=url)
+
+    def search(
+        self, query: str, limit: int, data_fato: date | None = None
+    ) -> list[RetrievedDevice]:
+        if limit <= 0:
+            return []
+        vector = self.encoder.encode_query(query)
+        if vector and isinstance(vector[0], (list, tuple)):
+            vector = vector[0]
+        return query_dense(
+            self._client,
+            vector,
+            limit=limit,
+            data_fato=data_fato,
+            collection_name=self.collection_name,
+        )
+
+    def health_snapshot(self) -> tuple[str, str | None, str | None]:
+        if not self._client.collection_exists(self.collection_name):
+            raise RuntimeError(
+                f"Qdrant collection {self.collection_name!r} does not exist; "
+                "run `python -m src.index.run --path qdrant-dense`."
+            )
+        return "ok", self.collection_name, None
+
+    def close(self) -> None:
+        if self._owns_client:
+            self._client.close()

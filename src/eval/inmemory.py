@@ -124,7 +124,7 @@ def load_corpus(paths: Sequence[str | Path]) -> list[CorpusRow]:
 
 
 def dedupe_corpus_rows(rows: Sequence[CorpusRow]) -> list[CorpusRow]:
-    """Keep one row per pair, preferring the latest vigência and the longest text."""
+    """Keep one row per pair, preferring the latest vigÃªncia and the longest text."""
 
     best: dict[PairKey, CorpusRow] = {}
     for row in rows:
@@ -407,7 +407,7 @@ class GoldContextPipeline:
     def __init__(
         self,
         *,
-        repo: InMemoryRepo,
+        repo: Any,
         settings: Any,
         llm: LLMClient,
         gold_by_question: Mapping[str, Sequence[str]],

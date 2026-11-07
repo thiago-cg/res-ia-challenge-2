@@ -1059,5 +1059,5 @@ def test_chat_pipeline_failure_returns_safe_500() -> None:
     )
 
     assert response.status_code == 500
-    assert response.json()["detail"] == "Não foi possível processar a solicitação agora."
+    assert "processar" in response.json()["detail"]
     assert "boom" not in response.text

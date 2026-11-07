@@ -21,6 +21,7 @@ from src.ingest.models import (
     ParseError,
     ParseResult,
     build_norm,
+    close_version_windows,
     compute_content_hash,
     default_vigencia_inicio,
     known_source_date,
@@ -565,13 +566,41 @@ class _StructuralParser:
                 )
             )
 
+        by_id = {device.id: device for device in devices}
+        closed = close_version_windows(versions)
+        rehashed = [
+            version.model_copy(
+                update={"content_hash": _version_hash(version, by_id[version.device_id])}
+            )
+            for version in closed
+        ]
         return ParseResult(
             norm=self.norm,
             devices=devices,
-            versions=versions,
+            versions=rehashed,
             warnings=self.warnings,
             remissoes=self.remissoes,
         )
+
+
+def _version_hash(version: DeviceVersion, device: Device) -> str:
+    return compute_content_hash(
+        device_id=device.id,
+        artigo_id=device.artigo_id,
+        parent_id=device.parent_id,
+        tipo=device.tipo,
+        rotulo=device.rotulo,
+        caminho=device.caminho,
+        contexto=version.contexto,
+        citacao=version.citacao,
+        texto_literal=version.texto_literal,
+        texto_anterior=version.texto_anterior,
+        vigencia_status=version.vigencia_status,
+        redacao_dada_por=version.redacao_dada_por,
+        vigencia_inicio=version.vigencia_inicio,
+        vigencia_fim=version.vigencia_fim,
+        fonte_url=version.fonte_url,
+    )
 
 
 def parse_html_document(
