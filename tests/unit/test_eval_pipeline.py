@@ -280,6 +280,9 @@ def test_build_eval_pipeline_fails_when_model_path_is_missing(
     monkeypatch.setattr(
         "src.api.main.get_settings",
         lambda: Settings(
+            _env_file=None,
+            embedding_provider="harrier",
+            retrieval_path="fallback",
             embedding_model_revision="abc123",
             harrier_model_path=str(missing),
         ),
