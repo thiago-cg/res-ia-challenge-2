@@ -918,6 +918,27 @@ def test_get_current_version_id_filters_status_and_date(
     assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= %s" in sql
 
 
+def test_get_current_version_id_drops_status_filter_for_a_fact_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # docs/05 §6: the window decides when the fact date is known, so a version
+    # revoked later still has to be returned for the date it governed.
+    conn = OneRowConnection({"norm_version_id": 189})
+    monkeypatch.setattr(
+        "src.api.main._open_connection",
+        lambda database_url: DictRowConnectionContext(conn),  # type: ignore[arg-type]
+    )
+    repo = PostgresRepo("postgresql://example.test/db")
+
+    version = repo.get_current_version_id("cp/art110/par2", date(1940, 12, 17))
+
+    assert version == 189
+    sql = " ".join(conn.cursor_obj.sql.split())
+    assert "vigencia_status" not in sql
+    assert "dv.vigencia_inicio <= %s" in sql
+    assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= %s" in sql
+
+
 def test_source_returns_metadata_and_date_resolution() -> None:
     row = make_row(device_id="lmp/art22", version=7, vigencia="alterado")
     repo = FakeRepo([row], on_date_row=row)

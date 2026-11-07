@@ -173,11 +173,19 @@ class PostgresRepo:
 
     def get_current_version_id(self, device_id: str, data_fato: date | None = None) -> int | None:
         on_date = data_fato or date.today()
-        sql = """
+        # docs/05 §6: with a fact date the version window alone decides, even
+        # when that version is no longer in force today.  Keeping the status
+        # filter here made an unambiguous explicit citation of an article that
+        # was later revoked abstain instead of returning the text that governed
+        # the fact; the retrieval legs already drop the filter in that case.
+        status_clause = (
+            "" if data_fato is not None else "AND dv.vigencia_status IN ('vigente', 'alterado')"
+        )
+        sql = f"""
             SELECT dv.norm_version_id
             FROM device_versions dv
             WHERE dv.device_id = %s
-              AND dv.vigencia_status IN ('vigente', 'alterado')
+              {status_clause}
               AND dv.vigencia_inicio <= %s
               AND (dv.vigencia_fim IS NULL OR dv.vigencia_fim >= %s)
             ORDER BY dv.vigencia_inicio DESC
