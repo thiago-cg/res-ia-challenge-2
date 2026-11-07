@@ -491,3 +491,57 @@ Próximos passos, na ordem:
 - [Geração, citações e segurança](docs/06-geracao-citacoes-e-seguranca.md)
 - [Avaliação](docs/08-avaliacao.md)
 - [Plano de implementação](docs/10-plano-implementacao.md)
+
+
+## Postgres FTS + Qdrant (production path)
+
+The production-shaped path uses the real Postgres full-text search and a real
+Qdrant dense collection. The fallback `pgvector` column remains in the schema
+for compatibility, but it is not used when `DENSE_BACKEND=qdrant`.
+
+- Lexical: `to_tsvector('portuguese', search_text)` + `websearch_to_tsquery`
+  + `ts_rank_cd` in Postgres.
+- Dense: Qdrant collection `devices_qdrant_dense_current` (alias), Qwen3
+  Embedding 8B, 4096 dimensions, cosine, float16.
+- Fusion: RRF over Postgres FTS and Qdrant dense; hydration by
+  `(device_id, norm_version_id)` from `device_versions`.
+- Version filter: `data_fato` uses the same window as the SQL path; `None`
+  means current (`vigente`/`alterado`).
+
+Environment:
+
+```env
+RETRIEVAL_PATH=fallback
+DENSE_BACKEND=qdrant
+EMBEDDING_PROVIDER=openrouter
+OPENROUTER_EMBEDDING_MODEL=qwen/qwen3-embedding-8b
+OPENROUTER_EMBEDDING_DIMENSIONS=4096
+OPENROUTER_QUERY_INSTRUCTION=Instruct: Given a legal question from a domestic violence victim, retrieve the legal provision that answers it. Query: 
+DATABASE_URL=postgresql://app:app@localhost:5432/violencia
+QDRANT_URL=http://localhost:6333
+```
+
+Local run with real services:
+
+```powershell
+# 1. Postgres + pgvector (local pgserver) and Qdrant v1.15.3
+#    See docs/02 for docker compose; this workspace used pgserver and the
+#    qdrant Windows binary for the live benchmark.
+uv run python scripts/apply_migrations.py --database-url $env:DATABASE_URL
+
+# 2. Load the parsed corpus into Postgres
+uv run python scripts/load_parsed_corpus.py --database-url $env:DATABASE_URL
+
+# 3. Embed into Qdrant (production indexer)
+uv run python -m src.index.run --path qdrant-dense `
+  --database-url $env:DATABASE_URL --qdrant-url $env:QDRANT_URL
+
+# 4. Benchmark against real Postgres FTS + Qdrant
+uv run python scripts/benchmark_production.py `
+  --database-url $env:DATABASE_URL --qdrant-url $env:QDRANT_URL
+```
+
+The benchmark report is written to `data/eval/benchmark_production.md` and
+`data/eval/benchmark_production.json`. `gold` recall is 1.0 by construction
+(gold devices are supplied); use `dense`/`hybrid` for retrieval and `gold` for
+generation/citation quality.

@@ -14,7 +14,7 @@ from datetime import date
 from typing import Any
 
 from src.contracts import Device, DeviceVersion
-from src.ingest.models import ParseResult, compute_content_hash
+from src.ingest.models import ParseResult, close_version_windows, compute_content_hash
 from src.textnorm import normalize_search_text
 
 _NR_RE = re.compile(r"\(\s*NR\s*\)", re.IGNORECASE)
@@ -143,7 +143,7 @@ def normalize_parse_result(result: ParseResult) -> ParseResult:
     devices = {device.id: device for device in result.devices}
     versions: list[DeviceVersion] = []
 
-    for version in result.versions:
+    for version in close_version_windows(result.versions):
         literal = strip_nr(version.texto_literal)
         device = devices.get(version.device_id)
         metadata = version_metadata(version, device)

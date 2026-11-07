@@ -47,15 +47,36 @@ def artigo_id(device_id: str) -> str:
 
 
 def dedupe_by_artigo(candidates: Sequence[RetrievedDevice]) -> list[RetrievedDevice]:
-    """Keep one device per article *and version*: highest score, then device_id."""
+    """Keep the most specific device per article *and version*.
 
-    best: dict[ArticleVersionKey, RetrievedDevice] = {}
+    The spec keeps the leaf with the highest score.  An article row beats its
+    ``/cpt`` duplicate; a deeper paragraph/inciso/alinea beats the article.
+    Ties fall back to score and then to the deterministic ``device_id``.
+    """
+
+    groups: dict[ArticleVersionKey, list[RetrievedDevice]] = {}
     for candidate in candidates:
         key = (artigo_id(candidate.device_id), candidate.norm_version_id)
-        current = best.get(key)
-        if current is None or _is_better(candidate, current):
-            best[key] = candidate
-    return list(best.values())
+        groups.setdefault(key, []).append(candidate)
+
+    selected: list[RetrievedDevice] = []
+    for group in groups.values():
+        specificity = max(_specificity(item.device_id) for item in group)
+        eligible = [item for item in group if _specificity(item.device_id) == specificity]
+        selected.append(min(eligible, key=lambda item: (-item.score, item.device_id)))
+    return selected
+
+
+def _specificity(device_id: str) -> int:
+    """Rank article rows above their caput duplicate and below deeper leaves."""
+
+    artigo = artigo_id(device_id)
+    suffix = device_id[len(artigo) :].strip("/")
+    if not suffix:
+        return 1
+    if suffix == "cpt":
+        return 0
+    return 2 + len(suffix.split("/"))
 
 
 def expand_to_article(

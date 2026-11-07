@@ -23,12 +23,16 @@ from src.index.pgvector import update_embedding
 from src.index.qdrant import (
     ALIAS_NAME,
     COLLECTION_PHYSICAL_NAME,
+    DENSE_ALIAS,
+    DENSE_COLLECTION_PHYSICAL_NAME,
     LATE_SIZE,
     IndexedChunk,
     ensure_collection,
+    ensure_dense_collection,
     point_id,
     sparse_vector,
     upsert_chunks,
+    upsert_dense_chunks,
 )
 
 DEFAULT_BATCH_SIZE = 32
@@ -208,12 +212,71 @@ def index_target(
     return report
 
 
+def index_qdrant_dense(
+    versions: Iterable[Any],
+    *,
+    client: Any | None = None,
+    encoder: Any | None = None,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+    collection_name: str = DENSE_COLLECTION_PHYSICAL_NAME,
+    alias_name: str | None = DENSE_ALIAS,
+) -> IndexReport:
+    """Embed chunks densely and upsert them into Qdrant (4096d-capable)."""
+
+    encoder = encoder or get_encoder(get_settings())
+    chunks, skipped, prep_errors = _prepare(versions)
+    report = _report("qdrant_dense", encoder, skipped)
+    report.errors.extend(prep_errors)
+
+    if not chunks:
+        return report
+
+    if client is None:
+        client = make_client(get_settings().qdrant_url)
+
+    target = alias_name or collection_name
+    try:
+        target = ensure_dense_collection(
+            client,
+            size=int(encoder.dimension),
+            collection_name=collection_name,
+            alias_name=alias_name,
+        )
+    except Exception as exc:
+        report.errors.append(f"ensure dense collection failed: {exc}")
+        report.skipped += len(chunks)
+        return report
+
+    try:
+        embedded = embed_chunks(chunks, encoder, batch_size=batch_size)
+    except Exception as exc:
+        report.errors.append(f"embedding failed: {exc}")
+        report.skipped += len(chunks)
+        return report
+
+    try:
+        report.indexed = upsert_dense_chunks(
+            client,
+            embedded,
+            collection_name=target,
+            batch_size=batch_size,
+        )
+    except Exception as exc:
+        report.errors.append(f"upsert failed: {exc}")
+        report.skipped += len(embedded)
+    return report
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m src.index.run",
-        description="Index legal devices into pgvector (fallback) or Qdrant (target).",
+        description="Index legal devices into pgvector, Qdrant late, or Qdrant dense.",
     )
-    parser.add_argument("--path", choices=["fallback", "target"], required=True)
+    parser.add_argument(
+        "--path",
+        choices=["fallback", "target", "qdrant-dense"],
+        required=True,
+    )
     parser.add_argument("--source", help="restrict to a norm/source id")
     parser.add_argument("--database-url", default=None)
     parser.add_argument("--qdrant-url", default=None)
@@ -239,6 +302,13 @@ def main(argv: list[str] | None = None) -> int:
                 conn=conn,
                 batch_size=args.batch_size,
                 commit=True,
+            )
+        elif args.path == "qdrant-dense":
+            client = make_client(args.qdrant_url or settings.qdrant_url)
+            report = index_qdrant_dense(
+                versions,
+                client=client,
+                batch_size=args.batch_size,
             )
         else:
             client = make_client(args.qdrant_url or settings.qdrant_url)

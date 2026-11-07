@@ -52,6 +52,7 @@ from src.generate.schemas import LLMOutput, LLMOutputError, parse_llm_output
 from src.generate.verify import verify
 from src.index.embed import Encoder, get_encoder
 from src.index.pgvector import dense_search, fts_search
+from src.index.qdrant import QdrantDenseSearcher
 from src.obs.logging import configure_logging
 from src.retrieve.citations import CitationCatalog, resolve_explicit_citation
 from src.retrieve.expand import dedupe_by_artigo, expand_to_article
@@ -704,7 +705,10 @@ def build_default_pipeline(
         )
     if settings.retrieval_path == "fallback":
         encoder = get_encoder(settings)
-        dense = PgDenseSearcher(settings.database_url, encoder)
+        if settings.dense_backend == "qdrant":
+            dense = QdrantDenseSearcher(settings.qdrant_url, encoder)
+        else:
+            dense = PgDenseSearcher(settings.database_url, encoder)
         fts = PgFtsSearcher(settings.database_url)
 
     return LegalRAGPipeline(
@@ -734,6 +738,9 @@ def build_eval_pipeline() -> Callable[[Mapping[str, Any]], Any]:
         checker = getattr(pipeline.repo, "health_snapshot", None)
         if callable(checker):
             checker()
+        dense_checker = getattr(pipeline, "dense", None)
+        if dense_checker is not None and hasattr(dense_checker, "health_snapshot"):
+            dense_checker.health_snapshot()
     except Exception as exc:
         raise RuntimeError(
             "pipeline real de avaliação indisponível: não foi possível montar "

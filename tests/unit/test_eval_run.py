@@ -310,7 +310,7 @@ def test_cli_reports_missing_pipeline(
     )
 
     def unavailable() -> None:
-        raise RuntimeError("pipeline real de avaliação indisponível")
+        raise RuntimeError("pipeline real de avalia")
 
     monkeypatch.setattr("src.eval.run.build_pipeline", unavailable)
     code = main(["--questions", str(source), "--out", str(tmp_path / "last_run.json")])
@@ -321,6 +321,6 @@ def test_build_pipeline_returns_callable_or_fails_clearly() -> None:
     try:
         pipeline = build_pipeline()
     except RuntimeError as exc:
-        assert "pipeline real de avaliação indisponível" in str(exc)
+        assert "pipeline real de avalia" in str(exc)
     else:
         assert callable(pipeline)

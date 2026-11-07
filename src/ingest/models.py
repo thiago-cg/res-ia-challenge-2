@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel, Field
@@ -36,6 +37,47 @@ class ParseResult(BaseModel):
     versions: list[DeviceVersion] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     remissoes: list[str] = Field(default_factory=list)
+
+
+def close_version_windows(versions: Sequence[DeviceVersion]) -> list[DeviceVersion]:
+    """Make per-device version windows non-overlapping.
+
+    A parser may emit an old version with ``vigencia_fim=None`` and a newer
+    version for the same device.  The database rejects that overlap, so the
+    previous version is closed the day before the next one starts.  A version
+    that was revoked earlier keeps its earlier end date.
+    """
+
+    grouped: dict[str, list[DeviceVersion]] = {}
+    for version in versions:
+        grouped.setdefault(version.device_id, []).append(version)
+
+    closed: list[DeviceVersion] = []
+    for device_versions in grouped.values():
+        by_start: dict[date, DeviceVersion] = {}
+        for version in device_versions:
+            current = by_start.get(version.vigencia_inicio)
+            if current is None or _prefer_version(version, current):
+                by_start[version.vigencia_inicio] = version
+        ordered = sorted(by_start.values(), key=lambda item: item.vigencia_inicio)
+        for index, version in enumerate(ordered):
+            next_start = ordered[index + 1].vigencia_inicio if index + 1 < len(ordered) else None
+            if next_start is not None:
+                end = next_start - timedelta(days=1)
+                if version.vigencia_fim is None or version.vigencia_fim > end:
+                    version = version.model_copy(update={"vigencia_fim": end})
+            closed.append(version)
+    return closed
+
+
+def _prefer_version(candidate: DeviceVersion, current: DeviceVersion) -> bool:
+    current_status = current.vigencia_status in ("vigente", "alterado")
+    candidate_status = candidate.vigencia_status in ("vigente", "alterado")
+    if candidate_status != current_status:
+        return candidate_status
+    if len(candidate.texto_literal) != len(current.texto_literal):
+        return len(candidate.texto_literal) > len(current.texto_literal)
+    return (candidate.vigencia_fim or date.max) > (current.vigencia_fim or date.max)
 
 
 @dataclass(frozen=True)

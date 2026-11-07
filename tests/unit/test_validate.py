@@ -132,7 +132,7 @@ def test_overlapping_current_versions_are_an_error() -> None:
     result = _valid_result()
     result.versions.append(_version("lmp/art1"))
 
-    report = validate_parse_result(normalize_parse_result(result))
+    report = validate_parse_result(result)
 
     assert any("overlap" in error for error in report.errors)
 

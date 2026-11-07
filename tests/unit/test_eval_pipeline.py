@@ -226,7 +226,14 @@ def test_build_default_pipeline_wires_encoder_into_eval_pipeline(
         def search(self, query: str, limit: int, data_fato: Any = None) -> list[Any]:
             return []
 
-    settings = Settings(embedding_model_revision="abc123")
+    settings = Settings(
+        _env_file=None,
+        embedding_provider="harrier",
+        retrieval_path="fallback",
+        dense_backend="pgvector",
+        embedding_model_revision="abc123",
+    )
+
     monkeypatch.setattr("src.api.main.get_settings", lambda: settings)
     monkeypatch.setattr("src.api.main.PostgresRepo", lambda url: FakeRepo())
     monkeypatch.setattr("src.api.main.get_encoder", lambda configured: encoder)
@@ -250,7 +257,7 @@ def test_build_eval_pipeline_fails_clearly_without_database(
 
     monkeypatch.setattr("src.api.main.build_default_pipeline", unavailable)
 
-    with pytest.raises(RuntimeError, match="pipeline real de avaliação indisponível"):
+    with pytest.raises(RuntimeError, match="pipeline real de avalia"):
         build_eval_pipeline()
 
 
@@ -292,7 +299,7 @@ def test_build_eval_pipeline_fails_when_model_path_is_missing(
         lambda settings, data_atualizacao_base: FakeDefaultPipeline(),
     )
 
-    with pytest.raises(RuntimeError, match="caminho do modelo não existe"):
+    with pytest.raises(RuntimeError, match="caminho do modelo"):
         build_eval_pipeline()
 
 

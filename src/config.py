@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     )
 
     retrieval_path: Literal["fallback", "target"] = "fallback"
+    dense_backend: Literal["pgvector", "qdrant"] = "pgvector"
     embedding_provider: Literal["harrier", "pplx", "openrouter"] = "harrier"
     embedding_model_revision: str = ""
     llm_provider: Literal["mock", "local", "api", "openrouter"] = "mock"
@@ -59,6 +60,7 @@ class Settings(BaseSettings):
     openrouter_zdr: bool = True
     openrouter_site_url: str = ""
     openrouter_app_name: str = ""
+    openrouter_query_instruction: str = ""
 
     @model_validator(mode="after")
     def reject_gguf_models(self) -> "Settings":

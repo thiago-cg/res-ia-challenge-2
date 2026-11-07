@@ -184,6 +184,36 @@ def _insert_device_version(
     return row is not None
 
 
+def _parent_first(devices: Sequence[Device]) -> list[Device]:
+    """Insert parents before children; ``ordem`` alone is not topological."""
+
+    by_id = {device.id: device for device in devices}
+    children: dict[str, list[Device]] = defaultdict(list)
+    roots: list[Device] = []
+    for device in devices:
+        if device.parent_id is not None and device.parent_id in by_id:
+            children[device.parent_id].append(device)
+        else:
+            roots.append(device)
+
+    ordered: list[Device] = []
+    seen: set[str] = set()
+
+    def visit(device: Device) -> None:
+        if device.id in seen:
+            return
+        seen.add(device.id)
+        ordered.append(device)
+        for child in sorted(children.get(device.id, []), key=lambda item: item.ordem):
+            visit(child)
+
+    for root in sorted(roots, key=lambda item: item.ordem):
+        visit(root)
+    for device in sorted(devices, key=lambda item: item.ordem):
+        visit(device)
+    return ordered
+
+
 def load_parse_result(
     conn: Any,
     result: ParseResult,
@@ -215,7 +245,7 @@ def load_parse_result(
         vigencia.isoformat(): version_id for vigencia, version_id in norm_version_ids.items()
     }
 
-    for device in normalized.devices:
+    for device in _parent_first(normalized.devices):
         _upsert_device(conn, device)
         report.devices_loaded += 1
 

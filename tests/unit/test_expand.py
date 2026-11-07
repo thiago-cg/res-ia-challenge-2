@@ -70,6 +70,28 @@ def test_dedupe_tie_breaks_deterministically_by_device_id() -> None:
     assert [item.device_id for item in result] == ["lmp/art22/cpt/inc3/ali-b"]
 
 
+def test_dedupe_prefers_the_article_over_its_caput_duplicate() -> None:
+    candidates = [
+        device("lmp/art16-a/cpt", 0.9),
+        device("lmp/art16-a", 0.8),
+    ]
+
+    result = dedupe_by_artigo(candidates)
+
+    assert [item.device_id for item in result] == ["lmp/art16-a"]
+
+
+def test_dedupe_prefers_a_deep_leaf_over_the_article() -> None:
+    candidates = [
+        device("lmp/art22", 0.9),
+        device("lmp/art22/cpt/inc3/ali-b", 0.7),
+    ]
+
+    result = dedupe_by_artigo(candidates)
+
+    assert [item.device_id for item in result] == ["lmp/art22/cpt/inc3/ali-b"]
+
+
 def test_dedupe_preserves_versions_of_the_same_article() -> None:
     candidates = [
         device("lmp/art22/cpt/inc3", 0.5, version=1),
