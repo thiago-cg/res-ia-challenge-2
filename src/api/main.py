@@ -55,7 +55,7 @@ from src.index.pgvector import dense_search, fts_search
 from src.index.qdrant import QdrantDenseSearcher
 from src.obs.logging import configure_logging
 from src.retrieve.citations import CitationCatalog, resolve_explicit_citation
-from src.retrieve.expand import dedupe_by_artigo, expand_to_article
+from src.retrieve.expand import artigo_id, dedupe_by_artigo, expand_to_article
 from src.retrieve.hybrid import DenseSearcher, FtsSearcher, QdrantSearcher, hybrid_search
 from src.retrieve.hydrate import hydrate, resolve_citation
 from src.retrieve.query import default_facts, extract_data_fato, understand_query
@@ -611,6 +611,8 @@ class LegalRAGPipeline:
             citation = resolve_citation(device.device_id, device.norm_version_id, repo=self.repo)
             citations.append(citation.model_copy(update={"afirmacao": cited.afirmacao}))
 
+        citations.extend(self._ancestor_citations(citations, by_id, seen))
+
         return Answer(
             resposta=output.resposta,
             citacoes=citations,
@@ -621,6 +623,37 @@ class LegalRAGPipeline:
             abstencao=output.abstencao,
             motivo_abstencao=output.motivo_abstencao,
         )
+
+    def _ancestor_citations(
+        self,
+        citations: Sequence[Citation],
+        by_id: dict[str, RetrievedDevice],
+        seen: set[tuple[str, int]],
+    ) -> list[Citation]:
+        """Also cite the article row when the model cited one of its devices.
+
+        The model cites the device it actually read, which is often a paragraph,
+        an inciso or the /cpt duplicate.  When the article row is present in the
+        context it is the same norm and the answer relies on it too, so the
+        citation list should carry it; nothing is added when the article is not
+        in the retrieved context.
+        """
+
+        extra: list[Citation] = []
+        for citation in list(citations):
+            ancestor = artigo_id(citation.device_id)
+            if ancestor == citation.device_id:
+                continue
+            device = by_id.get(ancestor)
+            if device is None:
+                continue
+            pair = (device.device_id, device.norm_version_id)
+            if pair in seen:
+                continue
+            seen.add(pair)
+            resolved = resolve_citation(device.device_id, device.norm_version_id, repo=self.repo)
+            extra.append(resolved.model_copy(update={"afirmacao": citation.afirmacao}))
+        return extra
 
     def _complete(self, prompt: str, retrieved: Sequence[RetrievedDevice]) -> str:
         llm = self.llm
