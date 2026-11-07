@@ -244,22 +244,22 @@ def _git_commit() -> str | None:
 
 def _markdown(payload: dict[str, Any]) -> str:
     lines = [
-        "# Benchmark produÃ§Ã£o: Postgres FTS + Qdrant dense",
+        "# Benchmark produção: Postgres FTS + Qdrant dense",
         "",
         f"- Gerado em: `{payload['generated_at']}`",
         f"- Backend: `{payload['backend']}`",
         f"- LLM: `{payload['models']['llm']}`",
         f"- Embeddings: `{payload['models']['embedding']}` "
         f"({payload['models']['embedding_dimensions']}d)",
-        f"- InstruÃ§Ã£o de consulta: `{payload['models']['query_instruction'] or '(vazia)'}`",
-        f"- Postgres: {payload['database']['device_versions']} versÃµes, "
+        f"- Instrução de consulta: `{payload['models']['query_instruction'] or '(vazia)'}`",
+        f"- Postgres: {payload['database']['device_versions']} versões, "
         f"{payload['database']['devices']} dispositivos",
         f"- Qdrant: `{payload['qdrant']['collection']}`",
         f"- Perguntas: {payload['questions']}",
         f"- Commit: `{payload.get('git_commit') or 'desconhecido'}`",
         "",
-        "| CenÃ¡rio | Recall@10 | Recall/pergunta | MRR@10 | nDCG@10 | PrecisÃ£o citaÃ§Ã£o | "
-        "Cobertura citaÃ§Ã£o | Groundedness | AbstenÃ§Ã£o | EmergÃªncia | p50 (ms) | p95 (ms) |",
+        "| Cenário | Recall@10 | Recall/pergunta | MRR@10 | nDCG@10 | Precisão citação | "
+        "Cobertura citação | Groundedness | Abstenção | Emergência | p50 (ms) | p95 (ms) |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name, report in payload["scenarios"].items():
@@ -271,7 +271,7 @@ def _markdown(payload: dict[str, Any]) -> str:
             f"{report['emergency_routing']:.3f} | {report['latency_p50_ms']:.0f} | "
             f"{report['latency_p95_ms']:.0f} |"
         )
-    lines.extend(["", "## Falhas por cenÃ¡rio", ""])
+    lines.extend(["", "## Falhas por cenário", ""])
     for name, report in payload["scenarios"].items():
         failures = report.get("failures") or []
         lines.append(f"- **{name}**: {', '.join(failures) if failures else 'nenhuma'}")
@@ -283,8 +283,8 @@ def _markdown(payload: dict[str, Any]) -> str:
             "- `hybrid` usa FTS real do Postgres (`websearch_to_tsquery('portuguese')`, "
             "`ts_rank_cd`) + Qdrant dense 4096d, fundidos por RRF.",
             "- `dense` usa somente Qdrant; `gold` entrega os dispositivos-ouro "
-            "hidratados do Postgres e mede geraÃ§Ã£o/citaÃ§Ã£o, nÃ£o recuperaÃ§Ã£o.",
-            "- O Qdrant usa HNSW aproximado; a latÃªncia inclui rede, Postgres, Qdrant e LLM.",
+            "hidratados do Postgres e mede geração/citação, não recuperação.",
+            "- O Qdrant usa HNSW aproximado; a latência inclui rede, Postgres, Qdrant e LLM.",
             "",
         ]
     )
