@@ -174,8 +174,56 @@ def _parse_facts(raw_facts: object, base: QueryFacts) -> QueryFacts:
     return QueryFacts.model_validate(data)
 
 
+_LEGAL_EXPANSIONS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(r"\bden[úu]nci(?:a|ar|ou|ando)\b", re.IGNORECASE),
+        "ação penal pública incondicionada representação prazo 12 meses "
+        "lesão corporal violência doméstica",
+    ),
+    (
+        re.compile(r"boletim de ocorrência", re.IGNORECASE),
+        "medida protetiva independente de boletim de ocorrência inquérito "
+        "vigora enquanto persistir o risco",
+    ),
+    (
+        re.compile(r"moro em outra cidade|não vejo|coabit|distância", re.IGNORECASE),
+        "relação doméstica não exige coabitação vínculo de afetividade",
+    ),
+    (
+        re.compile(r"advogado|dinheiro|gratuit|Defensoria", re.IGNORECASE),
+        "assistência jurídica gratuita Defensoria Pública política pública de atendimento à mulher",
+    ),
+    (
+        re.compile(r"xingando|humilhando|xingament|humilha", re.IGNORECASE),
+        "violência psicológica",
+    ),
+    (
+        re.compile(r"amea[çc]", re.IGNORECASE),
+        "crime de ameaça artigo 147 prazo para representação 12 meses violência doméstica",
+    ),
+)
+
+
+def expand_legal_query(text: str) -> str:
+    """Rewrite colloquial victim language into legal search terms.
+
+    This is the deterministic half of RET-02: it never invents facts and never
+    replaces the user's question, it only appends curated legal vocabulary that
+    helps dense and lexical retrieval.  An LLM rewrite can still be injected by
+    the caller; this keeps the offline path useful.
+    """
+
+    expansions: list[str] = []
+    for pattern, expansion in _LEGAL_EXPANSIONS:
+        if pattern.search(text) and expansion not in expansions:
+            expansions.append(expansion)
+    if not expansions:
+        return text.strip()
+    return f"{text.strip()} {' '.join(expansions)}"
+
+
 def _fallback_plan(text: str, facts: QueryFacts) -> QueryPlan:
-    question = text.strip()
+    question = expand_legal_query(text)
     return QueryPlan(
         fatos=facts,
         consulta_juridica=question,

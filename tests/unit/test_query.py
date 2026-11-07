@@ -80,14 +80,42 @@ def test_prompt_is_versioned_and_contains_schema() -> None:
 
 
 def test_deterministic_fallback_without_llm() -> None:
-    plan = understand_query("Meu ex-marido me ameaçou")
-    assert plan.consulta_juridica == "Meu ex-marido me ameaçou"
-    assert plan.subperguntas == ["Meu ex-marido me ameaçou"]
+    plan = understand_query("Ele me empurrou")
+    assert plan.consulta_juridica == "Ele me empurrou"
+    assert plan.subperguntas == ["Ele me empurrou"]
     assert plan.fatos.relacao == "desconhecido"
     assert plan.fatos.tipo_violencia == []
     assert plan.fatos.urgencia == "desconhecida"
     assert plan.fatos.data_fato is None
     assert plan.fatos.uf is None
+
+
+def test_fallback_expands_denuncia_into_legal_language() -> None:
+    plan = understand_query("Se eu não fizer a denúncia, o processo não anda?")
+
+    assert "ação penal pública incondicionada" in plan.consulta_juridica
+    assert "prazo 12 meses" in plan.consulta_juridica
+    assert plan.subperguntas == [plan.consulta_juridica]
+
+
+def test_fallback_expands_boletim_and_risk_language() -> None:
+    plan = understand_query("Preciso registrar boletim de ocorrência para pedir medida protetiva?")
+
+    assert "independente de boletim de ocorrência" in plan.consulta_juridica
+    assert "vigora enquanto persistir o risco" in plan.consulta_juridica
+
+
+def test_fallback_expands_legal_aid_question() -> None:
+    plan = understand_query("Onde procuro ajuda se não tenho dinheiro para advogado?")
+
+    assert "assistência jurídica gratuita" in plan.consulta_juridica
+    assert "Defensoria Pública" in plan.consulta_juridica
+
+
+def test_fallback_expansion_does_not_duplicate_terms() -> None:
+    plan = understand_query("Ele me ameaçou; a ameaça é crime?")
+
+    assert plan.consulta_juridica.count("crime de ameaça artigo 147") == 1
 
 
 def test_llm_valid_json_is_parsed() -> None:
