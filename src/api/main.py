@@ -419,10 +419,17 @@ class LegalRAGPipeline:
         if not candidates:
             return self._abstain("nenhum_dispositivo_recuperado")
 
+        # A reranker has to read the legal text, so the pool is hydrated before
+        # ranking; without that it would order candidates by their id alone.
+        hydrated_pool = False
         try:
+            pool = list(candidates)
+            if self.rescore is not None:
+                pool = hydrate(pool[: self.settings.rerank_pool], repo=self.repo).devices
+                hydrated_pool = True
             ranked = rerank(
                 plan.consulta_juridica,
-                candidates,
+                pool,
                 encoder=_as_rerank_encoder(self.encoder),
                 top_k=self.settings.max_devices,
                 rescore=self.rescore,
@@ -435,7 +442,7 @@ class LegalRAGPipeline:
             return self._abstain("erro_recuperacao")
 
         try:
-            hydrated = hydrate(selected, repo=self.repo).devices
+            hydrated = selected if hydrated_pool else hydrate(selected, repo=self.repo).devices
         except Exception as exc:
             logger.warning("hydration_failed error=%s", type(exc).__name__)
             return self._abstain("erro_recuperacao")
@@ -727,7 +734,11 @@ def build_default_pipeline(
     if settings.rerank_provider == "llm":
         from src.retrieve.llm_rerank import LazyLLM, LLMReranker
 
-        rescore = LLMReranker(LazyLLM(settings), pool=settings.rerank_pool)
+        rescore = LLMReranker(
+            LazyLLM(settings, settings.rerank_model or None),
+            pool=settings.rerank_pool,
+            max_tokens=settings.rerank_max_tokens,
+        )
 
     return LegalRAGPipeline(
         repo=repo,

@@ -58,10 +58,11 @@ def dedupe_by_artigo(
     article row beats its ``/cpt`` duplicate and a deeper paragraph/inciso/alinea
     beats the article; ties fall back to score and then to ``device_id``.
 
-    ``max_per_article > 1`` keeps the highest scoring devices of the group
-    instead.  The gold set is device-level, so the second paragraph of an
-    article is a distinct device and a single slot per article silently drops
-    it; the context budget, not the article count, should limit the list.
+    ``max_per_article > 1`` keeps the article row first and then the best
+    remaining devices, because the gold set mixes both granularities: a
+    single slot per article silently drops the article when a leaf outranks
+    it, and the second paragraph of an article is a distinct device.  The
+    context budget, not the article count, should limit the list.
     """
 
     if max_per_article < 1:
@@ -73,13 +74,18 @@ def dedupe_by_artigo(
         groups.setdefault(key, []).append(candidate)
 
     selected: list[RetrievedDevice] = []
-    for group in groups.values():
+    for (artigo, _), group in groups.items():
         if max_per_article == 1:
             specificity = max(_specificity(item.device_id) for item in group)
             eligible = [item for item in group if _specificity(item.device_id) == specificity]
             selected.append(min(eligible, key=lambda item: (-item.score, item.device_id)))
             continue
-        ordered = sorted(group, key=lambda item: (-item.score, item.device_id))
+        # The gold set mixes both granularities: sometimes the article itself,
+        # sometimes a paragraph of it.  Put the article row first so it is not
+        # crowded out by its own leaves, then the best remaining devices.
+        ordered = sorted(
+            group, key=lambda item: (item.device_id != artigo, -item.score, item.device_id)
+        )
         selected.extend(ordered[:max_per_article])
     return selected
 

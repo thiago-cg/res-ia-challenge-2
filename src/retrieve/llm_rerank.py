@@ -51,6 +51,7 @@ class LLMReranker:
         pool: int = DEFAULT_POOL,
         max_doc_chars: int = DEFAULT_MAX_DOC_CHARS,
         timeout: float = 45.0,
+        max_tokens: int | None = None,
     ) -> None:
         if pool <= 0:
             raise ValueError("pool must be positive")
@@ -58,6 +59,10 @@ class LLMReranker:
         self.pool = pool
         self.max_doc_chars = max_doc_chars
         self.timeout = timeout
+        self.max_tokens = max_tokens
+        setter = getattr(llm, "set_max_tokens", None)
+        if max_tokens and callable(setter):
+            setter(max_tokens)
 
     def __call__(
         self,
@@ -145,13 +150,21 @@ def _extract_ids(raw: str) -> list[str]:
 class LazyLLM:
     """Build the LLM client on first use so startup never needs a provider."""
 
-    def __init__(self, settings: Any) -> None:
+    def __init__(self, settings: Any, model: str | None = None) -> None:
         self._settings = settings
+        self._model = model or None
         self._client: Any = None
+
+    def set_max_tokens(self, value: int) -> None:
+        self._max_tokens = value
+        if self._client is not None:
+            self._client.max_tokens = value
 
     def complete(self, system: str, user: str, *, timeout: float = 30) -> str:
         if self._client is None:
             from src.generate.llm import get_llm
 
-            self._client = get_llm(self._settings)
+            self._client = get_llm(self._settings, model=self._model)
+            if getattr(self, "_max_tokens", None):
+                self._client.max_tokens = self._max_tokens
         return str(self._client.complete(system, user, timeout=timeout))

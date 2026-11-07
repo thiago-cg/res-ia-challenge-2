@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     #: order the top rerank_pool candidates by legal relevance; "none" keeps
     #: the fusion order.
     rerank_provider: Literal["none", "llm"] = "none"
+
+    #: Model used only for reranking.  A reasoning model burns its whole
+    #: token budget on the trace and returns no content, so a small
+    #: non-reasoning model is the right tool here; empty means the main model.
+    rerank_model: str = ""
+    rerank_max_tokens: int = Field(default=400, gt=0)
     rerank_pool: int = Field(default=30, gt=0)
     max_context_tokens: int = Field(default=6000, gt=0)
     max_subquestions: int = Field(default=3, gt=0)

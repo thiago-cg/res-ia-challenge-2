@@ -279,7 +279,7 @@ class OpenRouterLLM(_HTTPLLM):
         return headers
 
 
-def get_llm(settings: object) -> LLMClient:
+def get_llm(settings: object, *, model: str | None = None) -> LLMClient:
     provider = str(getattr(settings, "llm_provider", "mock"))
 
     if provider == "mock":
@@ -293,7 +293,7 @@ def get_llm(settings: object) -> LLMClient:
                 "OPENROUTER_API_KEY is required for LLM_PROVIDER=openrouter; "
                 "set it in the environment or in .env."
             )
-        model_name = str(
+        model_name = model or str(
             getattr(settings, "openrouter_model", "")
             or getattr(settings, "llm_model", "")
             or "openai/gpt-4o-mini"

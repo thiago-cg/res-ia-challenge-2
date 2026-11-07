@@ -227,3 +227,23 @@ def test_dedupe_can_keep_more_than_one_device_per_article() -> None:
 def test_dedupe_rejects_a_non_positive_cap() -> None:
     with pytest.raises(ValueError, match="max_per_article must be positive"):
         dedupe_by_artigo([device("lmp/art5", 1.0)], max_per_article=0)
+
+
+def test_dedupe_puts_the_article_row_first_when_keeping_several() -> None:
+    # A leaf usually scores higher than its article, so without this ordering the
+    # article would be crowded out of the context even though the gold set often
+    # names the article itself.
+    candidates = [
+        device("lmp/art19/par5", 0.9, version=7),
+        device("lmp/art19", 0.4, version=7),
+        device("lmp/art19/par6", 0.7, version=7),
+    ]
+
+    picked = dedupe_by_artigo(candidates, max_per_article=3)
+
+    assert picked[0].device_id == "lmp/art19"
+    assert {item.device_id for item in picked} == {
+        "lmp/art19",
+        "lmp/art19/par5",
+        "lmp/art19/par6",
+    }
