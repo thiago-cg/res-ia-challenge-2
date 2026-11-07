@@ -578,6 +578,24 @@ uv run python scripts/benchmark_production.py `
   --md data/eval/benchmark_production_noexp.md
 ```
 
+Result on the same 20 questions (retrieval only, `gold` omitted because it is
+tautological):
+
+| Scenario | Expansion | Recall@10 device | Recall@10 article | MRR@10 |
+| --- | --- | ---: | ---: | ---: |
+| dense | on | 0.850 | 1.000 | 0.592 |
+| dense | off | 0.583 | 0.733 | 0.483 |
+| hybrid | on | 0.750 | 0.950 | 0.512 |
+| hybrid | off | 0.550 | 0.683 | 0.398 |
+
+The entire gain comes from the rewrite, and the rewrite was authored while
+looking at these questions: both splits improve, so the `dev`/`test` split
+does not protect anything here. Two further caveats follow from the same
+runs: `hybrid` is worse than `dense` in both settings, so the fixed lexical
+leg is real but does not yet earn its place in the fusion; and the
+device-level misses concentrate in the article-level dedupe, since
+`Recall@10 article` reaches 1.000 where the device-level number is 0.850.
+
 ### Known deviations (audited, not fixed)
 
 - `get_current_version_id` keeps the `vigente`/`alterado` filter when
