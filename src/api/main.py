@@ -723,12 +723,19 @@ def build_default_pipeline(
             dense = PgDenseSearcher(settings.database_url, encoder)
         fts = PgFtsSearcher(settings.database_url)
 
+    rescore = None
+    if settings.rerank_provider == "llm":
+        from src.retrieve.llm_rerank import LazyLLM, LLMReranker
+
+        rescore = LLMReranker(LazyLLM(settings), pool=settings.rerank_pool)
+
     return LegalRAGPipeline(
         repo=repo,
         settings=settings,
         dense=dense,
         fts=fts,
         encoder=encoder,
+        rescore=rescore,
         data_atualizacao_base=data_atualizacao_base,
     )
 

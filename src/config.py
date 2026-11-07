@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     #: measured value is lower because ts_rank_cd over a full question is a
     #: weak ranker and equal weights let it outvote the dense leg.
     hybrid_lexical_weight: float = Field(default=0.2, ge=0.0)
+
+    #: Reranking of the candidate pool.  "llm" asks the configured LLM to
+    #: order the top rerank_pool candidates by legal relevance; "none" keeps
+    #: the fusion order.
+    rerank_provider: Literal["none", "llm"] = "none"
+    rerank_pool: int = Field(default=30, gt=0)
     max_context_tokens: int = Field(default=6000, gt=0)
     max_subquestions: int = Field(default=3, gt=0)
     max_agent_loops: int = Field(default=3, gt=0)
@@ -63,6 +69,10 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_api_key: str = ""
     log_level: str = "INFO"
+
+    #: Hard cap on generated tokens.  Without it the provider may generate an
+    #: unbounded answer, which shows up as multi-second-to-timeout latency.
+    llm_max_tokens: int = Field(default=1024, gt=0)
 
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
