@@ -203,3 +203,27 @@ def test_ambiguous_lookup_signature_raises_before_calling() -> None:
         expand_to_article([device("lmp/art22/cpt/inc3", 0.8)], article_lookup=lookup)
 
     assert calls == []
+
+
+def test_dedupe_can_keep_more_than_one_device_per_article() -> None:
+    # docs/05 dedupes by article, but the gold set is device-level: the second
+    # paragraph of the same article is a different device.
+    candidates = [
+        device("lmp/art19/par5", 0.9, version=7),
+        device("lmp/art19/par6", 0.8, version=7),
+        device("lmp/art19/par1", 0.7, version=7),
+    ]
+
+    one = dedupe_by_artigo(candidates)
+    two = dedupe_by_artigo(candidates, max_per_article=2)
+
+    assert [item.device_id for item in one] == ["lmp/art19/par5"]
+    assert [item.device_id for item in sorted(two, key=lambda d: -d.score)] == [
+        "lmp/art19/par5",
+        "lmp/art19/par6",
+    ]
+
+
+def test_dedupe_rejects_a_non_positive_cap() -> None:
+    with pytest.raises(ValueError, match="max_per_article must be positive"):
+        dedupe_by_artigo([device("lmp/art5", 1.0)], max_per_article=0)

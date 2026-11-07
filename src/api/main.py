@@ -410,6 +410,7 @@ class LegalRAGPipeline:
                 qdrant=self.qdrant,
                 path=self.settings.retrieval_path,
                 data_fato=plan.fatos.data_fato,
+                lexical_weight=self.settings.hybrid_lexical_weight,
             )
         except Exception as exc:
             logger.warning("retrieval_failed error=%s", type(exc).__name__)
@@ -426,7 +427,9 @@ class LegalRAGPipeline:
                 top_k=self.settings.max_devices,
                 rescore=self.rescore,
             )
-            selected = dedupe_by_artigo(ranked)[: self.settings.max_devices]
+            selected = dedupe_by_artigo(
+                ranked, max_per_article=self.settings.max_devices_per_article
+            )[: self.settings.max_devices]
         except Exception as exc:
             logger.warning("ranking_failed error=%s", type(exc).__name__)
             return self._abstain("erro_recuperacao")

@@ -46,13 +46,26 @@ def artigo_id(device_id: str) -> str:
     return match.group(1) if match else device_id
 
 
-def dedupe_by_artigo(candidates: Sequence[RetrievedDevice]) -> list[RetrievedDevice]:
-    """Keep the most specific device per article *and version*.
+def dedupe_by_artigo(
+    candidates: Sequence[RetrievedDevice],
+    *,
+    max_per_article: int = 1,
+) -> list[RetrievedDevice]:
+    """Keep at most ``max_per_article`` devices per article *and version*.
 
-    The spec keeps the leaf with the highest score.  An article row beats its
-    ``/cpt`` duplicate; a deeper paragraph/inciso/alinea beats the article.
-    Ties fall back to score and then to the deterministic ``device_id``.
+    docs/05 §6.7 dedupes by article so ten chunks of one article cannot fill the
+    context.  With ``max_per_article=1`` the most specific device wins: an
+    article row beats its ``/cpt`` duplicate and a deeper paragraph/inciso/alinea
+    beats the article; ties fall back to score and then to ``device_id``.
+
+    ``max_per_article > 1`` keeps the highest scoring devices of the group
+    instead.  The gold set is device-level, so the second paragraph of an
+    article is a distinct device and a single slot per article silently drops
+    it; the context budget, not the article count, should limit the list.
     """
+
+    if max_per_article < 1:
+        raise ValueError("max_per_article must be positive")
 
     groups: dict[ArticleVersionKey, list[RetrievedDevice]] = {}
     for candidate in candidates:
@@ -61,9 +74,13 @@ def dedupe_by_artigo(candidates: Sequence[RetrievedDevice]) -> list[RetrievedDev
 
     selected: list[RetrievedDevice] = []
     for group in groups.values():
-        specificity = max(_specificity(item.device_id) for item in group)
-        eligible = [item for item in group if _specificity(item.device_id) == specificity]
-        selected.append(min(eligible, key=lambda item: (-item.score, item.device_id)))
+        if max_per_article == 1:
+            specificity = max(_specificity(item.device_id) for item in group)
+            eligible = [item for item in group if _specificity(item.device_id) == specificity]
+            selected.append(min(eligible, key=lambda item: (-item.score, item.device_id)))
+            continue
+        ordered = sorted(group, key=lambda item: (-item.score, item.device_id))
+        selected.extend(ordered[:max_per_article])
     return selected
 
 

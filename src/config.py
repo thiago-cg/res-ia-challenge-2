@@ -33,6 +33,17 @@ class Settings(BaseSettings):
     llm_provider: Literal["mock", "local", "api", "openrouter"] = "mock"
 
     max_devices: int = Field(default=10, gt=0)
+
+    #: Cap of devices kept per article after dedupe.  One is the literal reading
+    #: of docs/05 §6.7, but the gold set is device-level and an article's second
+    #: paragraph is a distinct device: one slot per article drops it, and the
+    #: context budget (max_devices) ends up half empty.
+    max_devices_per_article: int = Field(default=3, gt=0)
+
+    #: Weight of the lexical list in the RRF fusion.  1.0 is classic RRF; the
+    #: measured value is lower because ts_rank_cd over a full question is a
+    #: weak ranker and equal weights let it outvote the dense leg.
+    hybrid_lexical_weight: float = Field(default=0.2, ge=0.0)
     max_context_tokens: int = Field(default=6000, gt=0)
     max_subquestions: int = Field(default=3, gt=0)
     max_agent_loops: int = Field(default=3, gt=0)

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from src.contracts import QueryFacts, QueryPlan, RetrievedDevice
 from src.index.pgvector import SearchHit
 from src.retrieve.hybrid import hybrid_search, rrf
@@ -203,3 +205,18 @@ def test_target_defensively_truncates_searcher_output_to_100() -> None:
 
     assert len(result) == 100
     assert all(item.device_id != "q100" for item in result)
+
+
+def test_rrf_accepts_weights_per_list() -> None:
+    dense = ["a", "b"]
+    lexical = ["c"]
+
+    assert [key for key, _ in rrf([dense, lexical], weights=[1.0, 0.0])] == ["a", "b"]
+    assert [key for key, _ in rrf([dense, lexical], weights=[0.0, 1.0])] == ["c"]
+
+
+def test_rrf_rejects_mismatched_or_negative_weights() -> None:
+    with pytest.raises(ValueError, match="weights must match"):
+        rrf([["a"], ["b"]], weights=[1.0])
+    with pytest.raises(ValueError, match="weights must be non-negative"):
+        rrf([["a"]], weights=[-1.0])

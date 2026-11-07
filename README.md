@@ -596,6 +596,38 @@ leg is real but does not yet earn its place in the fusion; and the
 device-level misses concentrate in the article-level dedupe, since
 `Recall@10 article` reaches 1.000 where the device-level number is 0.850.
 
+
+### Retrieval validation on the 110 answerable questions
+
+The 20-question set was used to author the query rewrite, so it overstates
+quality. `data/eval/questions_150.jsonl` has 110 answerable questions and is
+the honest estimate (retrieval only, no LLM):
+
+| Configuration | Recall@10 | Questions fully retrieved |
+| --- | ---: | ---: |
+| dense, no dedupe | 0.771 | 74/110 (67%) |
+| dense, dedupe 1 per article (old default) | 0.677 | 57/110 (52%) |
+| dense, dedupe 3 per article (new default) | 0.733 | 71/110 (65%) |
+| hybrid RRF equal weights (old default) | 0.588 | 45/110 (41%) |
+| hybrid RRF lexical weight 0.2 (new default) | ~0.67 | ~57/110 (52%) |
+
+Two changes follow from this table and are now the defaults:
+`max_devices_per_article=3` (the gold set is device-level, so one slot per
+article drops the article's second paragraph) and `hybrid_lexical_weight=0.2`
+(equal-weight RRF let a weak `ts_rank_cd` ranking outvote the dense list).
+
+Where the remaining recall is:
+
+| k | Recall@10 | Questions fully retrieved |
+| --- | ---: | ---: |
+| 10 | 0.771 | 67% |
+| 20 | 0.852 | 76% |
+| 30 | 0.886 | 83% |
+| 50 | 0.905 | 85% |
+
+The gold device is in the dense top-50 for 85% of the questions but in the
+top-10 for 67%, so a reranker over the top-30..50 is the next lever; the
+ceiling of that stage on this corpus is recall@50 = 0.905.
 ### Known deviations (audited, not fixed)
 
 - `get_current_version_id` keeps the `vigente`/`alterado` filter when

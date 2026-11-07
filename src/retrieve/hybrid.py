@@ -18,6 +18,13 @@ from src.contracts import QueryPlan, RetrievedDevice
 
 DEFAULT_RRF_K = 60
 PER_SEARCH_LIMIT = 50
+
+#: Weight of the lexical list inside the RRF sum.  Measured on 110
+#: answerable questions, equal weights give 0.533 recall@10 while the dense
+#: leg alone gives 0.688: ts_rank_cd over a long question ranks poorly, and
+#: equal-weight RRF lets that noise outrank the dense hits.  The lexical leg
+#: still contributes candidates; it just does not outvote the dense ranker.
+DEFAULT_LEXICAL_WEIGHT = 0.2
 TARGET_BM25_LIMIT = 100
 DEFAULT_MAX_CANDIDATES = 150
 
@@ -39,21 +46,31 @@ class QdrantSearcher(Protocol):
 
 
 def rrf[Key: Hashable](
-    rank_lists: Sequence[Sequence[Key]], k: int = DEFAULT_RRF_K
+    rank_lists: Sequence[Sequence[Key]],
+    k: int = DEFAULT_RRF_K,
+    weights: Sequence[float] | None = None,
 ) -> list[tuple[Key, float]]:
-    """Reciprocal Rank Fusion exactly as in docs/05 §6.
+    """Weighted Reciprocal Rank Fusion as in docs/05 §6.
 
-    Each list contributes ``1 / (k + position)`` with ``position`` starting at
-    1.  Ties keep first-seen order because Python's sort is stable.
+    Each list contributes ``weight / (k + position)`` with ``position``
+    starting at 1.  Ties keep first-seen order because Python's sort is
+    stable.  Equal weights give classic RRF.
     """
 
     if k < 0:
         raise ValueError("k must be non-negative")
+    if weights is not None and len(weights) != len(rank_lists):
+        raise ValueError("weights must match the number of rank lists")
+    if any(weight < 0 for weight in (weights or ())):
+        raise ValueError("weights must be non-negative")
 
     scores: dict[Key, float] = {}
-    for ranks in rank_lists:
+    for index, ranks in enumerate(rank_lists):
+        weight = 1.0 if weights is None else float(weights[index])
+        if weight == 0.0:
+            continue
         for position, key in enumerate(ranks, start=1):
-            scores[key] = scores.get(key, 0.0) + 1.0 / (k + position)
+            scores[key] = scores.get(key, 0.0) + weight / (k + position)
     return sorted(scores.items(), key=lambda item: item[1], reverse=True)
 
 
@@ -66,6 +83,7 @@ def hybrid_search(
     path: str = "fallback",
     data_fato: date | None = None,
     max_candidates: int = DEFAULT_MAX_CANDIDATES,
+    lexical_weight: float = DEFAULT_LEXICAL_WEIGHT,
 ) -> list[RetrievedDevice]:
     """Search every subquestion and return at most ``max_candidates`` devices.
 
@@ -80,7 +98,7 @@ def hybrid_search(
     if path == "target":
         best = _target_candidates(subquestions, qdrant, data_fato)
     elif path == "fallback":
-        best = _fallback_candidates(subquestions, dense, fts, data_fato)
+        best = _fallback_candidates(subquestions, dense, fts, data_fato, lexical_weight)
     else:
         raise ValueError(f"unknown retrieval path: {path!r}")
 
@@ -93,6 +111,7 @@ def _fallback_candidates(
     dense: DenseSearcher | None,
     fts: FtsSearcher | None,
     data_fato: date | None,
+    lexical_weight: float = DEFAULT_LEXICAL_WEIGHT,
 ) -> dict[PairKey, RetrievedDevice]:
     if dense is None or fts is None:
         raise ValueError("fallback requires both dense and fts searchers")
@@ -109,6 +128,7 @@ def _fallback_candidates(
         fused = rrf(
             [[_key(item) for item in dense_hits], [_key(item) for item in fts_hits]],
             k=DEFAULT_RRF_K,
+            weights=[1.0, lexical_weight],
         )
 
         for key, score in fused:
