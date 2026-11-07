@@ -13,7 +13,7 @@ from src.generate.schemas import LLMOutput
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 
 SYSTEM_PROMPT = """\
 Você é uma assistente de informação jurídica para vítimas de violência doméstica
@@ -36,6 +36,8 @@ Regras invioláveis:
    julgamento. Explique termos jurídicos.
 9. Deixe claro que a informação não substitui atendimento jurídico individual.
 10. Devolva apenas o JSON do schema, sem markdown ao redor.
+11. Cite somente os dispositivos que sustentam a resposta. Não cite todo o
+    contexto por precaução; omita o que não for usado.
 """
 
 
