@@ -505,6 +505,8 @@ for compatibility, but it is not used when `DENSE_BACKEND=qdrant`.
   Embedding 8B, 4096 dimensions, cosine, float16.
 - Fusion: RRF over Postgres FTS and Qdrant dense; hydration by
   `(device_id, norm_version_id)` from `device_versions`.
+- Query rewrite: `expand_legal_query` maps colloquial victim language to legal
+  vocabulary deterministically; an LLM rewrite remains optional.
 - Version filter: `data_fato` uses the same window as the SQL path; `None`
   means current (`vigente`/`alterado`).
 
@@ -529,7 +531,9 @@ Local run with real services:
 #    qdrant Windows binary for the live benchmark.
 uv run python scripts/apply_migrations.py --database-url $env:DATABASE_URL
 
-# 2. Load the validated corpus with the production ingest path
+# 2. Load the validated corpus with the production ingest path.
+#    --all requires every enabled raw file; use --source for a subset when a
+#    download is unavailable.
 uv run python -m src.ingest.run --all --offline --stage load `
   --database-url $env:DATABASE_URL
 
