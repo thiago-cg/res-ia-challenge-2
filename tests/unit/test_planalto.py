@@ -215,3 +215,19 @@ def test_malformed_input_raises_parse_error(tmp_path: Path) -> None:
 
     with pytest.raises(ParseError, match="article"):
         parse_source("lmp", empty)
+
+
+def test_new_laws_use_the_official_vigencia_start_date() -> None:
+    from src.ingest.models import default_vigencia_inicio
+
+    assert default_vigencia_inicio("lei-15438-2026") == date(2026, 6, 19)
+    assert default_vigencia_inicio("lei-14994-2024") == date(2024, 10, 10)
+
+
+def test_annotation_resolves_known_law_vigencia_start_date() -> None:
+    from src.ingest.parse_planalto import resolve_annotation_date
+
+    assert resolve_annotation_date("Incluido pela Lei n 15.438, de 2026") == (
+        date(2026, 6, 19),
+        True,
+    )

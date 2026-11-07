@@ -23,6 +23,7 @@ from src.ingest.models import (
     build_norm,
     compute_content_hash,
     default_vigencia_inicio,
+    known_source_date,
     norm_display,
     normalize_search_text,
     qdrant_point_id,
@@ -60,6 +61,11 @@ _MONTHS = {
 }
 _FULL_DATE_RE = re.compile(r"\b(\d{1,2})\s+de\s+([A-Za-zÀ-ÿ]+)\s+de\s+(\d{4})\b", re.IGNORECASE)
 _YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
+_LAW_REF_RE = re.compile(
+    r"(?:Lei(?:\s+Complementar)?|Decreto(?:-Lei)?)\s+n[ºo°]?\s*([\d.]+)"
+    r"\s*(?:,\s*de\s*|/)\s*(\d{4})",
+    re.IGNORECASE,
+)
 
 
 def resolve_annotation_date(annotation: str) -> tuple[date | None, bool]:
@@ -72,6 +78,12 @@ def resolve_annotation_date(annotation: str) -> tuple[date | None, bool]:
                 return date(int(full.group(3)), month, int(full.group(1))), True
             except ValueError:
                 pass
+
+    law = _LAW_REF_RE.search(annotation)
+    if law is not None:
+        exact = known_source_date(law.group(1), int(law.group(2)))
+        if exact is not None:
+            return exact, True
 
     years = [int(match.group(0)) for match in _YEAR_RE.finditer(annotation)]
     if years:
