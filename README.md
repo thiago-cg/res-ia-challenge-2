@@ -635,18 +635,21 @@ pool hydrated, 0.705 without): `RERANK_PROVIDER=llm` exists but stays off.
 On the 20-question production set, with the defaults above, the retrieval
 stage now saturates:
 
-| Scenario | Recall@10 | Recall per question | Citation coverage | p50 |
-| --- | ---: | ---: | ---: | ---: |
-| dense | 1.000 | 1.000 | 0.817 | 12.8 s |
-| hybrid | 0.950 | 0.900 | 0.833 | 8.8 s |
-| gold | 1.000 | 1.000 | 0.817 | 0 s |
+| Scenario | Recall@10 | Recall per question | Citation coverage | Questions passing | p50 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dense | 1.000 | 1.000 | 0.917 | 18/20 (90%) | 10.8 s |
+| hybrid | 1.000 | 1.000 | 0.867 | 18/20 (90%) | 8.2 s |
+| gold | 1.000 | 1.000 | 0.817 | 17/20 (85%) | 0 s |
 
 `recall_per_question` is the share of questions whose whole gold set is in
-the top-10. The remaining failures are citation-side: the answer does not
-cite every gold device, so 16 of 20 questions pass end to end on `dense`
-(80%), and `q019` ("pena para furto") is a dataset/label question, since CP
-art. 155 is loaded and the product scope, not retrieval, is what should make
-it abstain.
+the top-10; "questions passing" is the harness notion (gold retrieved **and**
+cited, emergency routed, out-of-scope abstained). The remaining dense
+failures are citation-side (`q001`, `q008`), not retrieval.
+
+This 90% is on the 20-question set that the query rewrite was written
+against; the 110-question table above (67% fully retrieved) is the honest
+generalisation estimate, and the gap between them is the overfitting that
+still has to be paid down.
 ### Known deviations (audited, not fixed)
 
 - `get_current_version_id` keeps the `vigente`/`alterado` filter when
