@@ -39,11 +39,11 @@ antes de usar qualquer número deste repositório.
 
 | Item | Estado real |
 | --- | --- |
-| Caminho fallback (Harrier + pgvector + FTS/RRF) | Implementado e coberto por testes unitários. Não foi executado de ponta a ponta neste ambiente. |
+| Caminho fallback (FTS/RRF + denso) | Executado de ponta a ponta contra Postgres e Qdrant reais. O denso medido é o Qdrant 4096d (`DENSE_BACKEND=qdrant`); o Harrier local não foi usado. |
 | Caminho alvo (pplx 9B/0.6B + Qdrant) | Código presente, atrás de `RETRIEVAL_PATH=target`. O app padrão não monta o searcher Qdrant; é preciso injetar um pipeline. Sem GPU/safetensors validados. |
 | Ingestão | CLI completa com `--stage download|parse|validate|load|all`, `--offline`, JSONL atômico (`--out-jsonl`) e carga idempotente. Coberta por testes sem rede/DB; a execução ao vivo não foi feita neste ambiente. |
 | Índice | `src.index.run --path fallback` existe, mas exige `EMBEDDING_MODEL_REVISION` pinado e o extra `ml`. |
-| Avaliação | Harness, 150 perguntas e adaptador real (`build_eval_pipeline`) existem. **Métricas PENDENTES**: nenhum recall, citação, groundedness ou latência foi medido contra Postgres/Qdrant ao vivo. Sem DB/encoder, a CLI falha com mensagem clara. |
+| Avaliação | As 20 perguntas de `data/eval/questions.jsonl` foram medidas contra Postgres/Qdrant ao vivo (ver *Postgres FTS + Qdrant*). As 150 continuam sem execução. O conjunto é pequeno (10 respondíveis) e as regras de expansão foram escritas sobre ele: são números in-sample, não um benchmark cego. |
 | Revisão jurídica | **PENDENTE**. Nenhuma advogada, defensora ou pessoa da rede de atendimento revisou prompt, textos ou respostas. Não há parecer. |
 | Modelos locais | Os artefatos locais são **GGUF** (llama.cpp). O caminho alvo precisa de **safetensors**. GGUF levanta `ModelFormatError`; o fallback é o padrão. |
 | Docker/Postgres/Qdrant | `docker-compose.yml` e CI existem, mas **não há Docker, Postgres ou Qdrant ao vivo** no ambiente em que este status foi escrito. Testes de integração não foram executados aqui. |
@@ -554,3 +554,38 @@ The benchmark report is written to `data/eval/benchmark_production.md` and
 `data/eval/benchmark_production.json`. `gold` recall is 1.0 by construction
 (gold devices are supplied); use `dense`/`hybrid` for retrieval and `gold` for
 generation/citation quality.
+
+### Lexical normalization
+
+`search_text` is stored without accents, because the loader builds it with
+the shared `normalize_search_text`. The query side must use the same
+function: `fts_search` builds a disjunctive `websearch_to_tsquery` input
+from the content terms (`build_fts_query`) instead of passing the raw
+question. `websearch_to_tsquery` joins bare terms with AND, so a full
+question used to become a ~19-term conjunction and every lexical query
+returned zero rows.
+
+### Ablation
+
+The deterministic query rewrite is switchable, so its contribution can be
+measured instead of assumed:
+
+```powershell
+uv run python scripts/benchmark_production.py `
+  --database-url $env:DATABASE_URL --qdrant-url $env:QDRANT_URL `
+  --scenarios dense,hybrid --no-expansion `
+  --out data/eval/benchmark_production_noexp.json `
+  --md data/eval/benchmark_production_noexp.md
+```
+
+### Known deviations (audited, not fixed)
+
+- `get_current_version_id` keeps the `vigente`/`alterado` filter when
+  `data_fato` is supplied, so an unambiguous explicit citation of an article
+  that was later revoked abstains instead of returning the version in force
+  on that date.
+- Versioned Qdrant payloads are not updated when `src/ingest/diff.py` closes
+  a version, so a closed device keeps its old `vigencia_fim` until reindexed.
+- `expand_to_article` needs the article row at the *same* `norm_version_id`;
+  about 13% of leaf rows have no such row, so their context expansion
+  degrades to the leaf and logs `incomplete_context`.

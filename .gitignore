@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 .venv/
@@ -33,6 +33,9 @@ data/processed/*
 data/eval/cache/
 data/eval/benchmark_run.log
 data/eval/benchmark_production_run.log
+data/eval/benchmark_production_noexp_run.log
+.diag/
+.pytest_tmp/
 data/eval/index_qdrant.log
 data/eval/report_production_*.json
 .DS_Store
