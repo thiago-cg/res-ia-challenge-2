@@ -607,14 +607,16 @@ the honest estimate (retrieval only, no LLM):
 | --- | ---: | ---: |
 | dense, no dedupe | 0.771 | 74/110 (67%) |
 | dense, dedupe 1 per article (old default) | 0.677 | 57/110 (52%) |
-| dense, dedupe 3 per article (new default) | 0.733 | 71/110 (65%) |
+| dense, dedupe 3 per article, article first (current) | **0.776** | 74/110 (67%) |
 | hybrid RRF equal weights (old default) | 0.588 | 45/110 (41%) |
-| hybrid RRF lexical weight 0.2 (new default) | ~0.67 | ~57/110 (52%) |
+| hybrid RRF lexical weight 0.2 (current) | ~0.67 | ~57/110 (52%) |
 
-Two changes follow from this table and are now the defaults:
+Three changes follow from this table and are now the defaults:
 `max_devices_per_article=3` (the gold set is device-level, so one slot per
-article drops the article's second paragraph) and `hybrid_lexical_weight=0.2`
-(equal-weight RRF let a weak `ts_rank_cd` ranking outvote the dense list).
+article drops the article's second paragraph), article-first ordering inside
+the group (a leaf usually outranks its own article, which the gold set often
+names), and `hybrid_lexical_weight=0.2` (equal-weight RRF let a weak
+`ts_rank_cd` ranking outvote the dense list).
 
 Where the remaining recall is:
 
@@ -626,8 +628,25 @@ Where the remaining recall is:
 | 50 | 0.905 | 85% |
 
 The gold device is in the dense top-50 for 85% of the questions but in the
-top-10 for 67%, so a reranker over the top-30..50 is the next lever; the
-ceiling of that stage on this corpus is recall@50 = 0.905.
+top-10 for 67%, so the remaining loss is ordering. An LLM reranker over the
+top-30 was tested and does **not** help (0.738 vs 0.736 recall@10 with the
+pool hydrated, 0.705 without): `RERANK_PROVIDER=llm` exists but stays off.
+
+On the 20-question production set, with the defaults above, the retrieval
+stage now saturates:
+
+| Scenario | Recall@10 | Recall per question | Citation coverage | p50 |
+| --- | ---: | ---: | ---: | ---: |
+| dense | 1.000 | 1.000 | 0.817 | 12.8 s |
+| hybrid | 0.950 | 0.900 | 0.833 | 8.8 s |
+| gold | 1.000 | 1.000 | 0.817 | 0 s |
+
+`recall_per_question` is the share of questions whose whole gold set is in
+the top-10. The remaining failures are citation-side: the answer does not
+cite every gold device, so 16 of 20 questions pass end to end on `dense`
+(80%), and `q019` ("pena para furto") is a dataset/label question, since CP
+art. 155 is loaded and the product scope, not retrieval, is what should make
+it abstain.
 ### Known deviations (audited, not fixed)
 
 - `get_current_version_id` keeps the `vigente`/`alterado` filter when
