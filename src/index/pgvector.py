@@ -15,6 +15,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from src.textnorm import build_fts_query
+
 DenseSource = Literal["dense", "bm25"]
 
 
@@ -91,6 +93,12 @@ def fts_search(
     data_fato: date | None = None,
 ) -> list[SearchHit]:
     _validate_limit(limit)
+    # An empty lexical query is a normal "no lexical evidence" outcome, not an
+    # error: the caller still has the dense list.  Running an empty tsquery
+    # would raise, so short-circuit.
+    lexical = build_fts_query(query)
+    if not lexical:
+        return []
     clause, filter_params = _vigencia_clause(data_fato)
     sql = f"""
         SELECT dv.device_id,
@@ -103,7 +111,7 @@ def fts_search(
         ORDER BY score DESC
         LIMIT %s
     """
-    params = [query, query, *filter_params, limit]
+    params = [lexical, lexical, *filter_params, limit]
     with conn.cursor() as cur:
         cur.execute(sql, params)
         rows = cur.fetchall()

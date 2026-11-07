@@ -186,3 +186,71 @@ def normalize_citation_forms(text: str) -> str:
 def normalize_search_text(text: str) -> str:
     """Normalize text for BM25/FTS indexing and querying."""
     return _normalize(text)
+
+
+#: Function words plus structural citation markers.
+#:
+#: Structural markers (artigo, paragrafo, ...) appear in every chunk's
+#: context, so keeping them in a disjunctive lexical query would add a term
+#: that matches nearly the whole corpus and dilutes ts_rank_cd cover density.
+_FTS_STOPWORDS = frozenset(
+    """
+    a ao aos aquela aquelas aquele aqueles aquilo as ate com como da das de dela
+    delas dele deles depois do dos e ela elas ele eles em entre era eram essa
+    essas esse esses esta estas este estes eu foi foram ha isso isto ja lhe
+    lhes mais mas me mesmo meu meus minha minhas muito na nao nas nem no nos
+    nossa nossas nosso nossos num numa o os ou para pela pelas pelo pelos por
+    qual quando que quem se sem seu seus so sou sua suas tambem tem tenho ter
+    teu tua tuas um uma umas uns voce voces
+    """.split()
+)
+
+_FTS_STRUCTURAL = frozenset(
+    {"artigo", "artigos", "paragrafo", "inciso", "alinea", "item", "itens", "caput"}
+)
+
+#: Upper bound on disjunctive terms; keeps the tsquery small and predictable.
+MAX_FTS_TERMS = 32
+
+
+def build_fts_query(text: str) -> str:
+    """Build a disjunctive websearch_to_tsquery input from natural language.
+
+    websearch_to_tsquery joins bare terms with AND, so a full question becomes
+    a conjunction that matches nothing. The lexical leg needs recall, not
+    conjunctive precision: this keeps the content words, de-duplicates them and
+    joins them with 'or' so ts_rank_cd can rank by cover density.
+
+    Text is normalized with normalize_search_text, the same function used to
+    build the indexed search_text. The spec requires the same normalization on
+    both sides, and the index strips accents, so the query must be unaccented
+    too or every accented term silently misses.
+
+    Returns an empty string when the text has no usable term.
+    """
+
+    if not text or not text.strip():
+        return ""
+
+    # websearch_to_tsquery treats double quotes as a phrase and a leading hyphen
+    # as negation.  Both would survive into the disjunctive query and change its
+    # meaning (a quoted question becomes a phrase that matches nothing), so the
+    # query is flattened to bare terms first.
+    flattened = text.replace('"', " ")
+
+    tokens: list[str] = []
+    for token in normalize_search_text(flattened).split():
+        if token.startswith("-"):
+            token = token.lstrip("-")
+        if not token or not any(char.isalnum() for char in token):
+            continue
+        if token in _FTS_STOPWORDS or token in _FTS_STRUCTURAL:
+            continue
+        if not token.isdigit() and len(token) < 2:
+            continue
+        if token in tokens:
+            continue
+        tokens.append(token)
+        if len(tokens) >= MAX_FTS_TERMS:
+            break
+    return " or ".join(tokens)

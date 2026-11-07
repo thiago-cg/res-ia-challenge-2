@@ -105,9 +105,32 @@ def test_fts_search_uses_portuguese_websearch_and_ts_rank_cd() -> None:
     assert "dv.vigencia_status IN ('vigente', 'alterado')" in compact
     assert "dv.vigencia_inicio <= CURRENT_DATE" in compact
     assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= CURRENT_DATE" in compact
-    assert conn.last_execution[1] == ["medida protetiva", "medida protetiva", 50]
+    # The lexical leg must query with the same normalization used at index time:
+    # accents stripped and terms OR-joined instead of AND-joined.
+    assert conn.last_execution[1] == ["medida or protetiva", "medida or protetiva", 50]
     assert hits[0].source == "bm25"
     assert hits[0].score == 0.42
+
+
+def test_fts_search_strips_accents_so_accented_questions_match() -> None:
+    conn = FakeConnection(rows=[])
+
+    fts_search(conn, "Vítima de violência doméstica")
+
+    params = conn.last_execution[1]
+    assert params[0] == params[1]
+    assert "violencia" in params[0]
+    assert "domestica" in params[0]
+    assert "í" not in params[0]
+
+
+def test_fts_search_returns_empty_without_issuing_sql_for_stopwords() -> None:
+    conn = FakeConnection(rows=[])
+
+    hits = fts_search(conn, "de da do")
+
+    assert hits == []
+    assert conn.cursor_obj.executions == []
 
 
 def test_fts_search_accepts_default_tuple_rows() -> None:
