@@ -16,6 +16,8 @@ from __future__ import annotations
 import math
 from collections.abc import Collection, Sequence
 
+from src.retrieve.expand import artigo_id
+
 
 def _top_k(retrieved: Sequence[str], k: int) -> list[str]:
     if k <= 0:
@@ -40,6 +42,23 @@ def recall_per_question(retrieved: Sequence[str], expected: Collection[str], k: 
     if not expected_set:
         return 0.0
     return 1.0 if expected_set <= set(_top_k(retrieved, k)) else 0.0
+
+
+def article_recall_at_k(retrieved: Sequence[str], expected: Collection[str], k: int = 10) -> float:
+    """Recall counted at article granularity instead of device granularity.
+
+    docs/05 §6 dedupes candidates by article and returns a single device per
+    article, so a device-level gold set asks for strictly more than the contract
+    promises: retrieving a paragraph or the caput of the expected article is
+    already the correct article.  This metric measures that contract, and it is
+    reported next to the device-level recall instead of replacing it.
+    """
+
+    expected_articles = {artigo_id(item) for item in expected}
+    if not expected_articles:
+        return 0.0
+    retrieved_articles = {artigo_id(item) for item in _top_k(retrieved, k)}
+    return len(expected_articles & retrieved_articles) / len(expected_articles)
 
 
 def mrr_at_k(retrieved: Sequence[str], expected: Collection[str], k: int = 10) -> float:

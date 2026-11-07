@@ -392,6 +392,7 @@ class LegalRAGPipeline:
             message,
             facts,
             max_subquestions=self.settings.max_subquestions,
+            expand=self.settings.query_expansion,
         )
         try:
             candidates = hybrid_search(

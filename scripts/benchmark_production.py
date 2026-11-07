@@ -51,6 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="comma-separated: dense,hybrid,gold",
     )
     parser.add_argument("--limit", type=int, default=None, help="debug: first N questions")
+    parser.add_argument(
+        "--no-expansion",
+        action="store_true",
+        help="ablation: disable deterministic legal-vocabulary query expansion",
+    )
     return parser
 
 
@@ -79,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
             "qdrant_url": args.qdrant_url,
             "retrieval_path": "fallback",
             "dense_backend": "qdrant",
+            "query_expansion": not args.no_expansion,
         }
     )
     if settings.llm_provider != "openrouter" or settings.embedding_provider != "openrouter":
@@ -140,6 +146,7 @@ def main(argv: list[str] | None = None) -> int:
             "embedding_dimensions": encoder.dimension,
             "prompt_version": PROMPT_VERSION,
             "query_instruction": settings.openrouter_query_instruction,
+            "query_expansion": settings.query_expansion,
         },
         "database": {
             "device_versions": _db_count(repo, "device_versions"),
@@ -203,6 +210,7 @@ def _with_progress(pipeline: Any, scenario: str) -> Any:
 def _print_summary(scenario: str, report: Any) -> None:
     print(
         f"[{scenario}] recall@10={report.recall_at_10:.3f} "
+        f"article_recall@10={report.article_recall_at_10:.3f} "
         f"mrr={report.mrr_at_10:.3f} ndcg={report.ndcg_at_10:.3f} "
         f"cit_precision={report.citation_precision:.3f} "
         f"cit_coverage={report.citation_coverage:.3f} "
@@ -257,14 +265,18 @@ def _markdown(payload: dict[str, Any]) -> str:
         f"- Qdrant: `{payload['qdrant']['collection']}`",
         f"- Perguntas: {payload['questions']}",
         f"- Commit: `{payload.get('git_commit') or 'desconhecido'}`",
+        "- Expansão de consulta: "
+        + ("on" if payload["models"]["query_expansion"] else "off (ablação)"),
         "",
-        "| Cenário | Recall@10 | Recall/pergunta | MRR@10 | nDCG@10 | Precisão citação | "
-        "Cobertura citação | Groundedness | Abstenção | Emergência | p50 (ms) | p95 (ms) |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Cenário | Recall@10 dispositivo | Recall@10 artigo | Recall/pergunta | MRR@10 | "
+        "nDCG@10 | Precisão citação | Cobertura citação | Groundedness | Abstenção | "
+        "Emergência | p50 (ms) | p95 (ms) |",
+        "| --- |" + " ---: |" * 12,
     ]
     for name, report in payload["scenarios"].items():
         lines.append(
-            f"| {name} | {report['recall_at_10']:.3f} | {report['recall_per_question']:.3f} | "
+            f"| {name} | {report['recall_at_10']:.3f} | {report['article_recall_at_10']:.3f} | "
+            f"{report['recall_per_question']:.3f} | "
             f"{report['mrr_at_10']:.3f} | {report['ndcg_at_10']:.3f} | "
             f"{report['citation_precision']:.3f} | {report['citation_coverage']:.3f} | "
             f"{report['groundedness']:.3f} | {report['abstention_accuracy']:.3f} | "
@@ -275,16 +287,54 @@ def _markdown(payload: dict[str, Any]) -> str:
     for name, report in payload["scenarios"].items():
         failures = report.get("failures") or []
         lines.append(f"- **{name}**: {', '.join(failures) if failures else 'nenhuma'}")
+
+    lines.extend(["", "## Gate de qualidade (limits padrão do harness)", ""])
+    for name, report in payload["scenarios"].items():
+        status = "PASSOU" if report.get("passed") else "FALHOU"
+        limited = report.get("threshold_failures") or []
+        detail = "; ".join(limited) if limited else "todos os limites atendidos"
+        lines.append(f"- **{name}**: {status} — {detail}")
+
+    lines.extend(
+        [
+            "",
+            "## Por split",
+            "",
+            "`dev` orientou a escrita das regras de expansão; `test` não. A distância "
+            "entre os dois mede quanto do número agregado é in-sample.",
+            "",
+            "| Cenário | Split | n | Recall@10 dispositivo | Recall@10 artigo | MRR@10 |",
+            "| --- | --- | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for name, report in payload["scenarios"].items():
+        for split, agg in (report.get("by_split") or {}).items():
+            lines.append(
+                f"| {name} | {split} | {agg['count']} | {agg['recall_at_10']:.3f} | "
+                f"{agg['article_recall_at_10']:.3f} | {agg['mrr_at_10']:.3f} |"
+            )
     lines.extend(
         [
             "",
             "## Notas",
             "",
-            "- `hybrid` usa FTS real do Postgres (`websearch_to_tsquery('portuguese')`, "
-            "`ts_rank_cd`) + Qdrant dense 4096d, fundidos por RRF.",
-            "- `dense` usa somente Qdrant; `gold` entrega os dispositivos-ouro "
-            "hidratados do Postgres e mede geração/citação, não recuperação.",
-            "- O Qdrant usa HNSW aproximado; a latência inclui rede, Postgres, Qdrant e LLM.",
+            "- `hybrid` usa FTS real do Postgres (`websearch_to_tsquery('portuguese')` "
+            "sobre `search_text` sem acento, `ts_rank_cd`) + Qdrant dense 4096d, "
+            "fundidos por RRF k=60.",
+            "- `dense` usa somente Qdrant. `gold` hidrata os dispositivos-ouro do "
+            "Postgres: seu recall, MRR, nDCG e precisão de citação são 1,000 por "
+            "construção e não medem recuperação.",
+            "- `Recall@10 artigo` conta acerto por artigo, porque a spec deduplica por "
+            "artigo e devolve um dispositivo por artigo; o gold é por dispositivo.",
+            "- `Groundedness` é o portão de aceitação ecoado: 1,000 sempre que a "
+            "resposta é aceita, 0,000 quando é rejeitada.",
+            "- `Precisão de citação` divide pelo número de citações que o modelo "
+            "escolheu, então citar menos infla o número.",
+            "- `Emergência` não penaliza falso positivo: só conta casos de emergência.",
+            "- Latência inclui rede, Postgres, Qdrant e LLM; com n=20 o p95 é a "
+            "segunda pior amostra e mistura emergências sem chamada de LLM.",
+            "- O conjunto tem 20 perguntas, das quais 10 são respondíveis: as médias "
+            "de recuperação são sobre essas 10.",
             "",
         ]
     )

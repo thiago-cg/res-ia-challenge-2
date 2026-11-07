@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 
 from src.eval.metrics import (
     abstention_accuracy,
+    article_recall_at_k,
     citation_coverage,
     citation_precision,
     emergency_routing,
@@ -109,6 +110,7 @@ Pipeline = Callable[[Mapping[str, Any]], PipelineResult | Mapping[str, Any]]
 
 class MetricSet(BaseModel):
     recall_at_10: float = 0.0
+    article_recall_at_10: float = 0.0
     recall_per_question: float = 0.0
     mrr_at_10: float = 0.0
     ndcg_at_10: float = 0.0
@@ -134,6 +136,7 @@ class EvalReport(MetricSet):
     passed: bool = True
     by_category: dict[str, Aggregate] = Field(default_factory=dict)
     by_difficulty: dict[str, Aggregate] = Field(default_factory=dict)
+    by_split: dict[str, Aggregate] = Field(default_factory=dict)
 
 
 def is_canonical_device_id(value: str) -> bool:
@@ -219,6 +222,7 @@ def _question_metrics(question: EvalQuestion, result: PipelineResult) -> dict[st
     if not _is_answerable(question):
         return {
             "recall_at_10": 0.0,
+            "article_recall_at_10": 0.0,
             "recall_per_question": 0.0,
             "mrr_at_10": 0.0,
             "ndcg_at_10": 0.0,
@@ -230,6 +234,7 @@ def _question_metrics(question: EvalQuestion, result: PipelineResult) -> dict[st
     expected = question.device_ids
     return {
         "recall_at_10": recall_at_k(result.retrieved_ids, expected, K),
+        "article_recall_at_10": article_recall_at_k(result.retrieved_ids, expected, K),
         "recall_per_question": recall_per_question(result.retrieved_ids, expected, K),
         "mrr_at_10": mrr_at_k(result.retrieved_ids, expected, K),
         "ndcg_at_10": ndcg_at_k(result.retrieved_ids, expected, K),
@@ -278,6 +283,7 @@ def _aggregate(questions: Sequence[EvalQuestion], results: Sequence[PipelineResu
     return Aggregate(
         count=len(questions),
         recall_at_10=_mean([item["recall_at_10"] for item in answerable]),
+        article_recall_at_10=_mean([item["article_recall_at_10"] for item in answerable]),
         recall_per_question=_mean([item["recall_per_question"] for item in answerable]),
         mrr_at_10=_mean([item["mrr_at_10"] for item in answerable]),
         ndcg_at_10=_mean([item["ndcg_at_10"] for item in answerable]),
@@ -381,6 +387,17 @@ def run_eval(
                 ],
             )
             for difficulty in dict.fromkeys(question.dificuldade for question in normalized)
+        },
+        by_split={
+            split: _aggregate(
+                [question for question in normalized if question.split == split],
+                [
+                    result
+                    for question, result in zip(normalized, results, strict=True)
+                    if question.split == split
+                ],
+            )
+            for split in dict.fromkeys(question.split for question in normalized)
         },
     )
     report.threshold_failures = _threshold_failures(report)

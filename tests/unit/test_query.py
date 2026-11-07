@@ -234,3 +234,14 @@ def test_fenced_json_is_accepted() -> None:
     plan = understand_query("Pergunta", llm_call=lambda _: fenced)
     assert plan.fatos.relacao == "ex-companheiro"
     assert len(plan.subperguntas) == 3
+
+
+def test_understanding_can_disable_expansion_for_ablation() -> None:
+    question = "Ele me ameaçou; ainda dá tempo de denunciar?"
+
+    expanded = understand_query(question)
+    plain = understand_query(question, expand=False)
+
+    assert expanded.subperguntas[0] != question
+    assert plain.subperguntas == [question]
+    assert plain.consulta_juridica == question

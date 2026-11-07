@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     max_subquestions: int = Field(default=3, gt=0)
     max_agent_loops: int = Field(default=3, gt=0)
 
+    #: Deterministic legal-vocabulary expansion of the user question (RET-02).
+    #: Kept switchable so evaluation can ablate it and measure how much of the
+    #: reported quality comes from the rewritten query instead of the retrieval.
+    query_expansion: bool = True
+
     database_url: str = "postgresql://app:app@localhost:5432/violencia"
     qdrant_url: str = "http://localhost:6333"
 

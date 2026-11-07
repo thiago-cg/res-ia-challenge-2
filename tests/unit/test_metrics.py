@@ -6,6 +6,7 @@ import pytest
 
 from src.eval.metrics import (
     abstention_accuracy,
+    article_recall_at_k,
     citation_coverage,
     citation_precision,
     emergency_routing,
@@ -78,3 +79,17 @@ def test_latency_percentiles_use_nearest_rank() -> None:
     assert latency_percentiles([], (50, 95)) == {"p50": 0.0, "p95": 0.0}
     with pytest.raises(ValueError):
         latency_percentiles([1.0], (0,))
+
+
+def test_article_recall_accepts_a_leaf_of_the_expected_article() -> None:
+    # docs/05 dedupes by article, so a paragraph satisfies the article's gold.
+    assert article_recall_at_k(["lmp/art5/cpt/inc3"], ["lmp/art5"]) == 1.0
+    assert article_recall_at_k(["lmp/art19/par6"], ["lmp/art19/par5", "lmp/art19/par6"]) == 1.0
+
+
+def test_article_recall_rejects_a_different_article() -> None:
+    assert article_recall_at_k(["lmp/art6"], ["lmp/art5"]) == 0.0
+
+
+def test_article_recall_returns_zero_without_expected_ids() -> None:
+    assert article_recall_at_k(["lmp/art5"], []) == 0.0

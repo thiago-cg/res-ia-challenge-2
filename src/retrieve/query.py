@@ -222,8 +222,8 @@ def expand_legal_query(text: str) -> str:
     return f"{text.strip()} {' '.join(expansions)}"
 
 
-def _fallback_plan(text: str, facts: QueryFacts) -> QueryPlan:
-    question = expand_legal_query(text)
+def _fallback_plan(text: str, facts: QueryFacts, *, expand: bool = True) -> QueryPlan:
+    question = expand_legal_query(text) if expand else text.strip()
     return QueryPlan(
         fatos=facts,
         consulta_juridica=question,
@@ -269,6 +269,7 @@ def understand_query(
     *,
     llm_call: Callable[[str], str] | None = None,
     max_subquestions: int = 3,
+    expand: bool = True,
 ) -> QueryPlan:
     """Extract facts and subquestions from a question.
 
@@ -279,7 +280,7 @@ def understand_query(
     base_facts = facts if facts is not None else default_facts()
 
     if llm_call is None:
-        return _fallback_plan(text, base_facts)
+        return _fallback_plan(text, base_facts, expand=expand)
 
     try:
         response = llm_call(build_query_understanding_prompt(text))
@@ -295,4 +296,4 @@ def understand_query(
         )
     except Exception as exc:
         logger.warning("query understanding fallback: %s", exc)
-        return _fallback_plan(text, base_facts)
+        return _fallback_plan(text, base_facts, expand=expand)
