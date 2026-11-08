@@ -687,6 +687,14 @@ binding constraint is retrieval/representation, not the article dedupe;
 that is why every ranking-side change (two rerankers, caps, dual query,
 HyDE) measured neutral or worse.
 
+### The evaluation set is narrow
+
+The 110 answerable questions share only **16 distinct gold devices**: they
+are paraphrases of a handful of scenarios, and all 16 devices exist in the
+corpus. So "67% fully retrieved" means "found the right one of sixteen
+targets", not "handles domestic-violence law". It is a regression signal,
+not a SOTA measure; a blind set with distinct targets per question is still
+missing, and the 20-question set was used to author the query rules.
 ### Provider budget
 
 The live measurements need OpenRouter for both embeddings and generation.
