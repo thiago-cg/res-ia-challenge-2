@@ -107,6 +107,22 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    # A provider that answers 403 (quota, revoked key) makes every search fail,
+    # and the pipeline then abstains: the run would publish 0.2 recall as if it
+    # were a result.  Probe both endpoints before measuring anything.
+    try:
+        _preflight(encoder, llm)
+    except Exception as exc:
+        print(
+            f"preflight failed: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        print(
+            "the provider is not usable; check OPENROUTER_API_KEY and its credit limit",
+            file=sys.stderr,
+        )
+        return 2
+
     reports: dict[str, Any] = {}
     qdrant_collection: str | None = None
     for scenario in scenarios:
@@ -166,6 +182,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nreport={args.out}")
     print(f"summary={args.md}")
     return 0
+
+
+def _preflight(encoder: Any, llm: Any) -> None:
+    """Fail fast when the embedding or chat provider refuses to answer."""
+
+    if not encoder.encode_query("verificação de disponibilidade do provedor"):
+        raise RuntimeError("encoder returned an empty query vector")
+    llm.complete("Responda apenas OK.", "Diga OK.", timeout=30)
 
 
 def _pipeline_for(

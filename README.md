@@ -661,12 +661,38 @@ still has to be paid down.
 | LLM terms + deterministic rules combined | 0.821 vs 0.812 | not worth the extra call |
 | LLM reranker over the top-30, pool hydrated | qwen-2.5-7b 0.738 vs 0.736; gpt-4.1-mini 0.773 vs 0.765 | `RERANK_PROVIDER=none` |
 | gpt-4.1-mini as the generator | coverage 0.700 vs 0.917, abstention 0.800 vs 1.000, p50 6.7 s vs 10.8 s | keep the reasoning model |
+| Dual query (raw question + expanded query), cap 3 | 0.744 vs 0.752 | off |
+| Same with cap 5 per article | 0.711 vs 0.721 | off |
+| HyDE (hypothetical legal answer as the query, 40 questions) | 0.617 vs 0.787; combined with the question 0.783 | off |
 
 The rewrite experiments all fail the same way: replacing the question drops
 the signal the dense leg was built on, and adding legal vocabulary on top of
 the deterministic rules does not pay for the extra call. The generator result
 is the latency/quality trade-off: the fast model is 4 s faster per question and
 loses 20 points of citation coverage.
+### Where the remaining recall sits
+
+Measured on the 110 answerable questions with the dense leg:
+
+| Granularity | recall@10 | Questions fully retrieved |
+| --- | ---: | ---: |
+| device | 0.771 | 67% |
+| article | 0.817 | 75% |
+
+The correct article is missing from the top-10 for 25% of the questions,
+while the "right article, wrong device" case is only 8% of them. So the
+binding constraint is retrieval/representation, not the article dedupe;
+that is why every ranking-side change (two rerankers, caps, dual query,
+HyDE) measured neutral or worse.
+
+### Provider budget
+
+The live measurements need OpenRouter for both embeddings and generation.
+When the key hits its credit limit every call returns 403, the pipeline
+abstains on every question, and a run would publish ~0.2 recall as if it
+were a measurement. `scripts/benchmark_production.py` now probes one
+embedding and one chat completion first and exits with status 2 instead of
+writing a report.
 ### Known deviations (audited, not fixed)
 
 - `get_current_version_id` keeps the `vigente`/`alterado` filter when
