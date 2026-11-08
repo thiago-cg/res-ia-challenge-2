@@ -352,6 +352,24 @@ class LegalRAGPipeline:
         self.catalog = catalog if catalog is not None else _catalog_from(repo)
         self._data_atualizacao_base = data_atualizacao_base
         self._data_atualizacao_checked = data_atualizacao_base is not None
+        self._rewrite_client: Any = None
+
+    def _rewrite_query(self, prompt: str) -> str:
+        """Rewrite the question into legal vocabulary with the configured LLM."""
+
+        if self._rewrite_client is None:
+            from src.generate.llm import get_llm
+
+            self._rewrite_client = get_llm(
+                self.settings, model=self.settings.query_rewrite_model or None
+            )
+        return str(
+            self._rewrite_client.complete(
+                "Responda somente com o JSON pedido, sem texto fora dele.",
+                prompt,
+                timeout=self.settings.query_rewrite_timeout,
+            )
+        )
 
     @property
     def data_atualizacao_base(self) -> str | None:
@@ -401,6 +419,7 @@ class LegalRAGPipeline:
             facts,
             max_subquestions=self.settings.max_subquestions,
             expand=self.settings.query_expansion,
+            llm_call=(self._rewrite_query if self.settings.query_rewrite == "llm" else None),
         )
         try:
             candidates = hybrid_search(

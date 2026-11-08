@@ -65,6 +65,13 @@ class Settings(BaseSettings):
     #: reported quality comes from the rewritten query instead of the retrieval.
     query_expansion: bool = True
 
+    #: Query rewriting.  The deterministic rules in src/retrieve/query.py were
+    #: authored against the 20-question set; "llm" replaces them with a general
+    #: rewrite of the question into legal vocabulary plus subquestions.
+    query_rewrite: Literal["none", "llm"] = "none"
+    query_rewrite_model: str = ""
+    query_rewrite_timeout: float = Field(default=30.0, gt=0)
+
     database_url: str = "postgresql://app:app@localhost:5432/violencia"
     qdrant_url: str = "http://localhost:6333"
 

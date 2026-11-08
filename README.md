@@ -650,6 +650,23 @@ This 90% is on the 20-question set that the query rewrite was written
 against; the 110-question table above (67% fully retrieved) is the honest
 generalisation estimate, and the gap between them is the overfitting that
 still has to be paid down.
+### Tried and rejected (measured, so nobody repeats it)
+
+| Change | Measurement | Decision |
+| --- | --- | --- |
+| LLM query rewrite replacing the deterministic rules (qwen-2.5-7b, query-understanding prompt) | recall@10 0.433 vs 0.733 | off |
+| Same with a dedicated retrieval-rewrite prompt | 0.461 vs 0.747 | off |
+| LLM legal terms appended to the question (qwen-2.5-7b, 40 questions) | 0.675 vs 0.812 | off |
+| Same with gpt-4.1-mini | 0.713 vs 0.812 | off |
+| LLM terms + deterministic rules combined | 0.821 vs 0.812 | not worth the extra call |
+| LLM reranker over the top-30, pool hydrated (qwen-2.5-7b) | 0.738 vs 0.736 | `RERANK_PROVIDER=none` |
+| gpt-4.1-mini as the generator | coverage 0.700 vs 0.917, abstention 0.800 vs 1.000, p50 6.7 s vs 10.8 s | keep the reasoning model |
+
+The rewrite experiments all fail the same way: replacing the question drops
+the signal the dense leg was built on, and adding legal vocabulary on top of
+the deterministic rules does not pay for the extra call. The generator result
+is the latency/quality trade-off: the fast model is 4 s faster per question and
+loses 20 points of citation coverage.
 ### Known deviations (audited, not fixed)
 
 - `get_current_version_id` keeps the `vigente`/`alterado` filter when
