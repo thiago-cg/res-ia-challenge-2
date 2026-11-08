@@ -219,18 +219,27 @@ def build_fts_query(text: str) -> str:
     websearch_to_tsquery joins bare terms with AND, so a full question becomes
     a conjunction that matches nothing. The lexical leg needs recall, not
     conjunctive precision: this keeps the content words, de-duplicates them and
-    joins them with 'or' so ts_rank_cd can rank by cover density.
+    joins them with 'or'.
 
     Text is normalized with normalize_search_text, the same function used to
-    build the indexed search_text. The spec requires the same normalization on
-    both sides, and the index strips accents, so the query must be unaccented
-    too or every accented term silently misses.
+    build the indexed search_text. The index strips accents, so the query must
+    be unaccented too or every accented term silently misses.
 
     Returns an empty string when the text has no usable term.
     """
 
+    return " or ".join(build_fts_terms(text))
+
+
+def build_fts_terms(text: str) -> list[str]:
+    """Return the content terms used by the lexical search, in order.
+
+    The lexical scorer weighs each term by how rare it is, so it needs the
+    terms themselves; this function is the single place that tokenizes.
+    """
+
     if not text or not text.strip():
-        return ""
+        return []
 
     # websearch_to_tsquery treats double quotes as a phrase and a leading hyphen
     # as negation.  Both would survive into the disjunctive query and change its
@@ -253,4 +262,4 @@ def build_fts_query(text: str) -> str:
         tokens.append(token)
         if len(tokens) >= MAX_FTS_TERMS:
             break
-    return " or ".join(tokens)
+    return tokens

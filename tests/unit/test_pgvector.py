@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import date
 
 import pytest
@@ -16,6 +17,15 @@ class FakeCursor:
     def __init__(self, rows: list[object] | None = None) -> None:
         self.rows = rows or []
         self.executions: list[tuple[str, object]] = []
+        self.total = 100
+        self.frequencies: list[tuple[str, int]] = [
+            ("medida", 10),
+            ("protetiva", 5),
+            ("contato", 3),
+            ("violencia", 20),
+            ("domestica", 15),
+        ]
+        self._sql = ""
 
     def __enter__(self) -> FakeCursor:
         return self
@@ -25,8 +35,14 @@ class FakeCursor:
 
     def execute(self, sql: str, params=None) -> None:
         self.executions.append((sql, params))
+        self._sql = sql
+
+    def fetchone(self) -> tuple[int]:
+        return (self.total,)
 
     def fetchall(self) -> list[object]:
+        if "unnest" in self._sql:
+            return list(self.frequencies)
         return self.rows
 
 
@@ -92,22 +108,29 @@ def test_dense_search_with_data_fato_uses_date_range_and_no_status_filter() -> N
     assert conn.last_execution[1] == ["[1.0]", fato, fato, "[1.0]", 10]
 
 
-def test_fts_search_uses_portuguese_websearch_and_ts_rank_cd() -> None:
+def test_fts_search_scores_by_term_rarity() -> None:
+    """Rare terms must outweigh common ones: ts_rank_cd has no idf."""
+
     conn = FakeConnection(rows=[dict_row("lmp/art22/cpt/inc3/ali-b", 42, 0.42)])
 
     hits = fts_search(conn, "medida protetiva")
 
-    compact = normalized(conn.last_execution[0])
-    assert "websearch_to_tsquery('portuguese', %s)" in compact
-    assert "ts_rank_cd(dv.search_vector," in compact
-    assert "dv.search_vector @@ websearch_to_tsquery('portuguese', %s)" in compact
+    sql, params = conn.cursor_obj.executions[-1]
+    compact = normalized(sql)
+    assert "WITH terms(term, weight) AS" in compact
+    assert "sum(terms.weight) AS score" in compact
+    assert "dv.search_vector @@ to_tsquery('portuguese', terms.term)" in compact
+    assert "GROUP BY dv.device_id, dv.norm_version_id" in compact
     assert "ORDER BY score DESC" in compact
     assert "dv.vigencia_status IN ('vigente', 'alterado')" in compact
     assert "dv.vigencia_inicio <= CURRENT_DATE" in compact
     assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= CURRENT_DATE" in compact
-    # The lexical leg must query with the same normalization used at index time:
-    # accents stripped and terms OR-joined instead of AND-joined.
-    assert conn.last_execution[1] == ["medida or protetiva", "medida or protetiva", 50]
+    # flat pairs: medida, log(101/11), protetiva, log(101/6)
+    assert params[0] == "medida"
+    assert math.isclose(params[1], math.log(101 / 11))
+    assert params[2] == "protetiva"
+    assert math.isclose(params[3], math.log(101 / 6))
+    assert params[-1] == 50
     assert hits[0].source == "bm25"
     assert hits[0].score == 0.42
 
@@ -117,11 +140,11 @@ def test_fts_search_strips_accents_so_accented_questions_match() -> None:
 
     fts_search(conn, "Vítima de violência doméstica")
 
-    params = conn.last_execution[1]
-    assert params[0] == params[1]
-    assert "violencia" in params[0]
-    assert "domestica" in params[0]
-    assert "í" not in params[0]
+    sql, params = conn.cursor_obj.executions[-1]
+    terms = [value for value in params[:-1] if isinstance(value, str)]
+    assert "violencia" in terms
+    assert "domestica" in terms
+    assert all("í" not in term for term in terms)
 
 
 def test_fts_search_returns_empty_without_issuing_sql_for_stopwords() -> None:
@@ -155,7 +178,7 @@ def test_fts_search_with_data_fato_uses_date_range() -> None:
     compact = normalized(conn.last_execution[0])
     assert "dv.vigencia_inicio <= %s" in compact
     assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= %s" in compact
-    assert conn.last_execution[1] == ["contato", "contato", fato, fato, 5]
+    assert conn.cursor_obj.executions[-1][1][-3:] == [fato, fato, 5]
 
 
 def test_update_embedding_writes_model_revision_hash_and_indexed_at() -> None:

@@ -632,6 +632,7 @@ def test_retrieved_device_vigencia_is_respected() -> None:
 class DictRowCursor:
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         self.rows = rows
+        self._sql = ""
 
     def __enter__(self) -> DictRowCursor:
         return self
@@ -640,9 +641,14 @@ class DictRowCursor:
         return None
 
     def execute(self, sql: str, params: Any = None) -> None:
-        return None
+        self._sql = sql
 
-    def fetchall(self) -> list[dict[str, Any]]:
+    def fetchone(self) -> tuple[int]:
+        return (100,)
+
+    def fetchall(self) -> list[Any]:
+        if "unnest" in self._sql:
+            return [{"t": "medida", "count": 10}]
         return list(self.rows)
 
 
