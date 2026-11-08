@@ -659,7 +659,7 @@ still has to be paid down.
 | LLM legal terms appended to the question (qwen-2.5-7b, 40 questions) | 0.675 vs 0.812 | off |
 | Same with gpt-4.1-mini | 0.713 vs 0.812 | off |
 | LLM terms + deterministic rules combined | 0.821 vs 0.812 | not worth the extra call |
-| LLM reranker over the top-30, pool hydrated (qwen-2.5-7b) | 0.738 vs 0.736 | `RERANK_PROVIDER=none` |
+| LLM reranker over the top-30, pool hydrated | qwen-2.5-7b 0.738 vs 0.736; gpt-4.1-mini 0.773 vs 0.765 | `RERANK_PROVIDER=none` |
 | gpt-4.1-mini as the generator | coverage 0.700 vs 0.917, abstention 0.800 vs 1.000, p50 6.7 s vs 10.8 s | keep the reasoning model |
 
 The rewrite experiments all fail the same way: replacing the question drops
