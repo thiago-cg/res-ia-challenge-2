@@ -678,8 +678,8 @@ Measured on the 110 answerable questions with the dense leg:
 | --- | ---: | ---: |
 | device | 0.771 | 67% |
 | article | 0.817 | 75% |
-| lexical only (Postgres FTS, no dense) | 0.289 | 30% |
-| lexical, article level | 0.339 | — |
+| lexical only (Postgres FTS, idf coverage) | 0.423 | — |
+| lexical, article level | 0.477 | — |
 
 The correct article is missing from the top-10 for 25% of the questions,
 while the "right article, wrong device" case is only 8% of them. So the
