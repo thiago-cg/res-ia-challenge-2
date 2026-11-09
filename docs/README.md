@@ -40,6 +40,17 @@ O produto não dá veredito sobre o caso, não substitui a Defensoria Pública e
 | [09 — Roadmap do protótipo](09-roadmap-prototipo.md)                     | Fases, tarefas, critérios de aceite e o que fica para depois     |
 | [10 — Plano de implementação](10-plano-implementacao.md)                 | Plano executável: tasks, arquivos, interfaces, testes e gates    |
 
+### Revisões, benchmarks e decisões
+
+| Documento | Conteúdo |
+| --- | --- |
+| [Benchmark consolidado](reviews/benchmark-consolidado.md) | Todas as famílias de estratégia medidas na rodada de nov/2026, com o pipeline end-to-end |
+| [Metodologia de avaliação](reviews/metodologia-avaliacao.md) | Definição de cada métrica, limiares e o que elas não medem |
+| [Registro de decisões](reviews/decisoes-benchmark-2026-11.md) | D-01 a D-08: o que foi adotado, o que foi rejeitado e com qual evidência |
+| [Investigação de chunking](reviews/chunking-investigation.md) | Semantic chunking, late chunking e chunking dinâmico |
+| [Revisão manual](reviews/manual-review-report.md) | Revisão manual do protótipo |
+| [Revisão Goldfish](reviews/goldfish-review-report.md) | Revisão de qualidade do código |
+
 ## 4. Ordem de leitura
 
 1. **Para entender o produto:** 01.

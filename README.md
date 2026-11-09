@@ -43,12 +43,12 @@ antes de usar qualquer número deste repositório.
 | Caminho alvo (pplx 9B/0.6B + Qdrant) | Código presente, atrás de `RETRIEVAL_PATH=target`. O app padrão não monta o searcher Qdrant; é preciso injetar um pipeline. Sem GPU/safetensors validados. |
 | Ingestão | CLI completa com `--stage download|parse|validate|load|all`, `--offline`, JSONL atômico (`--out-jsonl`) e carga idempotente. Coberta por testes sem rede/DB; a execução ao vivo não foi feita neste ambiente. |
 | Índice | `src.index.run --path fallback` existe, mas exige `EMBEDDING_MODEL_REVISION` pinado e o extra `ml`. |
-| Avaliação | As 20 perguntas de `data/eval/questions.jsonl` foram medidas contra Postgres/Qdrant ao vivo (ver *Postgres FTS + Qdrant*). As 150 continuam sem execução. O conjunto é pequeno (10 respondíveis) e as regras de expansão foram escritas sobre ele: são números in-sample, não um benchmark cego. |
+| Avaliação | Medido ao vivo contra Postgres e Qdrant reais, com chamadas reais ao provedor: 110 perguntas respondíveis (recuperação por família de estratégia) e 150 perguntas de ponta a ponta. As 110 compartilham **16 dispositivos-ouro**, então valem como comparador entre estratégias, não como cobertura de tema. As regras de expansão foram escritas sobre as 20 perguntas de `questions.jsonl` (10 respondíveis): números nela são in-sample. Ver `docs/reviews/benchmark-consolidado.md`. |
 | Revisão jurídica | **PENDENTE**. Nenhuma advogada, defensora ou pessoa da rede de atendimento revisou prompt, textos ou respostas. Não há parecer. |
 | Modelos locais | Os artefatos locais são **GGUF** (llama.cpp). O caminho alvo precisa de **safetensors**. GGUF levanta `ModelFormatError`; o fallback é o padrão. |
-| Docker/Postgres/Qdrant | `docker-compose.yml` e CI existem, mas **não há Docker, Postgres ou Qdrant ao vivo** no ambiente em que este status foi escrito. Testes de integração não foram executados aqui. |
+| Docker/Postgres/Qdrant | `docker-compose.yml` e CI existem. Nesta rodada Postgres 16 (porta 63647) e Qdrant v1.15.3 (6333) rodaram ao vivo, com 4.959 versões de dispositivo indexadas em `devices_qdrant_dense_current` (4096d, cosseno, float16). Testes que exigem `TEST_DATABASE_URL` continuam fora da suíte padrão. |
 | Observabilidade | Módulos de log estruturado e middleware existem, com testes. `create_app` instala `RequestContextMiddleware` e `SecurityHeadersMiddleware`; não houve execução ponta a ponta ao vivo neste ambiente. |
-| LLM | Padrão `LLM_PROVIDER=mock`. Os provedores `local`, `api` e `openrouter` existem; `openrouter` usa as chaves `OPENROUTER_*` e permite rodar sem modelos locais. O smoke ao vivo depende de chave e rede e **não foi executado** para produzir métricas. |
+| LLM | Padrão `LLM_PROVIDER=mock`. `openrouter` foi executado ao vivo nesta rodada com `deepseek/deepseek-v4.1-flash-1017`, provedor fixado em `deepinfra/fp8` (`OPENROUTER_PROVIDER_ONLY`), e produziu as métricas de geração, citação e fidelidade. |
 
 ## Arquitetura e fluxo
 
@@ -600,25 +600,38 @@ device-level misses concentrate in the article-level dedupe, since
 ### Retrieval validation on the 110 answerable questions
 
 The 20-question set was used to author the query rewrite, so it overstates
-quality. `data/eval/questions_150.jsonl` has 110 answerable questions and is
-the honest estimate (retrieval only, no LLM):
+quality. `data/eval/questions_150.jsonl` has 110 answerable questions and is the
+honest estimate. Every row below came from one embedding pass, so only the
+strategy under test changes:
 
-| Configuration | Recall@10 | Questions fully retrieved |
-| --- | ---: | ---: |
-| dense, no dedupe | 0.771 | 74/110 (67%) |
-| dense, dedupe 1 per article (old default) | 0.677 | 57/110 (52%) |
-| dense, dedupe 3 per article, article first (current) | **0.776** | 74/110 (67%) |
-| hybrid RRF equal weights (old default) | 0.588 | 45/110 (41%) |
-| hybrid RRF lexical weight 0.2 (current) | ~0.67 | ~57/110 (52%) |
+| Configuration | Recall@10 | Article@10 | Questions fully retrieved |
+| --- | ---: | ---: | ---: |
+| dense, no per-article cap | **0.776** | 0.812 | 68% |
+| hybrid RRF, lexical weight 0.2, no cap | 0.771 | 0.830 | 65% |
+| dense, cap 3 per article, order preserved | 0.767 | 0.826 | 65% |
+| **hybrid RRF, cap 3, order preserved (current)** | **0.762** | **0.835** | 64% |
+| hybrid RRF, cap 2, order preserved | 0.730 | 0.858 | 58% |
+| hybrid RRF, cap 3, article first (previous default) | 0.648 | 0.776 | 56% |
+| hybrid RRF, lexical weight 1.0 | 0.576 | 0.712 | 49% |
+| hybrid RRF, raw question (no expansion) | 0.517 | 0.648 | 41% |
+| lexical IDF alone, expanded | 0.414 | 0.477 | 29% |
+| lexical IDF alone, raw | 0.204 | 0.265 | 15% |
 
-Three changes follow from this table and are now the defaults:
-`max_devices_per_article=3` (the gold set is device-level, so one slot per
-article drops the article's second paragraph), article-first ordering inside
-the group (a leaf usually outranks its own article, which the gold set often
-names), and `hybrid_lexical_weight=0.2` (equal-weight RRF let a weak
-`ts_rank_cd` ranking outvote the dense list).
+Three conclusions replaced the earlier defaults:
 
-Where the remaining recall is:
+1. **`dedupe_by_artigo` must not reorder.** Hoisting the article row to the
+   front of its group cost 11 points of recall@10 *and* 6 points of
+   article-level recall, so it helped neither granularity. The function now
+   removes surplus candidates and preserves the global order; the test that
+   encoded the old behaviour was rewritten with the measured justification.
+2. **The lexical leg adds no accuracy** when the dense leg is healthy: 0.776
+   (dense alone) vs 0.771 (hybrid). It stays as graceful degradation — alone it
+   delivers 0.414 — not as an accuracy source. Heavy lexical weights are worse
+   (0.576 at 1.0).
+3. **Deterministic expansion is worth 13 points** (0.517 to 0.648 at cap 3), the
+   largest lever after the dedupe fix.
+
+Where the remaining recall sits, as of the previous configuration:
 
 | k | Recall@10 | Questions fully retrieved |
 | --- | ---: | ---: |
@@ -627,29 +640,34 @@ Where the remaining recall is:
 | 30 | 0.886 | 83% |
 | 50 | 0.905 | 85% |
 
-The gold device is in the dense top-50 for 85% of the questions but in the
-top-10 for 67%, so the remaining loss is ordering. An LLM reranker over the
-top-30 was tested and does **not** help (0.738 vs 0.736 recall@10 with the
-pool hydrated, 0.705 without): `RERANK_PROVIDER=llm` exists but stays off.
+The gold device is in the fused top-50 for 85% of questions but in the top-10
+for 67%, so the remaining loss is ordering — which is why reranking was
+re-examined this round. The LLM reranker improves article-level recall (0.873,
+the best of any strategy) and MRR (0.519) but drops device-level recall to
+0.561, because it cites the article row instead of the paragraph the gold set
+names. That is a contract decision, not a model failure; see
+`docs/reviews/decisoes-benchmark-2026-11.md`.
 
-On the 20-question production set, with the defaults above, the retrieval
-stage now saturates:
+End-to-end, with the whole pipeline (retrieval, generation, deterministic
+verification) on all 150 questions:
 
-| Scenario | Recall@10 | Recall per question | Citation coverage | Questions passing | p50 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| dense | 1.000 | 1.000 | 0.917 | 18/20 (90%) | 10.8 s |
-| hybrid | 1.000 | 1.000 | 0.867 | 18/20 (90%) | 8.2 s |
-| gold | 1.000 | 1.000 | 0.817 | 17/20 (85%) | 0 s |
+| Scenario | Recall@10 | Article@10 | Citation coverage | Groundedness | Abstention | Emergency | p50 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| hybrid, cap 3, order preserved | 0.762 | 0.826 | 0.617 | 0.909 | 0.923 | **1.000** | 24.5 s |
 
-`recall_per_question` is the share of questions whose whole gold set is in
-the top-10; "questions passing" is the harness notion (gold retrieved **and**
-cited, emergency routed, out-of-scope abstained). The remaining dense
-failures are citation-side (`q001`, `q008`), not retrieval.
+The 0.762 reproduces the retrieval-only number exactly, which is what one wants
+from an end-to-end run. Latency p95 is 68 s against an 8 s budget: that is the
+real blocker for interactive use, separate from accuracy. `citation_precision`
+reads 0.242 because the metric counts any citation outside the 16-device gold
+set as imprecise — read `docs/reviews/metodologia-avaliacao.md` before quoting
+it.
 
-This 90% is on the 20-question set that the query rewrite was written
-against; the 110-question table above (67% fully retrieved) is the honest
-generalisation estimate, and the gap between them is the overfitting that
-still has to be paid down.
+Emergency routing was **0.75** in that run: five imminent-danger messages
+("ele esta com uma arma e esta na minha frente", "estou escondida no banheiro e
+ele esta batendo na porta") fell through to the normal answer path because the
+classifier was a list of literal phrases. It now catches 20/20 emergencies with
+0 false positives on the 130 non-emergency questions.
+
 ### Tried and rejected (measured, so nobody repeats it)
 
 | Change | Measurement | Decision |
@@ -664,6 +682,16 @@ still has to be paid down.
 | Dual query (raw question + expanded query), cap 3 | 0.744 vs 0.752 | off |
 | Same with cap 5 per article | 0.711 vs 0.721 | off |
 | HyDE (hypothetical legal answer as the query, 40 questions) | 0.617 vs 0.787; combined with the question 0.783 | off |
+| LLM query rewrite replacing the rules (deepseek-v4.1-flash-1017, provider pinned to deepinfra/fp8, 110 questions) | 0.539 vs 0.758 | off |
+| LLM rewrite combined with the deterministic rules | 0.697 vs 0.758 | off |
+| LLM legal terms appended to the question | 0.562 vs 0.758 | off |
+| LLM subquestions fused with RRF | 0.583 vs 0.758 | off |
+| HyDE, same model and provider | 0.558 vs 0.758 | off |
+| LLM reranker, device-level contract | 0.561 vs 0.767 (article@10 0.873, MRR 0.519) | off; revisit if citations become article-level |
+| Embedding-cosine reranker | 0.583 vs 0.767 | off |
+| doc2query: 3 synthetic citizen questions per article, full reindex | dense 0.562 vs 0.771 | off |
+| Lexical weight 1.0 | 0.576 vs 0.771 | keep 0.2 |
+| Article-first ordering inside the per-article cap | 0.648 vs 0.762 | removed |
 
 The rewrite experiments all fail the same way: replacing the question drops
 the signal the dense leg was built on, and adding legal vocabulary on top of
