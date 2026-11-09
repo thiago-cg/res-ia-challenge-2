@@ -178,3 +178,28 @@ derruba para 0,576.
 saudável; fica como degradação graciosa — é o que continua funcionando se o
 provedor de embedding cair, e entrega 0,414 sozinha. Peso alto é pior e deve
 ser evitado.
+
+---
+
+## D-09 — Estratégia recomendada consolidada
+
+**Contexto.** A rodada mediu recuperação, expansão de consulta, reranking e
+representação. Era preciso decidir o que fica ligado por padrão, e o critério
+não podia ser "a maior linha da tabela".
+
+**Evidência.** As quatro primeiras configurações ficam entre 0,762 e 0,776 de
+`recall@10`. Com 110 perguntas, o erro-padrão de uma proporção em torno de 0,77
+é da ordem de 3 a 4 pontos, então essa faixa é empate. As decisões que importam
+estão a 3–5 erros-padrão: dedupe (+11,4), expansão (+13), doc2query (−21),
+reescrita por LLM (−22), reranker LLM no contrato por dispositivo (−20).
+
+**Decisão.** Híbrida determinística: FTS + Qdrant denso, RRF `k`=60 com peso
+lexical 0,2, expansão por regras, teto 3 por artigo preservando a ordem, sem
+reranker, sem doc2query, sem LLM no caminho da consulta. A página canônica é
+[estrategia-recomendada.md](estrategia-recomendada.md).
+
+**Consequência.** Como a acurácia empata no topo, o desempate foi por
+degradação graciosa (a perna lexical entrega 0,414 sozinha), contexto limitado
+(evita dez parágrafos do mesmo artigo) e determinismo (auditabilidade). O perfil
+está travado por `tests/unit/test_recommended_strategy.py`: mudar um default
+passa a exigir mudar o teste e a página no mesmo commit.
