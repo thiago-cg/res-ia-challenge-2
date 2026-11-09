@@ -1,6 +1,6 @@
 /* ZELIA · documentação
- * Melhorias progressivas: navegação ativa, menu móvel e cópia de código.
- * Nenhuma animação dependente de scroll.
+ * Melhorias progressivas: navegação ativa, menu móvel, cópia de código e
+ * ativação de diagramas. O conteúdo nunca depende de JavaScript.
  */
 (() => {
   "use strict";
@@ -161,5 +161,28 @@
     });
 
     top.appendChild(button);
+  }
+
+  /* --- Diagramas: o sinal só corre quando o bloco está visível ---------- */
+
+  const diagramas = [...doc.querySelectorAll("[data-anim]")];
+
+  if (diagramas.length) {
+    const reduzirMovimento = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    if (!("IntersectionObserver" in window) || reduzirMovimento.matches) {
+      for (const diagrama of diagramas) diagrama.classList.add("is-visivel");
+    } else {
+      const observador = new IntersectionObserver(
+        (entradas) => {
+          for (const entrada of entradas) {
+            entrada.target.classList.toggle("is-visivel", entrada.isIntersecting);
+          }
+        },
+        { threshold: 0.2, rootMargin: "0px 0px -6% 0px" }
+      );
+
+      for (const diagrama of diagramas) observador.observe(diagrama);
+    }
   }
 })();

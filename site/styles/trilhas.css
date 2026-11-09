@@ -1,0 +1,525 @@
+/* ==========================================================================
+   Trilhas · diagramas de blocos para fluxos de dados
+   Escopo .trilha e .conjunto. Depende dos tokens de site.css.
+   O conteúdo é estático; a animação é um sinal decorativo no trilho.
+   ========================================================================== */
+
+.trilha,
+.conjunto {
+  margin: var(--esp-7) 0 0;
+  padding: 0;
+  border-top: 1px solid var(--cor-texto);
+}
+
+/* --- Cabeçalho comum ----------------------------------------------------- */
+
+.trilha__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding: 14px 0 16px;
+}
+
+.trilha__rotulo,
+.conjunto__rotulo {
+  color: var(--cor-acao);
+  font-size: var(--texto-rotulo);
+  font-weight: var(--peso-semi);
+  letter-spacing: var(--tracking-rotulo);
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.trilha__titulo {
+  margin: 2px 0 0;
+  font-size: clamp(1.2rem, 1.08rem + 0.36vw, 1.4rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.trilha__meta {
+  padding-right: 10px;
+  color: var(--cor-texto-suave);
+  font-family: var(--fonte-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* --- Trilha horizontal de blocos ----------------------------------------- */
+
+.trilha {
+  --trilha-blocos: 4;
+}
+
+.trilha--4 {
+  --trilha-blocos: 4;
+}
+
+.trilha--6 {
+  --trilha-blocos: 6;
+}
+
+.trilha__lista {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--trilha-blocos), minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--cor-superficie);
+  border: var(--borda-fina);
+  border-radius: var(--raio-md);
+  overflow: clip;
+}
+
+/* Trilho superior: mostra que os blocos são uma sequência. */
+.trilha__lista::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--cor-borda);
+}
+
+/* Sinal que percorre o trilho quando o diagrama entra na tela. */
+.trilha__lista::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 2px;
+  border-radius: var(--raio-pill);
+  background: var(--cor-acao);
+  opacity: 0;
+}
+
+.trilha.is-visivel .trilha__lista::after {
+  animation: trilha-sinal-x 7s var(--curva-padrao) 400ms infinite;
+}
+
+.trilha__bloco {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 17px 16px 14px;
+  border-left: 1px solid var(--cor-divisor);
+}
+
+.trilha__bloco:first-child {
+  border-left: 0;
+}
+
+/* Seta na divisa entre dois blocos. */
+.trilha__bloco:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 40px;
+  right: -4px;
+  width: 6px;
+  height: 6px;
+  border-top: 1px solid var(--cor-acao);
+  border-right: 1px solid var(--cor-acao);
+  background: transparent;
+  transform: rotate(45deg);
+}
+
+.trilha__marca {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.trilha__numero {
+  margin-right: auto;
+  color: var(--cor-acao);
+  font-family: var(--fonte-mono);
+  font-size: 10px;
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.trilha__fase {
+  color: var(--cor-texto-suave);
+  font-size: 8.5px;
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.trilha__icone {
+  width: 16px;
+  height: 16px;
+  color: var(--cor-acao);
+  stroke-width: 1.5;
+}
+
+.trilha__bloco h4 {
+  margin: 1px 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.trilha__bloco p {
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+  line-height: 1.42;
+}
+
+.trilha__bloco code {
+  padding: 1px 4px;
+  font-size: 10px;
+}
+
+.trilha__carga {
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: auto;
+  padding: 2px 6px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 4px;
+  background: var(--cor-superficie-2);
+  color: var(--cor-texto-suave);
+  font-family: var(--fonte-mono);
+  font-size: 9px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+/* Entrada curta dos blocos, sem esconder conteúdo. */
+.trilha.is-visivel .trilha__bloco {
+  animation: trilha-entra 460ms var(--curva-padrao) both;
+}
+
+.trilha.is-visivel .trilha__bloco:nth-child(1) { animation-delay: 0ms; }
+.trilha.is-visivel .trilha__bloco:nth-child(2) { animation-delay: 60ms; }
+.trilha.is-visivel .trilha__bloco:nth-child(3) { animation-delay: 120ms; }
+.trilha.is-visivel .trilha__bloco:nth-child(4) { animation-delay: 180ms; }
+.trilha.is-visivel .trilha__bloco:nth-child(5) { animation-delay: 240ms; }
+.trilha.is-visivel .trilha__bloco:nth-child(6) { animation-delay: 300ms; }
+
+/* --- Nota de rodapé dos diagramas ---------------------------------------- */
+
+.trilha__nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding-bottom: 3px;
+  color: var(--cor-texto-suave);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.trilha__nota .icone {
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  color: var(--cor-acao);
+}
+
+.trilha__nota strong {
+  color: var(--cor-texto);
+}
+
+.trilha__nota code {
+  font-size: 10.5px;
+}
+
+/* --- Mapa do conjunto de avaliação --------------------------------------- */
+
+.conjunto__topo {
+  display: grid;
+  gap: 5px;
+  max-width: 72ch;
+  padding: 14px 0 16px;
+}
+
+.conjunto__titulo {
+  margin: 0;
+  font-size: clamp(1.2rem, 1.08rem + 0.36vw, 1.4rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.conjunto__linha {
+  max-width: 68ch;
+  color: var(--cor-texto-suave);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.conjunto__barra {
+  display: grid;
+  grid-template-columns: 110fr 40fr;
+  min-height: 58px;
+  background: var(--cor-superficie);
+  border: var(--borda-fina);
+  border-radius: var(--raio-md) var(--raio-md) 0 0;
+  overflow: clip;
+}
+
+.conjunto__parte {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 16px;
+}
+
+.conjunto__parte--respondiveis {
+  background: var(--zelia-azul-claro);
+}
+
+.conjunto__parte--seguranca {
+  background: var(--zelia-areia);
+  border-left: 2px solid var(--cor-fundo);
+}
+
+.conjunto__valor {
+  color: var(--cor-texto);
+  font-size: 1.5rem;
+  font-weight: var(--peso-semi);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.conjunto__parte-rotulo {
+  color: var(--cor-texto);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.conjunto__legenda {
+  display: grid;
+  grid-template-columns: 110fr 40fr;
+  background: var(--cor-superficie);
+  border: var(--borda-fina);
+  border-top: 0;
+  border-radius: 0 0 var(--raio-md) var(--raio-md);
+  overflow: clip;
+}
+
+.conjunto__item {
+  min-width: 0;
+  padding: 12px 16px 14px;
+}
+
+.conjunto__item + .conjunto__item {
+  border-left: 1px solid var(--cor-divisor);
+}
+
+.conjunto__item .conjunto__tag {
+  margin-bottom: 3px;
+  color: var(--cor-acao);
+  font-size: 9px;
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.conjunto__item p {
+  color: var(--cor-texto-suave);
+  font-size: 11.5px;
+  line-height: 1.42;
+}
+
+.conjunto__item strong {
+  color: var(--cor-texto);
+}
+
+.conjunto.is-visivel .conjunto__parte {
+  animation: conjunto-entra 560ms var(--curva-padrao) both;
+}
+
+.conjunto.is-visivel .conjunto__parte + .conjunto__parte {
+  animation-delay: 120ms;
+}
+
+/* --- Movimento ----------------------------------------------------------- */
+
+@keyframes trilha-sinal-x {
+  0%,
+  4% {
+    left: 0;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    left: calc(100% - 36px);
+    opacity: 0;
+  }
+}
+
+@keyframes trilha-sinal-y {
+  0%,
+  4% {
+    top: 0;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    top: calc(100% - 36px);
+    opacity: 0;
+  }
+}
+
+@keyframes trilha-entra {
+  from {
+    transform: translateY(6px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes conjunto-entra {
+  from {
+    background-color: var(--cor-superficie);
+  }
+}
+
+/* --- Responsivo ---------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .trilha__lista {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trilha__lista::before {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: 2px;
+    height: auto;
+  }
+
+  .trilha__lista::after {
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 36px;
+  }
+
+  .trilha.is-visivel .trilha__lista::after {
+    animation-name: trilha-sinal-y;
+  }
+
+  .trilha__bloco {
+    border-top: 1px solid var(--cor-divisor);
+    border-left: 0;
+    padding: 14px 16px 14px 26px;
+  }
+
+  .trilha__bloco:first-child {
+    border-top: 0;
+  }
+
+  .trilha__bloco:not(:last-child)::after {
+    top: auto;
+    right: auto;
+    bottom: -4px;
+    left: 10px;
+    transform: rotate(135deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .trilha__topo {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .trilha__meta {
+    padding-right: 0;
+    white-space: normal;
+  }
+
+  .conjunto__legenda {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .conjunto__item + .conjunto__item {
+    border-top: 1px solid var(--cor-divisor);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .trilha__bloco {
+    padding-left: 24px;
+  }
+
+  .conjunto__parte {
+    padding: 10px 12px;
+  }
+
+  .conjunto__parte-rotulo {
+    display: none;
+  }
+
+  .conjunto__valor {
+    font-size: 1.35rem;
+  }
+
+  .conjunto__item {
+    padding-inline: 12px;
+  }
+}
+
+/* --- Movimento reduzido -------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .trilha__lista::after {
+    display: none;
+  }
+
+  .trilha.is-visivel .trilha__bloco,
+  .conjunto.is-visivel .conjunto__parte {
+    animation: none;
+  }
+}
+
+/* --- Impressão ----------------------------------------------------------- */
+
+@media print {
+  .trilha__lista::after {
+    display: none;
+  }
+
+  .conjunto {
+    break-inside: avoid;
+  }
+}

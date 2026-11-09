@@ -832,3 +832,124 @@
     padding: 16px;
   }
 }
+
+/* --- Movimento dos diagramas existentes ---------------------------------- */
+
+/* A versão vigente na data do fato pulsa uma vez por ciclo. */
+.dados.is-visivel .linha-tempo__janela.is-atual::before {
+  animation: dados-atual 3.8s ease-in-out infinite;
+}
+
+@keyframes dados-atual {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(36, 87, 214, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(36, 87, 214, 0.16);
+  }
+}
+
+/* As linhas da convergência desenham; um ponto desce para o RRF. */
+.busca.is-visivel .busca__convergencia::before {
+  animation: busca-linha-x 520ms var(--curva-padrao) both;
+  transform-origin: left center;
+}
+
+.busca.is-visivel .busca__convergencia::after {
+  animation: busca-linha-y 400ms var(--curva-padrao) 300ms both;
+  transform-origin: top center;
+}
+
+.busca__sinal {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: var(--cor-acao);
+  opacity: 0;
+}
+
+.busca.is-visivel .busca__sinal {
+  animation: busca-sinal 3.2s var(--curva-padrao) 900ms infinite;
+}
+
+@keyframes busca-linha-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes busca-linha-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes busca-sinal {
+  0%,
+  8% {
+    top: 0;
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  62% {
+    top: 17px;
+    opacity: 1;
+  }
+  76%,
+  100% {
+    top: 17px;
+    opacity: 0;
+  }
+}
+
+/* Os quatro checks do verificador entram em sequência, sem sumir. */
+.contrato.is-visivel .contrato__checks li .icone {
+  animation: contrato-check 420ms var(--curva-padrao) both;
+}
+
+.contrato.is-visivel .contrato__checks li:nth-child(1) .icone { animation-delay: 80ms; }
+.contrato.is-visivel .contrato__checks li:nth-child(2) .icone { animation-delay: 160ms; }
+.contrato.is-visivel .contrato__checks li:nth-child(3) .icone { animation-delay: 240ms; }
+.contrato.is-visivel .contrato__checks li:nth-child(4) .icone { animation-delay: 320ms; }
+
+@keyframes contrato-check {
+  from {
+    transform: scale(0.82);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dados.is-visivel .linha-tempo__janela.is-atual::before,
+  .busca.is-visivel .busca__convergencia::before,
+  .busca.is-visivel .busca__convergencia::after,
+  .busca.is-visivel .busca__sinal,
+  .contrato.is-visivel .contrato__checks li .icone {
+    animation: none;
+  }
+
+  .busca__sinal {
+    display: none;
+  }
+}
+@media print {
+  .busca__sinal {
+    display: none;
+  }
+}

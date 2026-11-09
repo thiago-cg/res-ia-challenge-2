@@ -747,6 +747,22 @@ hr {
   animation: desenhar-trilho var(--mov-marca) var(--curva-padrao) both;
 }
 
+/* Um ponto percorre o trilho depois que a linha termina de desenhar. */
+.percurso__lista::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 14px;
+  left: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cor-acao);
+  box-shadow: 0 0 0 3px var(--zelia-lavanda);
+  opacity: 0;
+  animation: percurso-sinal 6.4s linear 1.4s infinite;
+}
+
 .percurso__etapa {
   position: relative;
   display: grid;
@@ -813,6 +829,25 @@ hr {
   }
   to {
     transform: scaleY(1);
+  }
+}
+
+@keyframes percurso-sinal {
+  0%,
+  6% {
+    top: 14px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    top: calc(100% - 18px);
+    opacity: 0;
   }
 }
 
@@ -1742,7 +1777,10 @@ code {
   }
 
   .tabela--responsiva caption {
+    display: block;
+    width: 100%;
     padding: 10px 0;
+    text-align: left;
   }
 
   .tabela--responsiva tbody tr {
@@ -1838,6 +1876,10 @@ code {
     transform: none;
   }
 
+  .percurso__lista::after {
+    display: none;
+  }
+
   .percurso__etapa {
     opacity: 1;
     transform: none;
@@ -1860,6 +1902,10 @@ code {
     background: #fff;
     color: #000;
     font-size: 11pt;
+  }
+
+  .percurso__lista::after {
+    display: none;
   }
 
   .secao {

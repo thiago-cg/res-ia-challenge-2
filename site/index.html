@@ -35,6 +35,7 @@
   <link rel="stylesheet" href="styles/tokens.css">
   <link rel="stylesheet" href="styles/site.css">
   <link rel="stylesheet" href="styles/figuras.css">
+  <link rel="stylesheet" href="styles/trilhas.css">
   <link rel="stylesheet" href="styles/fluxo.css">
   <script>document.documentElement.classList.add("js");</script>
 </head>
@@ -796,6 +797,58 @@
             <p>Um bloco fixo de 500 tokens corta o artigo no meio e mistura incisos de normas diferentes. O dispositivo é a menor unidade que pode ser citada, hidratada e verificada. Por isso o índice não guarda "pedaços de texto": guarda folhas da árvore legal, cada uma com um identificador e uma janela de vigência.</p>
           </div>
 
+          <figure class="trilha trilha--4" data-anim aria-labelledby="trilha-dados-titulo">
+            <figcaption class="trilha__topo">
+              <div>
+                <p class="trilha__rotulo">Fluxo de dados</p>
+                <h3 class="trilha__titulo" id="trilha-dados-titulo">Da fonte oficial ao índice versionado.</h3>
+              </div>
+              <p class="trilha__meta">4 etapas · sem LLM</p>
+            </figcaption>
+            <ol class="trilha__lista">
+              <li class="trilha__bloco">
+                <div class="trilha__marca">
+                  <span class="trilha__numero">01</span>
+                  <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-documento"></use></svg>
+                </div>
+                <h4>Fontes oficiais</h4>
+                <p>Texto publicado no Planalto e normas correlatas.</p>
+                <span class="trilha__carga">HTML</span>
+              </li>
+              <li class="trilha__bloco">
+                <div class="trilha__marca">
+                  <span class="trilha__numero">02</span>
+                  <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-codigo"></use></svg>
+                </div>
+                <h4>Extração</h4>
+                <p>Norma, artigo, caput, parágrafo, inciso e alínea viram uma árvore.</p>
+                <span class="trilha__carga">texto</span>
+              </li>
+              <li class="trilha__bloco">
+                <div class="trilha__marca">
+                  <span class="trilha__numero">03</span>
+                  <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-relogio"></use></svg>
+                </div>
+                <h4>Versionamento</h4>
+                <p>Cada folha ganha uma janela de vigência; a data escolhe a versão.</p>
+                <span class="trilha__carga">norm_version_id</span>
+              </li>
+              <li class="trilha__bloco">
+                <div class="trilha__marca">
+                  <span class="trilha__numero">04</span>
+                  <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-banco"></use></svg>
+                </div>
+                <h4>Dois índices</h4>
+                <p>Postgres guarda o texto; Qdrant, o vetor denso de 4096 dimensões.</p>
+                <span class="trilha__carga">4096d</span>
+              </li>
+            </ol>
+            <p class="trilha__nota">
+              <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"></use></svg>
+              <span><strong>A hidratação vem depois.</strong> Na consulta, texto e vetor são reunidos por <code>(device_id, norm_version_id)</code>. O índice não guarda “pedaços”: guarda folhas versionadas.</span>
+            </p>
+          </figure>
+
           <figure class="figura figura-dados" aria-labelledby="figura-dados-titulo">
   <header class="figura__cabecalho">
     <p class="figura__rotulo">Figura 1 · Modelo de dados</p>
@@ -803,7 +856,7 @@
     <p class="figura__linha">A árvore legal é a unidade de indexação. O Postgres guarda o texto e a janela de vigência; o Qdrant guarda o vetor. A hidratação junta os dois pelo par <code>(device_id, norm_version_id)</code>.</p>
   </header>
 
-  <div class="dados">
+  <div class="dados" data-anim>
     <div class="dados__topo">
       <div class="dados__norma">
         <p class="dados__tag">Norma</p>
@@ -904,6 +957,76 @@
   <p>Essa não é a configuração mais precisa no papel. O denso sem teto marca 0,776, o híbrido sem teto 0,771 e o híbrido com teto 3 fica em 0,762. A escolha não vem do topo da tabela. É a configuração que combina precisão suficiente com degradação graciosa e auditabilidade: se o provedor de embedding falha, a perna lexical sustenta a resposta; o teto de 3 mostra artigos diferentes; e o caminho sem LLM na consulta pode ser repetido e auditado.</p>
 </div>
 
+<figure class="trilha trilha--6" data-anim aria-labelledby="trilha-busca-titulo">
+  <figcaption class="trilha__topo">
+    <div>
+      <p class="trilha__rotulo">Fluxo da consulta</p>
+      <h3 class="trilha__titulo" id="trilha-busca-titulo">A pergunta vira uma lista de IDs.</h3>
+    </div>
+    <p class="trilha__meta">6 etapas · sem LLM</p>
+  </figcaption>
+  <ol class="trilha__lista">
+    <li class="trilha__bloco">
+      <div class="trilha__marca">
+        <span class="trilha__numero">01</span>
+        <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-documento"></use></svg>
+      </div>
+      <h4>Pergunta</h4>
+      <p>A fala original, com a data do fato quando ela existe.</p>
+      <span class="trilha__carga">texto + data</span>
+    </li>
+    <li class="trilha__bloco">
+      <div class="trilha__marca">
+        <span class="trilha__numero">02</span>
+        <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-escudo"></use></svg>
+      </div>
+      <h4>Risco</h4>
+      <p>Perigo agora recebe 190 e 180 antes de qualquer busca.</p>
+      <span class="trilha__carga">saída fixa</span>
+    </li>
+    <li class="trilha__bloco">
+      <div class="trilha__marca">
+        <span class="trilha__numero">03</span>
+        <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mais"></use></svg>
+      </div>
+      <h4>Expansão</h4>
+      <p>Regras curadas somam vocabulário jurídico sem substituir a pergunta.</p>
+      <span class="trilha__carga">termos</span>
+    </li>
+    <li class="trilha__bloco">
+      <div class="trilha__marca">
+        <span class="trilha__numero">04</span>
+        <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-busca"></use></svg>
+      </div>
+      <h4>Busca</h4>
+      <p>Postgres FTS e Qdrant rodam no mesmo recorte de vigência.</p>
+      <span class="trilha__carga">2 × 50</span>
+    </li>
+    <li class="trilha__bloco">
+      <div class="trilha__marca">
+        <span class="trilha__numero">05</span>
+        <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-codigo"></use></svg>
+      </div>
+      <h4>Fusão</h4>
+      <p>RRF combina posições, não escores; peso lexical 0,2.</p>
+      <span class="trilha__carga">RRF k=60</span>
+    </li>
+    <li class="trilha__bloco">
+      <div class="trilha__marca">
+        <span class="trilha__numero">06</span>
+        <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"></use></svg>
+      </div>
+      <h4>Contexto</h4>
+      <p>Teto de 3 por artigo, ordem preservada e hidratação por versão.</p>
+      <span class="trilha__carga">top 10</span>
+    </li>
+  </ol>
+  <p class="trilha__nota">
+    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"></use></svg>
+    <span><strong>A ordem importa.</strong> A expansão não substitui a fala; a fusão não reescreve a pergunta; o teto não reordena o grupo. Preservar a ordem no dedupe valeu 11,4 pontos de recall.</span>
+  </p>
+</figure>
+
 <figure class="figura figura-busca" aria-labelledby="figura-busca-titulo">
   <header class="figura__cabecalho">
     <p class="figura__rotulo">Figura 2 · Recuperação</p>
@@ -911,7 +1034,7 @@
     <p class="figura__linha">As duas pernas rodam no mesmo recorte de vigência. A fusão combina posições, não escores. O teto por artigo preserva a diversidade do contexto.</p>
   </header>
 
-  <div class="busca">
+  <div class="busca" data-anim>
     <div class="busca__pernas">
       <div class="busca__perna busca__perna--lexical">
         <p class="dados__tag">Perna lexical</p>
@@ -938,6 +1061,7 @@
 
     <div class="busca__convergencia" aria-hidden="true">
       <span class="busca__convergencia-rotulo">RRF</span>
+      <span class="busca__sinal"></span>
     </div>
 
     <div class="busca__fusao">
@@ -1162,7 +1286,7 @@
     <p class="figura__linha">O JSON não contém o texto da citação. Ele contém o <code>device_id</code>; a citação canônica é montada a partir dos metadados hidratados do banco.</p>
   </header>
 
-  <div class="contrato">
+  <div class="contrato" data-anim>
     <div class="contrato__entrada">
       <p class="dados__tag">1 · Saída do modelo</p>
       <div class="codigo contrato__codigo">
@@ -1272,7 +1396,41 @@
   <p>A rodada de 9 de novembro de 2026 usou 150 perguntas, das quais 110 são respondíveis. As outras 40 são de emergência ou fora do corpus e entram nas métricas de segurança e abstenção. Os valores abaixo vêm do pipeline completo: recuperação, hidratação, geração e verificação determinística.</p>
 
   <p>O recall@10 mede a fração dos dispositivos-ouro recuperados no top-10. O artigo@10 repete a conta no nível do artigo. O groundedness é a fração de afirmações com lastro no contexto recuperado. A abstenção mede o acerto entre abster e responder quando a pergunta está fora do corpus.</p>
+</div>
 
+<figure class="conjunto" data-anim aria-labelledby="conjunto-titulo">
+  <figcaption class="conjunto__topo">
+    <p class="conjunto__rotulo">Mapa do conjunto</p>
+    <h3 class="conjunto__titulo" id="conjunto-titulo">Uma rodada, dois recortes.</h3>
+    <p class="conjunto__linha">A rodada tem 150 perguntas: 110 respondíveis e 40 de segurança ou fora do corpus. O recall@10 usa as 110; o 1,000 da emergência usa as 40.</p>
+  </figcaption>
+  <div class="conjunto__barra" role="img" aria-label="150 perguntas: 110 respondíveis e 40 de segurança ou fora do corpus">
+    <div class="conjunto__parte conjunto__parte--respondiveis">
+      <span class="conjunto__valor">110</span>
+      <span class="conjunto__parte-rotulo">respondíveis</span>
+    </div>
+    <div class="conjunto__parte conjunto__parte--seguranca">
+      <span class="conjunto__valor">40</span>
+      <span class="conjunto__parte-rotulo">segurança ou fora</span>
+    </div>
+  </div>
+  <div class="conjunto__legenda">
+    <div class="conjunto__item">
+      <p class="conjunto__tag">Entram no recall</p>
+      <p><strong>110 respondíveis.</strong> recall@10, artigo@10 e groundedness.</p>
+    </div>
+    <div class="conjunto__item">
+      <p class="conjunto__tag">Ficam fora do recall</p>
+      <p><strong>40 de segurança e fora do corpus.</strong> emergency_routing e abstenção.</p>
+    </div>
+  </div>
+  <p class="trilha__nota">
+    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"></use></svg>
+    <span><strong>O denominador muda a leitura.</strong> O 0,762 não cobre as 40. O 1,000 não é sobre as 150.</span>
+  </p>
+</figure>
+
+<div class="prosa mt-7">
   <h3>Resultado da rodada</h3>
   <p>A tabela compara o valor medido com o limiar definido antes da rodada. O artigo@10 não tem limiar: ele separa erro de artigo de erro de dispositivo. A última linha vem do recorte de segurança, não das 150.</p>
 </div>
