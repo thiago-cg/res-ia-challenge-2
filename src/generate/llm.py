@@ -99,6 +99,7 @@ class _HTTPLLM:
         backoff_base: float = 0.5,
         max_tokens: int = 1024,
         client: httpx.Client | None = None,
+        extra_payload: dict[str, Any] | None = None,
     ) -> None:
         if not base_url:
             raise ValueError("LLM base_url is required")
@@ -114,6 +115,7 @@ class _HTTPLLM:
         self.max_retries = max_retries
         self.backoff_base = backoff_base
         self.max_tokens = max_tokens
+        self.extra_payload: dict[str, Any] = dict(extra_payload or {})
         self._owns_client = client is None
         self._client = client or httpx.Client()
 
@@ -150,6 +152,8 @@ class _HTTPLLM:
         # long generation is what turns a 2 s call into a timeout.
         if self.max_tokens:
             payload["max_tokens"] = self.max_tokens
+        for key, value in self.extra_payload.items():
+            payload.setdefault(key, value)
         return payload
 
     def _extract(self, response: httpx.Response) -> str:
@@ -246,6 +250,7 @@ class OpenRouterLLM(_HTTPLLM):
         max_tokens: int = 1024,
         site_url: str = "",
         app_name: str = "",
+        provider_only: str = "",
         client: httpx.Client | None = None,
     ) -> None:
         if not api_key:
@@ -255,6 +260,10 @@ class OpenRouterLLM(_HTTPLLM):
             )
         self.site_url = site_url
         self.app_name = app_name
+        self.provider_only = [item.strip() for item in provider_only.split(",") if item.strip()]
+        extra: dict[str, Any] = {}
+        if self.provider_only:
+            extra["provider"] = {"only": self.provider_only, "allow_fallbacks": False}
         super().__init__(
             base_url=base_url,
             api_key=api_key,
@@ -264,6 +273,7 @@ class OpenRouterLLM(_HTTPLLM):
             backoff_base=backoff_base,
             max_tokens=max_tokens,
             client=client,
+            extra_payload=extra,
         )
 
     @property
@@ -308,6 +318,7 @@ def get_llm(settings: object, *, model: str | None = None) -> LLMClient:
             max_tokens=int(getattr(settings, "llm_max_tokens", 0)),
             site_url=str(getattr(settings, "openrouter_site_url", "") or ""),
             app_name=str(getattr(settings, "openrouter_app_name", "") or ""),
+            provider_only=str(getattr(settings, "openrouter_provider_only", "") or ""),
         )
 
     model_name = str(getattr(settings, "llm_model", "") or "default")
