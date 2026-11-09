@@ -11,6 +11,9 @@ para atendimento humano quando necessário.
 > substitui a Defensoria Pública. **Se você está em perigo agora, ligue 190.**
 > A Central de Atendimento à Mulher é o **180**.
 
+> **Documentação visual da entrega:** [thiago-cg.github.io/res-ia-challenge-2](https://thiago-cg.github.io/res-ia-challenge-2/)
+> reúne o fluxo RAG, o modelo de dados, a avaliação e os limites em uma página.
+
 **Status em 2026-11-05:** protótipo técnico. Métricas de avaliação e revisão
 jurídica humana estão **PENDENTES**. Veja [Estado atual](#estado-atual-honesto)
 antes de usar qualquer número deste repositório.

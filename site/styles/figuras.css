@@ -1,0 +1,834 @@
+/* ==========================================================================
+   Figuras · modelo de dados, recuperação e contrato de citação
+   Escopo .figura. Depende dos tokens de site.css.
+   ========================================================================== */
+
+.figura {
+  margin: var(--esp-7) 0 0;
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-texto);
+}
+
+.figura__cabecalho {
+  display: grid;
+  gap: 7px;
+  max-width: 64ch;
+  margin-bottom: var(--esp-5);
+}
+
+.figura__rotulo {
+  color: var(--cor-acao);
+  font-size: var(--texto-rotulo);
+  font-weight: var(--peso-semi);
+  letter-spacing: var(--tracking-rotulo);
+  text-transform: uppercase;
+}
+
+.figura__cabecalho h3 {
+  font-size: clamp(1.35rem, 1.15rem + 0.7vw, 1.65rem);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+}
+
+.figura__linha {
+  max-width: 62ch;
+  color: var(--cor-texto-suave);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.figura figcaption {
+  max-width: 74ch;
+  margin-top: 10px;
+  color: var(--cor-texto-suave);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.figura code {
+  font-size: 0.86em;
+}
+
+/* --- Figura 1 · modelo de dados ----------------------------------------- */
+
+.dados {
+  background: var(--cor-superficie);
+  border: var(--borda-fina);
+  border-radius: var(--raio-lg);
+  overflow: clip;
+}
+
+.dados__topo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  border-bottom: var(--borda-fina);
+}
+
+.dados__norma {
+  padding: 20px 22px;
+}
+
+.dados__tag {
+  margin: 0 0 6px;
+  color: var(--cor-texto-suave);
+  font-size: 10px;
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.1em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.dados__id {
+  margin: 0 0 3px;
+}
+
+.dados__id code {
+  border: 0;
+  background: var(--cor-superficie-2);
+  font-size: 11px;
+}
+
+.dados__norma h4 {
+  margin: 2px 0;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.dados__subtitulo {
+  color: var(--cor-texto-suave);
+  font-size: 0.8125rem;
+}
+
+.dados__numeros {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  margin: 0;
+  border-left: var(--borda-fina);
+  background: var(--zelia-areia-clara);
+}
+
+.dados__numeros > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: var(--borda-fina);
+}
+
+.dados__numeros > div:last-child {
+  border-bottom: 0;
+}
+
+.dados__numeros dt {
+  color: var(--cor-texto-suave);
+  font-size: 10px;
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.08em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.dados__numeros dd {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 1.125rem;
+  font-weight: var(--peso-semi);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.dados__versao {
+  padding: 16px 22px 18px;
+  background: var(--zelia-areia-clara);
+  border-bottom: var(--borda-fina);
+}
+
+.dados__versao-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+}
+
+.dados__versao-topo .dados__tag {
+  margin: 0;
+}
+
+.dados__versao-topo > p:last-child {
+  max-width: 58ch;
+  color: var(--cor-texto-suave);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.linha-tempo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  border-top: 2px solid var(--cor-texto);
+  list-style: none;
+}
+
+.linha-tempo__janela {
+  position: relative;
+  padding: 14px 12px 4px 0;
+  border-right: 1px solid var(--cor-borda-forte);
+}
+
+.linha-tempo__janela:last-child {
+  border-right: 0;
+}
+
+.linha-tempo__janela::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--cor-texto);
+  border-radius: 50%;
+  background: var(--cor-superficie);
+}
+
+.linha-tempo__janela.is-atual::before {
+  border-color: var(--cor-acao);
+  background: var(--cor-acao);
+}
+
+.linha-tempo__rotulo {
+  display: block;
+  color: var(--cor-texto);
+  font-size: 11px;
+  font-weight: var(--peso-semi);
+  line-height: 1.3;
+}
+
+.linha-tempo__janela.is-atual .linha-tempo__rotulo {
+  color: var(--cor-acao);
+}
+
+.linha-tempo__janela small {
+  display: block;
+  margin-top: 1px;
+  color: var(--cor-texto-suave);
+  font-size: 10px;
+}
+
+.dados__marcador {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 13px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+.dados__marcador > span {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-top: 3px;
+  border-radius: 50%;
+  background: var(--cor-acao);
+}
+
+.dados__marcador strong {
+  color: var(--cor-texto);
+}
+
+.dados__corpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 248px;
+}
+
+.dados__arvore {
+  padding: 20px 22px;
+}
+
+.dados__artigo {
+  padding-left: 14px;
+  border-left: 2px solid var(--cor-acao);
+}
+
+.dados__artigo-titulo {
+  margin-top: 4px;
+  color: var(--cor-texto);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.dados__folhas {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-left: 18px;
+  border-left: 1px solid var(--cor-borda-forte);
+}
+
+.dados__folha {
+  position: relative;
+  padding: 12px 14px;
+  background: var(--cor-fundo);
+  border: var(--borda-fina);
+  border-radius: var(--raio-sm);
+}
+
+.dados__folha::before {
+  content: "";
+  position: absolute;
+  left: -19px;
+  top: 25px;
+  width: 18px;
+  height: 1px;
+  background: var(--cor-borda-forte);
+}
+
+.dados__folha .dados__id {
+  margin-bottom: 4px;
+}
+
+.dados__citacao {
+  color: var(--cor-texto);
+  font-size: 11px;
+  font-weight: var(--peso-semi);
+  line-height: 1.35;
+}
+
+.dados__literal {
+  margin-top: 3px;
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.dados__meta {
+  margin-top: 6px;
+  color: var(--cor-texto-suave);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.dados__ficha {
+  padding: 20px;
+  border-left: var(--borda-fina);
+  background: var(--zelia-areia-clara);
+}
+
+.dados__ficha dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.dados__ficha dl > div {
+  display: grid;
+  gap: 2px;
+}
+
+.dados__ficha dt {
+  color: var(--cor-texto-suave);
+  font-family: var(--fonte-mono);
+  font-size: 9.5px;
+}
+
+.dados__ficha dd {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.dados__ficha code {
+  font-size: 9.5px;
+}
+
+/* --- Figura 2 · recuperação --------------------------------------------- */
+
+.busca {
+  background: var(--cor-superficie);
+  border: var(--borda-fina);
+  border-radius: var(--raio-lg);
+  overflow: clip;
+}
+
+.busca__pernas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.busca__perna {
+  padding: 17px 18px 15px;
+}
+
+.busca__perna--lexical {
+  background: var(--zelia-areia-clara);
+}
+
+.busca__perna + .busca__perna {
+  border-left: var(--borda-fina);
+}
+
+.busca__perna h4 {
+  margin-bottom: 8px;
+  font-size: 1.0625rem;
+  line-height: 1.2;
+}
+
+.busca__perna ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.busca__perna li {
+  position: relative;
+  padding-left: 11px;
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.busca__perna li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--cor-acao);
+}
+
+.busca__perna li code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 10.5px;
+}
+
+.busca__saida {
+  margin-top: 10px;
+  color: var(--cor-acao);
+  font-size: 10px;
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.busca__convergencia {
+  position: relative;
+  height: 38px;
+  border-top: var(--borda-fina);
+}
+
+.busca__convergencia::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: 1px;
+  background: var(--cor-borda-forte);
+}
+
+.busca__convergencia::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 17px;
+  background: var(--cor-borda-forte);
+}
+
+.busca__convergencia-rotulo {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  padding: 0 10px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto-suave);
+  font-size: 10px;
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.1em;
+  transform: translateX(-50%);
+}
+
+.busca__fusao {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 15px 18px;
+  background: var(--zelia-lavanda);
+  border-top: var(--borda-fina);
+}
+
+.busca__fusao .dados__tag {
+  color: var(--cor-acao);
+}
+
+.busca__fusao h4 {
+  margin-bottom: 3px;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.busca__fusao p:not(.dados__tag):not(.busca__fusao-nota) {
+  max-width: 52ch;
+  color: var(--cor-texto);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.busca__fusao-nota {
+  max-width: 190px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(36, 87, 214, 0.28);
+  color: var(--cor-texto-suave);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.busca__etapas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-top: var(--borda-fina);
+  list-style: none;
+}
+
+.busca__etapas li {
+  padding: 15px 16px;
+  border-right: var(--borda-fina);
+}
+
+.busca__etapas li:last-child {
+  border-right: 0;
+}
+
+.busca__numero {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--cor-acao);
+  font-size: 10px;
+  font-weight: var(--peso-semi);
+  font-variant-numeric: tabular-nums;
+}
+
+.busca__etapas strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.busca__etapas p {
+  margin-top: 3px;
+  color: var(--cor-texto-suave);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.busca__notas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+  border-top: 1px solid var(--cor-borda-forte);
+}
+
+.busca__notas > div {
+  padding: 13px 18px 0 0;
+}
+
+.busca__notas > div + div {
+  padding-left: 18px;
+  padding-right: 0;
+  border-left: var(--borda-fina);
+}
+
+.busca__notas p:last-child {
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* --- Figura 3 · contrato de citação ------------------------------------- */
+
+.contrato {
+  display: grid;
+  gap: 12px;
+}
+
+.contrato__entrada,
+.contrato__portao,
+.contrato__saida {
+  padding: 15px 16px;
+  background: var(--cor-superficie);
+  border: var(--borda-fina);
+  border-radius: var(--raio-md);
+}
+
+.contrato__portao {
+  background: var(--zelia-areia-clara);
+}
+
+.contrato__codigo {
+  margin: 0;
+  border-radius: var(--raio-sm);
+}
+
+.contrato__codigo .codigo__topo {
+  min-height: 30px;
+  padding-left: 12px;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.contrato__codigo pre {
+  padding: 11px 13px;
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.contrato__checks {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contrato__checks li {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr);
+  gap: 8px;
+  color: var(--cor-texto);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.contrato__checks .icone {
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  color: var(--cor-sucesso);
+}
+
+.contrato__cartao {
+  padding-left: 14px;
+  border-left: 3px solid var(--cor-acao);
+}
+
+.contrato__selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--raio-pill);
+  background: var(--cor-sucesso-fundo);
+  color: var(--cor-sucesso);
+  font-size: 9.5px;
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.contrato__selo .icone {
+  width: 12px;
+  height: 12px;
+}
+
+.contrato__citacao {
+  margin-top: 8px;
+  color: var(--cor-texto);
+  font-size: 0.9375rem;
+  font-weight: var(--peso-semi);
+  line-height: 1.35;
+}
+
+.contrato__afirmacao {
+  margin-top: 5px;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.contrato__fonte {
+  margin-top: 7px;
+  color: var(--cor-texto-suave);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.contrato__desfechos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+  border: var(--borda-fina);
+  border-radius: var(--raio-md);
+  overflow: clip;
+  background: var(--cor-superficie);
+}
+
+.contrato__desfechos > div {
+  padding: 12px 14px;
+  border-right: var(--borda-fina);
+}
+
+.contrato__desfechos > div:last-child {
+  border-right: 0;
+}
+
+.contrato__desfechos p {
+  margin-top: 6px;
+  color: var(--cor-texto-suave);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+/* --- Responsivo ---------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  .figura {
+    margin-top: var(--esp-6);
+  }
+
+  .dados__topo,
+  .dados__corpo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dados__numeros {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: none;
+    border-top: var(--borda-fina);
+    border-left: 0;
+  }
+
+  .dados__numeros > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 10px 12px;
+    border-right: var(--borda-fina);
+    border-bottom: 0;
+  }
+
+  .dados__numeros > div:last-child {
+    border-right: 0;
+  }
+
+  .dados__ficha {
+    border-top: var(--borda-fina);
+    border-left: 0;
+  }
+
+  .dados__arvore {
+    padding: 16px;
+  }
+
+  .dados__folhas {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .dados__folha::before {
+    display: none;
+  }
+
+  .busca__pernas,
+  .busca__etapas,
+  .busca__notas,
+  .contrato__desfechos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .busca__perna + .busca__perna {
+    border-top: var(--borda-fina);
+    border-left: 0;
+  }
+
+  .busca__convergencia {
+    display: none;
+  }
+
+  .busca__fusao {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .busca__fusao-nota {
+    max-width: none;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .busca__etapas li {
+    border-right: 0;
+    border-bottom: var(--borda-fina);
+  }
+
+  .busca__etapas li:last-child {
+    border-bottom: 0;
+  }
+
+  .busca__notas > div,
+  .busca__notas > div + div {
+    padding: 12px 0;
+    border-left: 0;
+    border-top: var(--borda-fina);
+  }
+
+  .busca__notas > div:first-child {
+    border-top: 0;
+  }
+
+  .contrato__desfechos > div {
+    border-right: 0;
+    border-bottom: var(--borda-fina);
+  }
+
+  .contrato__desfechos > div:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .linha-tempo {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    border-top: 0;
+  }
+
+  .linha-tempo__janela {
+    padding: 4px 0 12px 14px;
+    border-right: 0;
+    border-left: 2px solid var(--cor-borda-forte);
+  }
+
+  .linha-tempo__janela::before {
+    top: 4px;
+    left: -6px;
+  }
+
+  .dados__versao {
+    padding: 14px 16px 16px;
+  }
+
+  .dados__norma {
+    padding: 16px;
+  }
+
+  .dados__ficha {
+    padding: 16px;
+  }
+}

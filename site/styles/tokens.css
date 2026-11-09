@@ -1,0 +1,129 @@
+/* ==========================================================================
+   ZELIA · tokens da documentação
+   Fonte: Manual de Identidade Visual v1.0 (nov/2026) e
+   web/ui/styles/tokens.css. Nenhum valor de marca foi alterado.
+   ========================================================================== */
+
+:root {
+  /* --- Cor de marca ------------------------------------------------------ */
+  --zelia-azul: #2457d6;
+  --zelia-azul-escuro: #1b46b0;
+  --zelia-azul-claro: #dce5fd;
+  --zelia-lavanda: #e3e9ff;
+  --zelia-verde: #2e8b72;
+  --zelia-verde-escuro: #1f6b57;
+  --zelia-verde-claro: #d8e9df;
+  --zelia-sol: #f3b83f;
+  --zelia-sol-claro: #f7db8e;
+  --zelia-sol-texto: #7a4f00;
+  --zelia-aveia: #f5f0e7;
+  --zelia-areia: #eeeade;
+  --zelia-areia-clara: #f0ede5;
+  --zelia-branco: #fffdf8;
+  --zelia-tinta: #1e2a3a;
+  --zelia-nevoa: #edf0ed;
+
+  /* --- Cor semântica ----------------------------------------------------- */
+  --cor-fundo: var(--zelia-aveia);
+  --cor-superficie: var(--zelia-branco);
+  --cor-superficie-2: var(--zelia-areia-clara);
+  --cor-superficie-3: var(--zelia-lavanda);
+  --cor-texto: var(--zelia-tinta);
+  --cor-texto-suave: #5c6673;
+  --cor-texto-fraco: #78828a;
+  --cor-acao: var(--zelia-azul);
+  --cor-acao-hover: var(--zelia-azul-escuro);
+  --cor-acao-texto: var(--zelia-branco);
+  --cor-foco: var(--zelia-azul);
+  --cor-borda: #e7e2d8;
+  --cor-borda-forte: #d5d6d0;
+  --cor-divisor: #ece7dd;
+  --cor-sucesso: var(--zelia-verde-escuro);
+  --cor-sucesso-fundo: var(--zelia-verde-claro);
+  --cor-atencao: var(--zelia-sol-texto);
+  --cor-atencao-fundo: var(--zelia-sol-claro);
+  --cor-neutro: var(--cor-texto-suave);
+  --cor-neutro-fundo: #ede9e0;
+  --cor-emergencia: var(--zelia-azul);
+  --cor-emergencia-texto: var(--zelia-branco);
+
+  /* --- Tipografia -------------------------------------------------------- */
+  --fonte-texto: "Afacad Flux", system-ui, "Segoe UI", sans-serif;
+  --fonte-editorial: "Newsreader", Georgia, "Times New Roman", serif;
+  --fonte-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+
+  --peso-regular: 400;
+  --peso-medio: 500;
+  --peso-semi: 600;
+
+  --texto-capa: clamp(2.5rem, 1.55rem + 3.1vw, 3.75rem);
+  --texto-display: clamp(2.25rem, 1.55rem + 2.6vw, 3.25rem);
+  --texto-titulo: clamp(1.625rem, 1.35rem + 0.9vw, 2rem);
+  --texto-secao: clamp(1.75rem, 1.35rem + 1.15vw, 2.4rem);
+  --texto-subtitulo: 1.375rem;
+  --texto-corpo-g: 1.125rem;
+  --texto-corpo: 1rem;
+  --texto-pequeno: 0.875rem;
+  --texto-rotulo: 0.75rem;
+  --texto-micro: 0.6875rem;
+
+  --altura-display: 1.05;
+  --altura-titulo: 1.125;
+  --altura-corpo: 1.5;
+  --altura-pequeno: 1.45;
+
+  --tracking-display: -0.035em;
+  --tracking-titulo: -0.02em;
+  --tracking-rotulo: 0.13em;
+
+  /* --- Espaço (base 4) --------------------------------------------------- */
+  --esp-1: 4px;
+  --esp-2: 8px;
+  --esp-3: 12px;
+  --esp-4: 16px;
+  --esp-5: 20px;
+  --esp-6: 24px;
+  --esp-7: 32px;
+  --esp-8: 40px;
+  --esp-9: 48px;
+  --esp-10: 64px;
+  --esp-11: 80px;
+  --esp-12: 96px;
+
+  /* --- Forma ------------------------------------------------------------- */
+  --raio-xs: 8px;
+  --raio-sm: 12px;
+  --raio-md: 16px;
+  --raio-lg: 20px;
+  --raio-xl: 24px;
+  --raio-2xl: 32px;
+  --raio-pill: 999px;
+
+  --borda-fina: 1px solid var(--cor-borda);
+  --borda-campo: 1px solid var(--cor-borda-forte);
+  --sombra-1: 0 1px 2px rgba(30, 42, 58, 0.05);
+  --sombra-2: 0 18px 48px -18px rgba(30, 42, 58, 0.28), 0 2px 8px rgba(30, 42, 58, 0.06);
+  --anel-foco: 0 0 0 2px var(--cor-fundo), 0 0 0 4px var(--cor-foco);
+
+  /* --- Movimento --------------------------------------------------------- */
+  --mov-marca: 1200ms;
+  --mov-rapido: 160ms;
+  --mov-padrao: 240ms;
+  --mov-lento: 320ms;
+  --curva-padrao: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --curva-saida: cubic-bezier(0.4, 0, 1, 1);
+
+  /* --- Layout ------------------------------------------------------------ */
+  --largura-doc: 1160px;
+  --largura-leitura: 760px;
+  --largura-margem: 120px;
+  --altura-topo: 72px;
+  --goteira: 24px;
+  --goteira-pagina: clamp(16px, 3.4vw, 32px);
+
+  /* --- Código ------------------------------------------------------------ */
+  --codigo-fundo: #1e2a3a;
+  --codigo-texto: #f5f0e7;
+  --codigo-borda: #33415a;
+  --codigo-comentario: #aeb8c4;
+}

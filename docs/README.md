@@ -5,6 +5,9 @@ Documentação de arquitetura, dados e recuperação do protótipo do RES-IA Cha
 **Status:** definição inicial, 2026-11-05.
 **Natureza:** documento técnico. Não substitui revisão jurídica nem parecer de advogada(o).
 
+> **Documentação visual da entrega:** [thiago-cg.github.io/res-ia-challenge-2](https://thiago-cg.github.io/res-ia-challenge-2/).
+> A página resume o fluxo RAG, o modelo de dados, a avaliação e os limites; os documentos abaixo têm o detalhe.
+
 ## 1. O que é
 
 Um chatbot com RAG que responde dúvidas jurídicas de vítimas de violência doméstica com base em legislação, súmulas/teses e atos do CNJ. A resposta é explicativa: cada afirmação relevante aponta para um dispositivo recuperado, e a citação é montada pelo sistema a partir de metadados — nunca escrita livremente pelo LLM.

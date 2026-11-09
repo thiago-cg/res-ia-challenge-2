@@ -1,0 +1,1836 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ZELIA · Documentação da entrega — como funciona o RAG</title>
+  <meta name="description" content="Como o protótipo ZELIA recupera dispositivos legais, verifica cada citação e se abstém quando não há base. Documentação técnica da entrega do RES-IA Challenge 2.">
+  <meta name="page-type" content="software">
+  <meta name="site-kind" content="software">
+  <meta name="theme-color" content="#F5F0E7">
+  <meta name="color-scheme" content="light">
+
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://thiago-cg.github.io/res-ia-challenge-2/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="ZELIA">
+  <meta property="og:title" content="ZELIA · O caminho de uma pergunta até a lei">
+  <meta property="og:description" content="Documentação da entrega do protótipo RAG: risco antes da busca, recuperação com versão, citação verificada e abstenção segura.">
+  <meta property="og:url" content="https://thiago-cg.github.io/res-ia-challenge-2/">
+  <meta property="og:image" content="https://thiago-cg.github.io/res-ia-challenge-2/share.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="ZELIA: o caminho de uma pergunta até a lei. Risco antes da busca, citação verificada e abstenção segura.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ZELIA · O caminho de uma pergunta até a lei">
+  <meta name="twitter:description" content="Documentação da entrega do protótipo RAG: risco antes da busca, recuperação com versão, citação verificada e abstenção segura.">
+  <meta name="twitter:image" content="https://thiago-cg.github.io/res-ia-challenge-2/share.png">
+
+  <link rel="preload" href="assets/fonts/afacad-flux-latin-100-900-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/newsreader-italic-latin-200-800-italic.woff2" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="styles/fonts.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/site.css">
+  <link rel="stylesheet" href="styles/figuras.css">
+  <link rel="stylesheet" href="styles/fluxo.css">
+  <script>document.documentElement.classList.add("js");</script>
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <svg class="sr-only" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-seta-baixo" viewBox="0 0 24 24"><path d="M12 4v16M6 14l6 6 6-6"/></symbol>
+    <symbol id="i-seta-direita" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2.17c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.41-5.25 5.69.41.35.78 1.04.78 2.1v3.12c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5Z"/></symbol>
+    <symbol id="i-telefone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></symbol>
+    <symbol id="i-escudo" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-documento" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-alerta" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5M12 17h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+    <symbol id="i-banco" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+    <symbol id="i-busca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-codigo" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></symbol>
+    <symbol id="i-link-externo" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-cadeado" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-relogio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-check-circulo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  </svg>
+
+  <div class="faixa-emergencia">
+    <div class="wrap faixa-emergencia__interno">
+      <p>
+        <svg class="icone" aria-hidden="true"><use href="#i-telefone"></use></svg><strong>Em perigo agora?</strong> Ligue <a href="tel:190">190</a>.
+      </p>
+      <p>
+        Central de Atendimento à Mulher: <a href="tel:180">180</a> · Direitos Humanos: <a href="tel:100">100</a> · Polícia Civil: <a href="tel:197">197</a>
+      </p>
+    </div>
+  </div>
+
+  <header class="topo">
+    <div class="wrap topo__interno">
+      <a class="marca" href="#inicio" aria-label="ZELIA, documentação, início">
+        <img src="assets/brand/wordmark-azul.svg" alt="ZELIA" width="96" height="41">
+        <span class="marca__divisor" aria-hidden="true"></span>
+        <span class="marca__doc">Documentação</span>
+      </a>
+
+      <nav class="nav" aria-label="Seções da documentação">
+        <a href="#entrega">Entrega</a>
+        <a href="#fluxo">Fluxo</a>
+        <a href="#dados">Dados</a>
+        <a href="#recuperacao">Recuperação</a>
+        <a href="#avaliacao">Avaliação</a>
+        <a href="#limites">Limites</a>
+        <a href="#rodar">Rodar</a>
+      </nav>
+
+      <a class="botao botao--fantasma topo__github" href="https://github.com/thiago-cg/res-ia-challenge-2" target="_blank" rel="noopener noreferrer">
+        <svg class="icone icone--marca" aria-hidden="true"><use href="#i-github"></use></svg>
+        GitHub
+        <span class="sr-only">(abre em nova aba)</span>
+      </a>
+
+      <details class="menu-mobile">
+        <summary>
+          <svg class="icone" aria-hidden="true"><use href="#i-menu"></use></svg>
+          Menu
+        </summary>
+        <div class="menu-mobile__painel">
+          <a href="#entrega">Entrega</a>
+          <a href="#principio">Princípio</a>
+          <a href="#fluxo">Fluxo</a>
+          <a href="#dados">Dados</a>
+          <a href="#recuperacao">Recuperação</a>
+          <a href="#geracao">Geração e verificação</a>
+          <a href="#avaliacao">Avaliação</a>
+          <a href="#limites">Limites</a>
+          <a href="#rodar">Rodar</a>
+          <a href="#referencias">Referências</a>
+          <div class="menu-mobile__separador" aria-hidden="true"></div>
+          <a href="https://github.com/thiago-cg/res-ia-challenge-2" target="_blank" rel="noopener noreferrer">Repositório no GitHub</a>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <section class="capa" id="inicio" aria-labelledby="titulo-capa">
+      <div class="wrap capa__grade">
+        <div class="capa__texto">
+          <p class="capa__data">RES-IA Challenge 2 · documentação da entrega · novembro de 2026</p>
+          <h1 id="titulo-capa">O caminho de uma pergunta até a lei.</h1>
+          <p class="capa__linha">O ZELIA recebe uma dúvida sobre violência doméstica, decide se há risco imediato, recupera dispositivos legais oficiais e só responde com citação verificada. Quando não há base, ele diz isso.</p>
+
+          <div class="capa__acoes">
+            <a class="botao" href="#fluxo">
+              Percorrer o fluxo
+              <svg class="icone" aria-hidden="true"><use href="#i-seta-baixo"></use></svg>
+            </a>
+            <a class="botao botao--secundario" href="#avaliacao">Ver os números</a>
+          </div>
+
+          <p class="capa__meta">
+            <span>4.959 versões indexadas</span>
+            <span>150 perguntas no teste ponta a ponta</span>
+            <span>revisão jurídica pendente</span>
+          </p>
+
+          <p class="capa__aviso">
+            <svg class="icone" aria-hidden="true"><use href="#i-info"></use></svg>
+            Protótipo técnico. Orientação informativa; não substitui atendimento jurídico individual.
+          </p>
+        </div>
+
+        <figure class="percurso">
+          <figcaption class="percurso__titulo">O percurso de uma resposta</figcaption>
+          <ol class="percurso__lista">
+            <li class="percurso__etapa">
+              <span class="percurso__ponto">01</span>
+              <div>
+                <strong>Pergunta</strong>
+                <p>Uma dúvida em linguagem comum, com a data do fato quando ela existe.</p>
+              </div>
+            </li>
+            <li class="percurso__etapa">
+              <span class="percurso__ponto">02</span>
+              <div>
+                <strong>Risco antes da busca</strong>
+                <p>Perigo imediato recebe 190 e 180 sem tocar no banco, no índice ou no modelo.</p>
+              </div>
+            </li>
+            <li class="percurso__etapa">
+              <span class="percurso__ponto">03</span>
+              <div>
+                <strong>Recuperação com versão</strong>
+                <p>Busca híbrida, dedupe por artigo e hidratação por dispositivo e versão.</p>
+              </div>
+            </li>
+            <li class="percurso__etapa">
+              <span class="percurso__ponto">04</span>
+              <div>
+                <strong>Verificação e citação</strong>
+                <p>O modelo devolve IDs; o sistema monta a citação e aceita ou abstém.</p>
+              </div>
+            </li>
+          </ol>
+          <p class="percurso__saida">
+            <svg class="icone" aria-hidden="true"><use href="#i-telefone"></use></svg>Se houver perigo agora, o fluxo termina antes da busca: <a href="tel:190">190</a> e <a href="tel:180">180</a>.
+          </p>
+        </figure>
+      </div>
+    </section>
+
+    <section class="secao" id="entrega" aria-labelledby="titulo-entrega">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">01</span>
+          <span class="margem__rotulo">Entrega</span>
+        </div>
+        <div class="conteudo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-entrega">O que está pronto, o que foi medido e o que falta.</h2>
+            <p class="linha-fina">Esta página documenta um protótipo técnico, não um produto publicado. A tabela separa o que rodou de verdade do que ainda depende de revisão humana.</p>
+          </header>
+
+          <div class="prosa">
+            <p>O sistema responde perguntas jurídicas de mulheres em situação de violência doméstica com base em dispositivos oficiais. Ele não dá veredito sobre o caso, não promete resultado e não substitui a Defensoria Pública. A resposta mostra a fonte; quando não há evidência suficiente, o sistema se abstém.</p>
+            <p>A stack do protótipo é Python 3.12 com FastAPI, Postgres com pgvector, Qdrant 1.15.3, Qwen3 Embedding 8B via OpenRouter e <code>deepseek/deepseek-v4.1-flash-1017</code> como gerador, com o provedor fixado em <code>deepinfra/fp8</code>. O app padrão usa <code>LLM_PROVIDER=mock</code>; os números desta página vêm das rodadas com o provedor real.</p>
+          </div>
+
+          <div class="tabela">
+            <table>
+              <caption>Estado da entrega em 9 de novembro de 2026</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Componente</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">O que foi feito</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Carga e índice</th>
+                  <td><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>Parcial</span></td>
+                  <td>4.959 versões de dispositivo carregadas e indexadas no Qdrant, em 4096 dimensões. O download ao vivo das fontes não foi repetido nesta rodada.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Busca híbrida</th>
+                  <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
+                  <td>Postgres FTS e Qdrant denso, com RRF, expansão determinística e teto de 3 por artigo. Medida em 110 perguntas respondíveis.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Geração e verificação</th>
+                  <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
+                  <td>150 perguntas com chamadas reais ao provedor. O modelo devolve IDs; a citação é montada a partir do banco e verificada por código.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Segurança e emergência</th>
+                  <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
+                  <td>20 de 20 emergências roteadas e 0 falso-positivo em 130 perguntas não-emergência, após a reescrita do classificador.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Caminho alvo 9B/0.6B</th>
+                  <td><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>Parcial</span></td>
+                  <td>O código existe atrás de <code>RETRIEVAL_PATH=target</code>. Os artefatos locais são GGUF; o caminho exige safetensors e um searcher Qdrant injetado.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Latência</th>
+                  <td><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>Não atingiu</span></td>
+                  <td>p95 de 68,2 s contra um orçamento de 8 s. A p50 ficou em 24,5 s. O uso interativo ainda não está resolvido.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Revisão jurídica</th>
+                  <td><span class="estado estado--pendente"><svg class="icone" aria-hidden="true"><use href="#i-relogio"></use></svg>Pendente</span></td>
+                  <td>Nenhuma advogada, defensora ou pessoa da rede de atendimento revisou prompt, textos ou respostas. Os gates G4 e G6 seguem abertos.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="duas-colunas mt-8">
+            <div class="prosa">
+              <h3>O que o ZELIA é</h3>
+              <ul>
+                <li>Um assistente que explica direitos, prazos e caminhos com base em textos legais oficiais.</li>
+                <li>Um sistema que cita o dispositivo recuperado e mostra a fonte em vez de escrever a citação de memória.</li>
+                <li>Um sistema que desvia risco imediato para 190 e 180 antes de qualquer busca.</li>
+                <li>Um protótipo auditável: a mesma pergunta produz a mesma recuperação, sem reescrita por LLM no caminho padrão.</li>
+              </ul>
+            </div>
+            <div class="prosa">
+              <h3>O que ele não é</h3>
+              <ul>
+                <li>Não é advogada, Defensoria, juíza ou órgão de segurança pública.</li>
+                <li>Não dá veredito, não promete resultado e não substitui atendimento presencial.</li>
+                <li>Não usa Jusbrasil nem doutrina raspada. Doutrina está fora do MVP por restrição de licença.</li>
+                <li>Não está pronto para publicação: faltam revisão jurídica humana, aprovação nos limiares de avaliação e latência interativa.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="nota nota--neutra mt-7">
+            <p class="nota__titulo">
+              <svg class="icone" aria-hidden="true"><use href="#i-info"></use></svg>
+              Onde não houve medição, está escrito.
+            </p>
+            <p>Os números desta página vêm dos relatórios de 7 e 9 de novembro de 2026. Eles comparam estratégias no mesmo corpus e no mesmo conjunto de perguntas. Não são uma medida de cobertura da lei e não substituem avaliação humana.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="secao" id="principio" aria-labelledby="titulo-principio">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">02</span>
+          <span class="margem__rotulo">Princípio</span>
+        </div>
+        <div class="conteudo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-principio">A resposta obedece a quatro regras antes de obedecer ao modelo.</h2>
+            <p class="linha-fina">O LLM é a última peça, não a primeira. Risco, versão, formato da citação e abstenção são decididos por código determinístico.</p>
+          </header>
+
+          <ol class="regras">
+            <li>
+              <span class="regras__numero">01</span>
+              <div>
+                <h3>Risco imediato não passa pelo RAG.</h3>
+                <p>Um classificador roda antes de qualquer busca. Se a mensagem descreve perigo agora, a resposta é o bloco fixo com 190, 180, 100 e 197. O banco, o índice e o modelo não são chamados.</p>
+              </div>
+            </li>
+            <li>
+              <span class="regras__numero">02</span>
+              <div>
+                <h3>Sem ID recuperado, não há afirmação jurídica.</h3>
+                <p>O modelo escolhe <code>device_id</code>s do contexto. Ele não escreve o número do artigo nem monta a citação. Quem formata "Lei nº 11.340/2006, art. 7º, caput, inciso III" é o sistema, a partir dos metadados do banco.</p>
+              </div>
+            </li>
+            <li>
+              <span class="regras__numero">03</span>
+              <div>
+                <h3>A lei tem data.</h3>
+                <p>Cada dispositivo é identificado pelo par <code>(device_id, norm_version_id)</code>. Quando a pergunta traz a data do fato, a recuperação filtra a versão vigente naquela data. O modelo nunca escolhe a versão.</p>
+              </div>
+            </li>
+            <li>
+              <span class="regras__numero">04</span>
+              <div>
+                <h3>Na dúvida, abstenção.</h3>
+                <p>O verificador confere se a citação existe no contexto, se a versão confere, se o texto citado é o literal do banco e se toda afirmação tem lastro. Se algo falha depois das duas tentativas, a resposta segura substitui a resposta.</p>
+              </div>
+            </li>
+          </ol>
+
+          <div class="divisao-decisao">
+            <div class="divisao-decisao__lado">
+              <h3>Decidido por código</h3>
+              <ul>
+                <li>Se a mensagem é emergência.</li>
+                <li>Quais dispositivos entram no contexto.</li>
+                <li>Qual versão da lei vale para a data do fato.</li>
+                <li>Como a citação é escrita.</li>
+                <li>Se a resposta é aceita ou se vira abstenção.</li>
+              </ul>
+            </div>
+            <div class="divisao-decisao__lado">
+              <h3>Decidido pelo modelo</h3>
+              <ul>
+                <li>Como explicar o dispositivo em linguagem simples.</li>
+                <li>Quais dispositivos do contexto sustentam cada afirmação.</li>
+                <li>Quais próximos passos e encaminhamentos apresentar.</li>
+                <li>Se o contexto é insuficiente para responder.</li>
+              </ul>
+            </div>
+          </div>
+
+          <blockquote class="citacao-editorial">
+            <p>Tudo que adicionou julgamento de LLM no laço perdeu. Tudo que adicionou estrutura determinística da lei ganhou.</p>
+            <footer>Síntese do benchmark de recuperação, novembro de 2026</footer>
+          </blockquote>
+
+          <div class="nota">
+            <p class="nota__titulo">
+              <svg class="icone" aria-hidden="true"><use href="#i-escudo"></use></svg>
+              O texto recuperado é dado, nunca instrução.
+            </p>
+            <p>Os dispositivos entram no prompt dentro de <code>&lt;documento&gt;</code>, depois de sanitização. O prompt de sistema manda ignorar qualquer ordem que apareça dentro do texto legal. A saída do modelo ainda passa por um parser que só aceita IDs presentes no contexto.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEÇÃO 03 · FLUXO -->
+    <section class="secao secao--faixa secao--larga" id="fluxo" aria-labelledby="titulo-fluxo">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">03</span>
+          <span class="margem__rotulo">Fluxo</span>
+        </div>
+        <div class="conteudo conteudo--largo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-fluxo">Oito etapas entre a pergunta e a resposta.</h2>
+            <p class="linha-fina">Cada etapa tem uma entrada, uma decisão e uma saída. O painel mostra o que o sistema faz e, principalmente, o que ele se recusa a fazer.</p>
+          </header>
+
+          <div class="prosa mb-6">
+            <p>Recuperação aumentada por geração, aqui, significa uma coisa específica: buscar o texto legal antes de responder e limitar o modelo a esse texto. A resposta não vem da memória do modelo. O fluxo abaixo é o caminho completo, incluindo as saídas que não produzem uma resposta.</p>
+          </div>
+
+          <!-- Mapa interativo das oito etapas do fluxo RAG. -->
+<div class="fluxo" data-fluxo>
+  <div class="fluxo__barra">
+    <p class="fluxo__estado" aria-live="polite" aria-atomic="true">
+      <span class="fluxo__estado-contagem">Etapa <span data-fluxo-numero>1</span> de 8</span>
+      <span class="fluxo__estado-nome" data-fluxo-nome>Pergunta</span>
+      <span class="fluxo__estado-sem-js">Oito etapas em sequência</span>
+    </p>
+
+    <button class="botao fluxo__controle" type="button" data-fluxo-controle>
+      <span data-fluxo-rotulo>Percorrer o fluxo</span>
+      <svg class="icone fluxo__controle-icone" data-fluxo-icone="play" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seta-direita"></use></svg>
+      <svg class="icone fluxo__controle-icone" data-fluxo-icone="pausa" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M9 5v14M15 5v14"/></svg>
+      <svg class="icone fluxo__controle-icone" data-fluxo-icone="voltar" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/></svg>
+    </button>
+
+    <p class="fluxo__movimento" data-fluxo-movimento hidden>
+      <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"></use></svg>
+      Reprodução automática desligada pela preferência de movimento.
+    </p>
+
+    <div class="fluxo__progresso" aria-hidden="true">
+      <span class="fluxo__progresso-valor" data-fluxo-progresso></span>
+    </div>
+  </div>
+
+  <noscript>
+    <p class="fluxo__noscript">Sem JavaScript, as oito etapas aparecem em sequência e a lista de etapas funciona como sumário.</p>
+  </noscript>
+
+  <div class="fluxo__grade">
+    <div class="fluxo__rail">
+      <nav class="fluxo__sumario" aria-label="Sumário das etapas">
+        <p class="fluxo__sumario-titulo">Etapas</p>
+        <ol class="fluxo__sumario-lista">
+          <li><a href="#fluxo-painel-1"><span class="fluxo__sumario-num" aria-hidden="true">01</span><span class="fluxo__sumario-nome">Pergunta</span></a></li>
+          <li><a href="#fluxo-painel-2"><span class="fluxo__sumario-num" aria-hidden="true">02</span><span class="fluxo__sumario-nome">Portão de risco</span></a></li>
+          <li><a href="#fluxo-painel-3"><span class="fluxo__sumario-num" aria-hidden="true">03</span><span class="fluxo__sumario-nome">Citação explícita</span></a></li>
+          <li><a href="#fluxo-painel-4"><span class="fluxo__sumario-num" aria-hidden="true">04</span><span class="fluxo__sumario-nome">Entendimento e expansão</span></a></li>
+          <li><a href="#fluxo-painel-5"><span class="fluxo__sumario-num" aria-hidden="true">05</span><span class="fluxo__sumario-nome">Busca híbrida</span></a></li>
+          <li><a href="#fluxo-painel-6"><span class="fluxo__sumario-num" aria-hidden="true">06</span><span class="fluxo__sumario-nome">Seleção e contexto</span></a></li>
+          <li><a href="#fluxo-painel-7"><span class="fluxo__sumario-num" aria-hidden="true">07</span><span class="fluxo__sumario-nome">Geração</span></a></li>
+          <li><a href="#fluxo-painel-8"><span class="fluxo__sumario-num" aria-hidden="true">08</span><span class="fluxo__sumario-nome">Verificação e saída</span></a></li>
+        </ol>
+      </nav>
+
+      <div class="fluxo__abas">
+        <span class="fluxo__pulso" data-fluxo-pulso aria-hidden="true"></span>
+        <div class="fluxo__lista" role="tablist" aria-label="Etapas do fluxo" aria-orientation="vertical">
+          <button class="fluxo__aba" type="button" role="tab" id="fluxo-aba-1" aria-controls="fluxo-painel-1" aria-selected="true" tabindex="0">
+            <span class="fluxo__aba-num" aria-hidden="true">01</span>
+            <span class="fluxo__aba-nome">Pergunta</span>
+          </button>
+          <button class="fluxo__aba" type="button" role="tab" id="fluxo-aba-2" aria-controls="fluxo-painel-2" aria-selected="false" tabindex="-1">
+            <span class="fluxo__aba-num" aria-hidden="true">02</span>
+            <span class="fluxo__aba-nome">Portão de risco</span>
+            <span class="fluxo__aba-marca" aria-hidden="true"><svg class="icone" viewBox="0 0 24 24"><use href="#i-seta-direita"></use></svg></span>
+          </button>
+          <button class="fluxo__aba" type="button" role="tab" id="fluxo-aba-3" aria-controls="fluxo-painel-3" aria-selected="false" tabindex="-1">
+            <span class="fluxo__aba-num" aria-hidden="true">03</span>
+            <span class="fluxo__aba-nome">Citação explícita</span>
+            <span class="fluxo__aba-marca" aria-hidden="true"><svg class="icone" viewBox="0 0 24 24"><use href="#i-seta-direita"></use></svg></span>
+          </button>
+          <button class="fluxo__aba" type="button" role="tab" id="fluxo-aba-4" aria-controls="fluxo-painel-4" aria-selected="false" tabindex="-1">
+            <span class="fluxo__aba-num" aria-hidden="true">04</span>
+            <span class="fluxo__aba-nome">Entendimento e expansão</span>
+          </button>
+          <button class="fluxo__aba" type="button" role="tab" id="fluxo-aba-5" aria-controls="fluxo-painel-5" aria-selected="false" tabindex="-1">
+            <span class="fluxo__aba-num" aria-hidden="true">05</span>
+            <span class="fluxo__aba-nome">Busca híbrida</span>
+          </button>
+          <button class="fluxo__aba" type="button" role="tab" id="fluxo-aba-6" aria-controls="fluxo-painel-6" aria-selected="false" tabindex="-1">
+            <span class="fluxo__aba-num" aria-hidden="true">06</span>
+            <span class="fluxo__aba-nome">Seleção e contexto</span>
+          </button>
+          <button class="fluxo__aba" type="button" role="tab" id="fluxo-aba-7" aria-controls="fluxo-painel-7" aria-selected="false" tabindex="-1">
+            <span class="fluxo__aba-num" aria-hidden="true">07</span>
+            <span class="fluxo__aba-nome">Geração</span>
+          </button>
+          <button class="fluxo__aba" type="button" role="tab" id="fluxo-aba-8" aria-controls="fluxo-painel-8" aria-selected="false" tabindex="-1">
+            <span class="fluxo__aba-num" aria-hidden="true">08</span>
+            <span class="fluxo__aba-nome">Verificação e saída</span>
+            <span class="fluxo__aba-marca" aria-hidden="true"><svg class="icone" viewBox="0 0 24 24"><use href="#i-seta-direita"></use></svg></span>
+          </button>
+        </div>
+      </div>
+
+      <p class="fluxo__legenda">
+        <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seta-direita"></use></svg>
+        <span><strong>Saídas não lineares:</strong> 02 emergência, 03 citação explícita, 08 abstenção.</span>
+      </p>
+    </div>
+
+    <div class="fluxo__painel-area">
+      <section class="fluxo__painel fluxo__painel--ativo" id="fluxo-painel-1" role="tabpanel" aria-labelledby="fluxo-aba-1" tabindex="0">
+        <div class="fluxo__painel-topo">
+          <p class="fluxo__rotulo">Etapa 01</p>
+        </div>
+        <h3>Pergunta</h3>
+        <p class="fluxo__resumo">A mensagem chega em linguagem comum. O sistema extrai a data do fato quando ela aparece e não pede dados pessoais.</p>
+        <dl class="fluxo__ficha">
+          <div class="fluxo__ficha-linha">
+            <dt>Entra</dt>
+            <dd>Mensagem da pessoa; data do fato opcional.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Faz</dt>
+            <dd>Extrai expressões como “há dois anos” ou “em 2023” e mantém a pergunta original como consulta.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Sai</dt>
+            <dd>Texto da pergunta e fatos da consulta.</dd>
+          </div>
+          <div class="fluxo__ficha-linha fluxo__ficha-linha--recusa">
+            <dt>
+              <svg class="icone fluxo__ficha-icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alerta"></use></svg>
+              O que não acontece
+            </dt>
+            <dd>Pedir nome, CPF, endereço ou documento. A interface avisa sobre PII antes do envio.</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="fluxo__painel" id="fluxo-painel-2" role="tabpanel" aria-labelledby="fluxo-aba-2" tabindex="0">
+        <div class="fluxo__painel-topo">
+          <p class="fluxo__rotulo">Etapa 02</p>
+          <p class="fluxo__marca-saida">
+            <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seta-direita"></use></svg>
+            saída não linear
+          </p>
+        </div>
+        <h3>Portão de risco</h3>
+        <p class="fluxo__resumo">Antes de qualquer busca, um classificador determinístico decide se a pessoa está em perigo agora.</p>
+        <dl class="fluxo__ficha">
+          <div class="fluxo__ficha-linha">
+            <dt>Entra</dt>
+            <dd>Mensagem normalizada, sem acentos.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Faz</dt>
+            <dd>Três camadas: formas iminentes; habituais com marcador de presente; passadas, exceto pergunta sobre prazo ou “só agora”.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Sai</dt>
+            <dd>Bloco fixo com 190, 180, 100 e 197; ou segue para a próxima etapa.</dd>
+          </div>
+          <div class="fluxo__ficha-linha fluxo__ficha-linha--recusa">
+            <dt>
+              <svg class="icone fluxo__ficha-icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alerta"></use></svg>
+              O que não acontece
+            </dt>
+            <dd>Deixar a emergência para o LLM. Tocar no banco, no índice ou no modelo antes do risco.</dd>
+          </div>
+        </dl>
+        <p class="fluxo__detalhe">
+          <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"></use></svg>
+          <span><strong>20/20</strong> emergências roteadas; <strong>0</strong> falso-positivo em 130 perguntas não-emergência.</span>
+        </p>
+        <div class="codigo fluxo__codigo">
+          <div class="codigo__topo"><span>Trecho</span></div>
+          <pre><code><span class="tok-chave">if</span> classify_risk(message).immediate:
+    <span class="tok-chave">return</span> emergency_answer()</code></pre>
+        </div>
+      </section>
+
+      <section class="fluxo__painel" id="fluxo-painel-3" role="tabpanel" aria-labelledby="fluxo-aba-3" tabindex="0">
+        <div class="fluxo__painel-topo">
+          <p class="fluxo__rotulo">Etapa 03</p>
+          <p class="fluxo__marca-saida">
+            <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seta-direita"></use></svg>
+            saída não linear
+          </p>
+        </div>
+        <h3>Citação explícita</h3>
+        <p class="fluxo__resumo">Se a pergunta já nomeia um artigo, o sistema tenta resolver a citação diretamente, sem busca híbrida.</p>
+        <dl class="fluxo__ficha">
+          <div class="fluxo__ficha-linha">
+            <dt>Entra</dt>
+            <dd>Menção como “art. 7º”, “24-A, III” ou “artigo 22, inciso III, alínea b”.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Faz</dt>
+            <dd>Interpreta norma, artigo, parágrafo, inciso e alínea; consulta o catálogo; escolhe a versão pela data do fato.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Sai</dt>
+            <dd>Dispositivo explícito hidratado; ou abstenção “citação explícita não encontrada”.</dd>
+          </div>
+          <div class="fluxo__ficha-linha fluxo__ficha-linha--recusa">
+            <dt>
+              <svg class="icone fluxo__ficha-icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alerta"></use></svg>
+              O que não acontece
+            </dt>
+            <dd>Cair em silêncio para a busca híbrida quando a citação pedida não existe.</dd>
+          </div>
+        </dl>
+        <div class="codigo fluxo__codigo">
+          <div class="codigo__topo"><span>Trecho</span></div>
+          <pre><code><span class="tok-verde">resolve_explicit_citation</span>(message, catalog=..., data_fato=...)</code></pre>
+        </div>
+      </section>
+
+      <section class="fluxo__painel" id="fluxo-painel-4" role="tabpanel" aria-labelledby="fluxo-aba-4" tabindex="0">
+        <div class="fluxo__painel-topo">
+          <p class="fluxo__rotulo">Etapa 04</p>
+        </div>
+        <h3>Entendimento e expansão</h3>
+        <p class="fluxo__resumo">A consulta ganha vocabulário jurídico por regras determinísticas. A pergunta original não é substituída.</p>
+        <dl class="fluxo__ficha">
+          <div class="fluxo__ficha-linha">
+            <dt>Entra</dt>
+            <dd>Pergunta e fatos da consulta.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Faz</dt>
+            <dd>Mapeia linguagem coloquial para termos legais: “ameaça” vira art. 147, prazo de 12 meses e violência doméstica. Mantém a consulta original.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Sai</dt>
+            <dd>Consulta expandida; no padrão, uma subpergunta.</dd>
+          </div>
+          <div class="fluxo__ficha-linha fluxo__ficha-linha--recusa">
+            <dt>
+              <svg class="icone fluxo__ficha-icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alerta"></use></svg>
+              O que não acontece
+            </dt>
+            <dd>Reescrever a pergunta com LLM por padrão. A reescrita perdeu 22 pontos de recall.</dd>
+          </div>
+        </dl>
+        <div class="codigo fluxo__codigo">
+          <div class="codigo__topo"><span>Trecho</span></div>
+          <pre><code><span class="tok-verde">expand_legal_query</span>(text)  <span class="tok-comentario"># acrescenta termos curados</span></code></pre>
+        </div>
+      </section>
+
+      <section class="fluxo__painel" id="fluxo-painel-5" role="tabpanel" aria-labelledby="fluxo-aba-5" tabindex="0">
+        <div class="fluxo__painel-topo">
+          <p class="fluxo__rotulo">Etapa 05</p>
+        </div>
+        <h3>Busca híbrida</h3>
+        <p class="fluxo__resumo">Duas buscas independentes rodam no mesmo recorte de vigência e são fundidas por posição.</p>
+        <dl class="fluxo__ficha">
+          <div class="fluxo__ficha-linha">
+            <dt>Entra</dt>
+            <dd>Consulta expandida e data do fato.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Faz</dt>
+            <dd>Postgres FTS sobre <code>search_text</code> sem acentos; Qdrant denso 4096d; RRF k=60 com peso lexical 0,2; filtro de versão.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Sai</dt>
+            <dd>Candidatos fundidos, até 50 por perna.</dd>
+          </div>
+          <div class="fluxo__ficha-linha fluxo__ficha-linha--recusa">
+            <dt>
+              <svg class="icone fluxo__ficha-icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alerta"></use></svg>
+              O que não acontece
+            </dt>
+            <dd>Confiar num único índice. Peso lexical 1,0 derruba o recall para 0,576.</dd>
+          </div>
+        </dl>
+        <div class="codigo fluxo__codigo">
+          <div class="codigo__topo"><span>Trecho</span></div>
+          <pre><code><span class="tok-verde">hybrid_search</span>(plan, dense=..., fts=..., lexical_weight=0.2)</code></pre>
+        </div>
+      </section>
+
+      <section class="fluxo__painel" id="fluxo-painel-6" role="tabpanel" aria-labelledby="fluxo-aba-6" tabindex="0">
+        <div class="fluxo__painel-topo">
+          <p class="fluxo__rotulo">Etapa 06</p>
+        </div>
+        <h3>Seleção e contexto</h3>
+        <p class="fluxo__resumo">O sistema remove o excesso do mesmo artigo, preserva a ordem e hidrata cada dispositivo na versão certa.</p>
+        <dl class="fluxo__ficha">
+          <div class="fluxo__ficha-linha">
+            <dt>Entra</dt>
+            <dd>Candidatos fundidos.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Faz</dt>
+            <dd>Teto de 3 por artigo com ordem global preservada; expansão para o artigo quando ele existe; hidratação por <code>(device_id, norm_version_id)</code>; orçamento de 6.000 tokens.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Sai</dt>
+            <dd>Até 10 dispositivos com texto literal, citação e metadados.</dd>
+          </div>
+          <div class="fluxo__ficha-linha fluxo__ficha-linha--recusa">
+            <dt>
+              <svg class="icone fluxo__ficha-icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alerta"></use></svg>
+              O que não acontece
+            </dt>
+            <dd>Promover a linha do artigo para o topo do grupo. A mudança custou 11 pontos e foi removida.</dd>
+          </div>
+        </dl>
+        <div class="codigo fluxo__codigo">
+          <div class="codigo__topo"><span>Trecho</span></div>
+          <pre><code><span class="tok-verde">dedupe_by_artigo</span>(ranked, max_per_article=3)[:10]</code></pre>
+        </div>
+      </section>
+
+      <section class="fluxo__painel" id="fluxo-painel-7" role="tabpanel" aria-labelledby="fluxo-aba-7" tabindex="0">
+        <div class="fluxo__painel-topo">
+          <p class="fluxo__rotulo">Etapa 07</p>
+        </div>
+        <h3>Geração</h3>
+        <p class="fluxo__resumo">O modelo recebe o contexto delimitado e devolve um JSON com IDs, não com citações escritas à mão.</p>
+        <dl class="fluxo__ficha">
+          <div class="fluxo__ficha-linha">
+            <dt>Entra</dt>
+            <dd>Prompt v2 e até 10 dispositivos.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Faz</dt>
+            <dd>Explica, escolhe IDs e propõe próximos passos. O parser valida o schema e rejeita ID fora do contexto; até duas tentativas com feedback.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Sai</dt>
+            <dd>Resposta e <code>citacoes[{device_id, afirmacao}]</code>.</dd>
+          </div>
+          <div class="fluxo__ficha-linha fluxo__ficha-linha--recusa">
+            <dt>
+              <svg class="icone fluxo__ficha-icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alerta"></use></svg>
+              O que não acontece
+            </dt>
+            <dd>Aceitar artigo inventado, markdown fora do JSON ou conhecimento fora do contexto.</dd>
+          </div>
+        </dl>
+        <p class="fluxo__detalhe">
+          <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"></use></svg>
+          <span>Regra do prompt: use apenas os dispositivos fornecidos no contexto.</span>
+        </p>
+      </section>
+
+      <section class="fluxo__painel" id="fluxo-painel-8" role="tabpanel" aria-labelledby="fluxo-aba-8" tabindex="0">
+        <div class="fluxo__painel-topo">
+          <p class="fluxo__rotulo">Etapa 08</p>
+          <p class="fluxo__marca-saida">
+            <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seta-direita"></use></svg>
+            saída não linear
+          </p>
+        </div>
+        <h3>Verificação e saída</h3>
+        <p class="fluxo__resumo">O verificador confere cada citação contra o banco. Só então a resposta é renderizada com fontes.</p>
+        <dl class="fluxo__ficha">
+          <div class="fluxo__ficha-linha">
+            <dt>Entra</dt>
+            <dd>Resposta e dispositivos recuperados.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Faz</dt>
+            <dd>Confere par e versão, metadados, texto literal, aspas e lastro de cada afirmação. Aceita, regenera uma vez ou abstém.</dd>
+          </div>
+          <div class="fluxo__ficha-linha">
+            <dt>Sai</dt>
+            <dd>Resposta com citação canônica e fontes; ou abstenção segura com motivo.</dd>
+          </div>
+          <div class="fluxo__ficha-linha fluxo__ficha-linha--recusa">
+            <dt>
+              <svg class="icone fluxo__ficha-icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alerta"></use></svg>
+              O que não acontece
+            </dt>
+            <dd>Publicar citação sem lastro. Ocultar a falha atrás de uma resposta plausível.</dd>
+          </div>
+        </dl>
+        <div class="codigo fluxo__codigo">
+          <div class="codigo__topo"><span>Trecho</span></div>
+          <pre><code><span class="tok-verde">verify</span>(answer, retrieved, repo=repo)  <span class="tok-comentario"># accept | regenerate | abstain</span></code></pre>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <aside class="fluxo__emergencia" aria-labelledby="fluxo-emergencia-titulo">
+    <div class="fluxo__emergencia-texto">
+      <p class="fluxo__emergencia-rotulo">
+        <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alerta"></use></svg>
+        Saída de emergência
+      </p>
+      <p class="fluxo__emergencia-titulo" id="fluxo-emergencia-titulo">Se a etapa 2 dispara, o fluxo termina aqui.</p>
+      <p class="fluxo__emergencia-desc">O bloco fixo é devolvido antes de qualquer busca, sem tocar no banco, no índice ou no modelo.</p>
+    </div>
+    <ul class="fluxo__telefones" aria-label="Telefones de emergência">
+      <li><a href="tel:190"><span class="fluxo__tel-numero">190</span><span class="fluxo__tel-nome">Polícia</span></a></li>
+      <li><a href="tel:180"><span class="fluxo__tel-numero">180</span><span class="fluxo__tel-nome">Central&nbsp;da&nbsp;Mulher</span></a></li>
+      <li><a href="tel:100"><span class="fluxo__tel-numero">100</span><span class="fluxo__tel-nome">Direitos&nbsp;Humanos</span></a></li>
+      <li><a href="tel:197"><span class="fluxo__tel-numero">197</span><span class="fluxo__tel-nome">Polícia&nbsp;Civil</span></a></li>
+    </ul>
+  </aside>
+</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEÇÃO 04 · DADOS -->
+    <section class="secao" id="dados" aria-labelledby="titulo-dados">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">04</span>
+          <span class="margem__rotulo">Dados</span>
+        </div>
+        <div class="conteudo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-dados">A lei vira uma árvore, e cada folha tem uma data.</h2>
+            <p class="linha-fina">A unidade indexada é o dispositivo: artigo, parágrafo, inciso, alínea. Normas e versões ficam no Postgres; o Qdrant guarda os vetores.</p>
+          </header>
+
+          <div class="prosa mb-6">
+            <p>Um bloco fixo de 500 tokens corta o artigo no meio e mistura incisos de normas diferentes. O dispositivo é a menor unidade que pode ser citada, hidratada e verificada. Por isso o índice não guarda "pedaços de texto": guarda folhas da árvore legal, cada uma com um identificador e uma janela de vigência.</p>
+          </div>
+
+          <figure class="figura figura-dados" aria-labelledby="figura-dados-titulo">
+  <header class="figura__cabecalho">
+    <p class="figura__rotulo">Figura 1 · Modelo de dados</p>
+    <h3 id="figura-dados-titulo">Da norma ao dispositivo, com versão.</h3>
+    <p class="figura__linha">A árvore legal é a unidade de indexação. O Postgres guarda o texto e a janela de vigência; o Qdrant guarda o vetor. A hidratação junta os dois pelo par <code>(device_id, norm_version_id)</code>.</p>
+  </header>
+
+  <div class="dados">
+    <div class="dados__topo">
+      <div class="dados__norma">
+        <p class="dados__tag">Norma</p>
+        <p class="dados__id"><code>lmp</code></p>
+        <h4>Lei nº 11.340/2006</h4>
+        <p class="dados__subtitulo">Lei Maria da Penha</p>
+      </div>
+      <dl class="dados__numeros">
+        <div><dt>Normas</dt><dd>5</dd></div>
+        <div><dt>Artigos</dt><dd>1.312</dd></div>
+        <div><dt>Versões de dispositivo</dt><dd>4.959</dd></div>
+      </dl>
+    </div>
+
+    <div class="dados__versao">
+      <div class="dados__versao-topo">
+        <p class="dados__tag">Versão</p>
+        <p>Cada linha tem uma janela de vigência. O modelo não escolhe a versão; a data do fato escolhe.</p>
+      </div>
+      <ol class="linha-tempo" aria-label="Exemplo de janelas de vigência">
+        <li class="linha-tempo__janela">
+          <span class="linha-tempo__rotulo">vigência anterior</span>
+          <small>v1 · encerrada</small>
+        </li>
+        <li class="linha-tempo__janela is-atual">
+          <span class="linha-tempo__rotulo">vigência na data do fato</span>
+          <small>v2 · selecionada</small>
+        </li>
+        <li class="linha-tempo__janela">
+          <span class="linha-tempo__rotulo">vigência posterior</span>
+          <small>v3 · futura</small>
+        </li>
+      </ol>
+      <p class="dados__marcador"><span aria-hidden="true"></span><strong>Exemplo esquemático.</strong> Os identificadores e as datas mudam por norma; o mecanismo é o mesmo.</p>
+    </div>
+
+    <div class="dados__corpo">
+      <div class="dados__arvore">
+        <div class="dados__artigo">
+          <p class="dados__tag">Artigo</p>
+          <p class="dados__id"><code>lmp/art7</code></p>
+          <p class="dados__artigo-titulo">Das formas de violência doméstica e familiar contra a mulher.</p>
+        </div>
+
+        <div class="dados__folhas">
+          <div class="dados__folha">
+            <p class="dados__tag">Dispositivo</p>
+            <p class="dados__id"><code>lmp/art7/cpt/inc3</code></p>
+            <p class="dados__citacao">Lei nº 11.340/2006, art. 7, caput, inciso III</p>
+            <p class="dados__literal">“a violência sexual, entendida como qualquer conduta que a constranja a presenciar, a manter ou a participar de relação sexual não desejada...”</p>
+            <p class="dados__meta">texto literal · contexto do artigo · vetor de 4096 dimensões</p>
+          </div>
+          <div class="dados__folha">
+            <p class="dados__tag">Dispositivo</p>
+            <p class="dados__id"><code>lmp/art7/cpt/inc4</code></p>
+            <p class="dados__citacao">Lei nº 11.340/2006, art. 7, caput, inciso IV</p>
+            <p class="dados__literal">“a violência patrimonial, entendida como qualquer conduta que configure retenção, subtração, destruição parcial ou total de seus objetos...”</p>
+            <p class="dados__meta">texto literal · contexto do artigo · vetor de 4096 dimensões</p>
+          </div>
+        </div>
+      </div>
+
+      <aside class="dados__ficha" aria-label="Metadados de um dispositivo">
+        <p class="dados__tag">Ficha do dispositivo</p>
+        <dl>
+          <div><dt>device_id</dt><dd><code>lmp/art7/cpt/inc3</code></dd></div>
+          <div><dt>norm_version_id</dt><dd>a versão vigente na data do fato</dd></div>
+          <div><dt>citacao</dt><dd>Lei nº 11.340/2006, art. 7, caput, inciso III</dd></div>
+          <div><dt>texto_literal</dt><dd>o texto que o verificador compara com a citação</dd></div>
+          <div><dt>contexto</dt><dd>artigo + caput + inciso, montado por código</dd></div>
+          <div><dt>vigencia</dt><dd>início e fim da janela; o filtro usa a data do fato</dd></div>
+        </dl>
+      </aside>
+    </div>
+  </div>
+
+  <figcaption>Fonte: schema de <code>device_versions</code> e a rodada de novembro de 2026. O exemplo de versões é esquemático; os textos dos dispositivos vêm da Lei nº 11.340/2006.</figcaption>
+</figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEÇÃO 05 · RECUPERAÇÃO -->
+    <section class="secao secao--larga" id="recuperacao" aria-labelledby="titulo-recuperacao">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">05</span>
+          <span class="margem__rotulo">Recuperação</span>
+        </div>
+        <div class="conteudo conteudo--largo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-recuperacao">A busca que ganhou foi a mais simples que continuou auditável.</h2>
+            <p class="linha-fina">Duas pernas, uma fusão e três decisões medidas. O que parecia sofisticado perdeu para regras determinísticas e um dedupe corrigido.</p>
+          </header>
+          <div class="prosa">
+  <p>A configuração atual é híbrida. A perna lexical usa o Postgres FTS com <code>to_tsvector('portuguese', search_text)</code>, <code>websearch_to_tsquery</code> e escore IDF. A perna densa usa o Qdrant com Qwen3 Embedding 8B em 4096 dimensões. As duas listas se fundem por RRF, que combina as posições e não os escores, com <code>k</code>=60 e peso lexical 0,2. A expansão de consulta é determinística, feita por regras, e o teto é de 3 dispositivos por artigo, preservando a ordem global. O Postgres é a fonte da verdade e o Qdrant é o índice; a hidratação é por <code>(device_id, norm_version_id)</code>, o que amarra cada resultado à versão da lei.</p>
+
+  <p>Essa não é a configuração mais precisa no papel. O denso sem teto marca 0,776, o híbrido sem teto 0,771 e o híbrido com teto 3 fica em 0,762. A escolha não vem do topo da tabela. É a configuração que combina precisão suficiente com degradação graciosa e auditabilidade: se o provedor de embedding falha, a perna lexical sustenta a resposta; o teto de 3 mostra artigos diferentes; e o caminho sem LLM na consulta pode ser repetido e auditado.</p>
+</div>
+
+<figure class="figura figura-busca" aria-labelledby="figura-busca-titulo">
+  <header class="figura__cabecalho">
+    <p class="figura__rotulo">Figura 2 · Recuperação</p>
+    <h3 id="figura-busca-titulo">Duas buscas, uma fusão, um teto.</h3>
+    <p class="figura__linha">As duas pernas rodam no mesmo recorte de vigência. A fusão combina posições, não escores. O teto por artigo preserva a diversidade do contexto.</p>
+  </header>
+
+  <div class="busca">
+    <div class="busca__pernas">
+      <div class="busca__perna busca__perna--lexical">
+        <p class="dados__tag">Perna lexical</p>
+        <h4>Postgres FTS</h4>
+        <ul>
+          <li><code>to_tsvector('portuguese', search_text)</code></li>
+          <li><code>websearch_to_tsquery</code> sobre termos de conteúdo</li>
+          <li>escore por IDF, sem peso de posição</li>
+        </ul>
+        <p class="busca__saida">até 50 candidatos</p>
+      </div>
+
+      <div class="busca__perna busca__perna--densa">
+        <p class="dados__tag">Perna densa</p>
+        <h4>Qdrant</h4>
+        <ul>
+          <li><code>qwen3-embedding-8b</code>, 4096 dimensões</li>
+          <li>cosseno, vetores em float16</li>
+          <li>busca aproximada no mesmo espaço da consulta</li>
+        </ul>
+        <p class="busca__saida">até 50 candidatos</p>
+      </div>
+    </div>
+
+    <div class="busca__convergencia" aria-hidden="true">
+      <span class="busca__convergencia-rotulo">RRF</span>
+    </div>
+
+    <div class="busca__fusao">
+      <div>
+        <p class="dados__tag">Fusão</p>
+        <h4>Reciprocal Rank Fusion</h4>
+        <p><code>k</code> = 60 · peso lexical 0,2 · a posição de cada perna entra na conta, o escore bruto não.</p>
+      </div>
+      <p class="busca__fusao-nota">A perna lexical pesa pouco de propósito. Com peso 1,0, o recall cai para 0,576.</p>
+    </div>
+
+    <ol class="busca__etapas">
+      <li>
+        <span class="busca__numero">01</span>
+        <strong>Teto de 3 por artigo</strong>
+        <p>Remove o excesso do mesmo artigo sem reordenar o grupo.</p>
+      </li>
+      <li>
+        <span class="busca__numero">02</span>
+        <strong>Hidratação por versão</strong>
+        <p>Busca o par <code>(device_id, norm_version_id)</code> no Postgres.</p>
+      </li>
+      <li>
+        <span class="busca__numero">03</span>
+        <strong>Top 10 no contexto</strong>
+        <p>Até 10 dispositivos, com texto literal, citação e vigência.</p>
+      </li>
+    </ol>
+  </div>
+
+  <div class="busca__notas">
+    <div>
+      <p class="dados__tag">Por que híbrido</p>
+      <p>A perna lexical sozinha entrega <strong>0,414</strong>. A densa sozinha, <strong>0,776</strong>. Juntas, <strong>0,762</strong>. O híbrido não é mais preciso: é mais resistente.</p>
+    </div>
+    <div>
+      <p class="dados__tag">O que a fusão não faz</p>
+      <p>Não reescreve a pergunta, não chama LLM e não escolhe a versão. A mesma pergunta produz a mesma recuperação.</p>
+    </div>
+  </div>
+
+  <figcaption>Fonte: <code>src/retrieve/hybrid.py</code>, <code>src/retrieve/expand.py</code> e o benchmark de 110 perguntas respondíveis. Números de recall@10.</figcaption>
+</figure>
+
+<div class="prosa">
+  <h3>O que a tabela mede</h3>
+  <p>A tabela compara seis configurações nas mesmas 110 perguntas respondíveis. O corpus, o índice e a passada de embedding são os mesmos; só a estratégia muda. O recall@10 mede a fração dos dispositivos-ouro que entram no top-10. O artigo@10 aplica a mesma conta no nível do artigo. O denso medido é o Qwen3 Embedding 8B no Qdrant; o Harrier local não entrou nesta rodada. As outras 40 perguntas do conjunto são de emergência ou fora do corpus e ficam fora do recall.</p>
+</div>
+
+<div class="tabela tabela--responsiva">
+  <table>
+    <caption>Recuperação nas 110 perguntas respondíveis, novembro de 2026</caption>
+    <thead>
+      <tr>
+        <th scope="col">Configuração</th>
+        <th scope="col" class="num">Recall@10</th>
+        <th scope="col" class="num">Artigo@10</th>
+        <th scope="col">Leitura</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Denso, sem teto por artigo</th>
+        <td class="num" data-label="Recall@10">0,776</td>
+        <td class="num" data-label="Artigo@10">0,812</td>
+        <td data-label="Leitura">Melhor recall do lote, sem regra de diversidade.</td>
+      </tr>
+      <tr>
+        <th scope="row">Híbrido, sem teto por artigo</th>
+        <td class="num" data-label="Recall@10">0,771</td>
+        <td class="num" data-label="Artigo@10">0,830</td>
+        <td data-label="Leitura">Empate técnico com o denso.</td>
+      </tr>
+      <tr class="destaque-linha">
+        <th scope="row">Híbrido, teto 3, ordem preservada</th>
+        <td class="num" data-label="Recall@10">0,762</td>
+        <td class="num" data-label="Artigo@10">0,835</td>
+        <td data-label="Leitura">Configuração atual.</td>
+      </tr>
+      <tr>
+        <th scope="row">Híbrido, teto 3, reordenado por artigo</th>
+        <td class="num" data-label="Recall@10">0,648</td>
+        <td class="num" data-label="Artigo@10">0,776</td>
+        <td data-label="Leitura">Produção anterior; o reordenamento custava 11,4 pontos.</td>
+      </tr>
+      <tr>
+        <th scope="row">Híbrido, sem expansão de consulta</th>
+        <td class="num" data-label="Recall@10">0,517</td>
+        <td class="num" data-label="Artigo@10">0,648</td>
+        <td data-label="Leitura">Pergunta crua, sem o vocabulário jurídico das regras.</td>
+      </tr>
+      <tr>
+        <th scope="row">Lexical IDF sozinho</th>
+        <td class="num" data-label="Recall@10">0,414</td>
+        <td class="num" data-label="Artigo@10">0,477</td>
+        <td data-label="Leitura">Piso do sistema quando o denso não responde.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="prosa">
+  <p>A diferença de 1,4 ponto entre o denso sem teto e o híbrido com teto 3 é ruído. Com 110 perguntas, o erro-padrão de uma proporção em torno de 0,77 fica entre 3 e 4 pontos pela aproximação binomial; o valor real é menor, porque o recall é uma média de frações por pergunta. As decisões que importam estão a 3 ou 5 erros-padrão de distância. O dedupe vale +11,4 pontos, a expansão +13, o doc2query −21, a reescrita por LLM −22 e o reranker LLM −20. Por isso o desempate entre as três primeiras configurações não é acurácia.</p>
+
+  <h3>A ordem do dedupe valia 11 pontos</h3>
+  <p>A função <code>dedupe_by_artigo</code> agrupava os candidatos por artigo e promovia a linha do artigo ao topo do grupo. A folha quase sempre pontua acima do próprio artigo, e o ouro é de dispositivo. A promoção empurrava dispositivos corretos para fora do top-10. O defeito de ordenação custava 11,4 pontos. Mantendo o mesmo teto de 3 e mudando só a ordem, o recall@10 subiu de 0,648 para 0,762, e o artigo@10, de 0,776 para 0,835. A função agora apenas remove os excedentes do grupo. O ganho veio sem tocar em modelo, índice ou embedding.</p>
+
+  <h3>O que foi tentado e rejeitado</h3>
+  <p>As seis estratégias abaixo foram medidas no mesmo corpus e nas mesmas 110 perguntas. Todas perderam para as regras determinísticas.</p>
+</div>
+
+<div class="tabela tabela--compacta tabela--responsiva">
+  <table>
+    <caption>Estratégias de consulta e reranking rejeitadas, 110 perguntas respondíveis</caption>
+    <thead>
+      <tr>
+        <th scope="col">Estratégia</th>
+        <th scope="col" class="num">Recall@10</th>
+        <th scope="col">Decisão</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Reescrita da pergunta por LLM</th>
+        <td class="num" data-label="Recall@10">0,539</td>
+        <td data-label="Decisão">Desligada; a reescrita substitui a fala da vítima.</td>
+      </tr>
+      <tr>
+        <th scope="row">HyDE</th>
+        <td class="num" data-label="Recall@10">0,558</td>
+        <td data-label="Decisão">Desligado; uma resposta hipotética ocupa o lugar da pergunta.</td>
+      </tr>
+      <tr>
+        <th scope="row">Reranker LLM, contrato por dispositivo</th>
+        <td class="num" data-label="Recall@10">0,561</td>
+        <td data-label="Decisão">Desligado; artigo@10 0,873 e MRR 0,519.</td>
+      </tr>
+      <tr>
+        <th scope="row">doc2query</th>
+        <td class="num" data-label="Recall@10">0,562</td>
+        <td data-label="Decisão">Desligado; as perguntas sintéticas no índice degradaram o espaço denso.</td>
+      </tr>
+      <tr>
+        <th scope="row">Peso lexical 1,0</th>
+        <td class="num" data-label="Recall@10">0,576</td>
+        <td data-label="Decisão">Rejeitado; o peso 0,2 é o valor da configuração.</td>
+      </tr>
+      <tr>
+        <th scope="row">Subperguntas por LLM</th>
+        <td class="num" data-label="Recall@10">0,583</td>
+        <td data-label="Decisão">Desligadas; a decomposição dilui o alvo.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="prosa">
+  <p>O padrão se repete em todas as linhas. A transformação por LLM substitui a pergunta da vítima por vocabulário jurídico genérico e apaga o detalhe que discriminava o artigo. As regras curadas acrescentam termos jurídicos sem descartar a fala original. Nenhuma das seis estratégias pagou o custo extra.</p>
+
+  <h3>Por que a perna lexical fica</h3>
+  <p>Sozinha, a perna lexical entrega 0,414. É pouco, mas é o piso do sistema. Se o provedor de embedding cair, a busca textual continua respondendo com o que o Postgres tem indexado; o denso puro devolve zero. O documento de estratégia registra uma queda real do provedor nesta rodada.</p>
+
+  <p>A permanência da perna lexical acompanha duas outras escolhas. O teto de 3 por artigo evita que os dez slots sejam preenchidos por parágrafos do mesmo artigo e mostra dispositivos de normas diferentes. A ausência de LLM na consulta mantém o caminho determinístico: a mesma pergunta produz a mesma recuperação. A perna lexical não é fonte de acurácia quando o denso está saudável. É garantia de continuidade, diversidade e auditoria.</p>
+</div>
+
+<div class="nota mt-6">
+  <p class="nota__titulo">
+    <svg class="icone" aria-hidden="true"><use href="#i-documento"></use></svg>
+    O contrato de citação decide o reranker.
+  </p>
+  <p>O reranker LLM marca artigo@10 0,873 e MRR 0,519, os melhores do lote, mas derruba o recall por dispositivo para 0,561. Ele escolhe o artigo certo e cita a linha do artigo em vez do parágrafo que o ouro nomeia. Com contrato por dispositivo, fica desligado. Se o contrato migrar para citação por artigo, a decisão muda junto.</p>
+</div>
+
+<div class="prosa mt-6">
+  <p>Os números completos, com as doze configurações medidas, estão no <a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/benchmark-consolidado.md">benchmark consolidado</a>. A justificativa de cada valor e os comandos de revalidação estão na <a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/estrategia-recomendada.md">estratégia recomendada</a>.</p>
+</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEÇÃO 06 · GERAÇÃO -->
+    <section class="secao" id="geracao" aria-labelledby="titulo-geracao">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">06</span>
+          <span class="margem__rotulo">Geração</span>
+        </div>
+        <div class="conteudo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-geracao">O modelo escolhe IDs. O sistema escreve a citação.</h2>
+            <p class="linha-fina">A saída do LLM é um contrato fechado, não texto livre. O verificador aceita, pede uma correção ou devolve uma abstenção segura.</p>
+          </header>
+
+          <div class="prosa">
+            <p>O prompt v2 entrega os dispositivos recuperados em blocos delimitados, com <code>device_id</code>, citação, texto literal, vigência e contexto. O modelo devolve exatamente o JSON do schema. Qualquer campo extra é rejeitado.</p>
+          </div>
+
+          <div class="codigo">
+            <div class="codigo__topo"><span>Contrato de saída</span></div>
+            <pre><code><span class="tok-comentario">// o modelo devolve apenas IDs; a citação não é texto do modelo</span>
+{
+  <span class="tok-chave">"resposta"</span>: <span class="tok-texto">"A medida protetiva pode ser pedida independentemente de boletim..."</span>,
+  <span class="tok-chave">"citacoes"</span>: [
+    {
+      <span class="tok-chave">"device_id"</span>: <span class="tok-texto">"lmp/art19/par5"</span>,
+      <span class="tok-chave">"afirmacao"</span>: <span class="tok-texto">"A concessão não depende de boletim de ocorrência."</span>
+    }
+  ],
+  <span class="tok-chave">"proximos_passos"</span>: [<span class="tok-texto">"..."</span>],
+  <span class="tok-chave">"encaminhamentos"</span>: [<span class="tok-texto">"..."</span>],
+  <span class="tok-chave">"premissas"</span>: [<span class="tok-texto">"..."</span>],
+  <span class="tok-chave">"nivel_confianca"</span>: <span class="tok-texto">"medio"</span>,
+  <span class="tok-chave">"abstencao"</span>: <span class="tok-verde">false</span>,
+  <span class="tok-chave">"motivo_abstencao"</span>: <span class="tok-verde">null</span>
+}</code></pre>
+          </div>
+
+          <figure class="figura figura-contrato" aria-labelledby="figura-contrato-titulo">
+  <header class="figura__cabecalho">
+    <p class="figura__rotulo">Figura 3 · Contrato de citação</p>
+    <h3 id="figura-contrato-titulo">O modelo devolve IDs; o sistema devolve a citação.</h3>
+    <p class="figura__linha">O JSON não contém o texto da citação. Ele contém o <code>device_id</code>; a citação canônica é montada a partir dos metadados hidratados do banco.</p>
+  </header>
+
+  <div class="contrato">
+    <div class="contrato__entrada">
+      <p class="dados__tag">1 · Saída do modelo</p>
+      <div class="codigo contrato__codigo">
+        <div class="codigo__topo"><span>JSON do schema</span></div>
+        <pre><code>{
+  <span class="tok-chave">"resposta"</span>: <span class="tok-texto">"A medida protetiva..."</span>,
+  <span class="tok-chave">"citacoes"</span>: [{
+    <span class="tok-chave">"device_id"</span>: <span class="tok-texto">"lmp/art19/par5"</span>,
+    <span class="tok-chave">"afirmacao"</span>: <span class="tok-texto">"Não depende de boletim."</span>
+  }],
+  <span class="tok-chave">"abstencao"</span>: <span class="tok-verde">false</span>
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="contrato__portao">
+      <p class="dados__tag">2 · Verificação determinística</p>
+      <ul class="contrato__checks">
+        <li><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg><span>O ID existe no contexto recuperado.</span></li>
+        <li><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg><span>A versão confere com a data do fato.</span></li>
+        <li><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg><span>O texto citado é igual ao literal do banco.</span></li>
+        <li><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg><span>Toda afirmação tem citação e as aspas conferem.</span></li>
+      </ul>
+    </div>
+
+    <div class="contrato__saida">
+      <p class="dados__tag">3 · Saída do sistema</p>
+      <div class="contrato__cartao">
+        <p class="contrato__selo"><svg class="icone" aria-hidden="true"><use href="#i-check-circulo"></use></svg>citação verificada</p>
+        <p class="contrato__citacao">Lei nº 11.340/2006 (Lei Maria da Penha), art. 19, § 5º</p>
+        <p class="contrato__afirmacao">“As medidas protetivas de urgência serão concedidas independentemente da tipificação penal da violência, ... ou do registro de boletim de ocorrência.”</p>
+        <p class="contrato__fonte">Fonte: <code>lmp/art19/par5</code> · versão vigente em 9 nov. 2026</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="contrato__desfechos">
+    <div><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>aceita</span><p>Resposta com fontes, citação canônica e verificação registrada.</p></div>
+    <div><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>regenera uma vez</span><p>O modelo recebe o motivo da falha e tenta corrigir a saída.</p></div>
+    <div><span class="estado estado--pendente"><svg class="icone" aria-hidden="true"><use href="#i-x"></use></svg>abstenção segura</span><p>Se a segunda tentativa falha, o sistema não publica a resposta.</p></div>
+  </div>
+
+  <figcaption>Fonte: <code>src/generate/schemas.py</code>, <code>src/generate/verify.py</code> e <code>src/retrieve/hydrate.py</code>. O exemplo de citação é o dispositivo real <code>lmp/art19/par5</code>; a afirmação é ilustrativa.</figcaption>
+</figure>
+
+          <div class="prosa">
+            <p>A verificação é determinística. Ela confere o par <code>(device_id, norm_version_id)</code> contra o contexto recuperado, compara os metadados da citação e o texto citado com o literal hidratado do banco, exige citação em toda afirmação e valida as aspas. Não há LLM juiz no caminho padrão.</p>
+          </div>
+
+          <div class="duas-colunas mt-7">
+            <div class="nota nota--verde">
+              <p class="nota__titulo">
+                <svg class="icone" aria-hidden="true"><use href="#i-check-circulo"></use></svg>
+                Aceita
+              </p>
+              <p>Resposta renderizada com citação canônica e fontes. Exemplo de citação montada pelo sistema: <strong>Lei nº 11.340/2006 (Lei Maria da Penha), art. 7º, caput, inciso III</strong>.</p>
+            </div>
+            <div class="nota nota--atencao">
+              <p class="nota__titulo">
+                <svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>
+                Recusada
+              </p>
+              <p>Se a verificação falhar duas vezes, a resposta é substituída por uma abstenção segura com o motivo. O sistema prefere não responder a citar um dispositivo que não sustenta a afirmação.</p>
+            </div>
+          </div>
+
+          <div class="prosa mt-7">
+            <p>Na rodada de 150 perguntas, a cobertura de citação ficou em <strong>0,617</strong> e a fidelidade em <strong>0,909</strong>. A abstenção acertou <strong>0,923</strong>. Esses números medem o pipeline inteiro, não a qualidade jurídica da resposta.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEÇÃO 07 · AVALIAÇÃO -->
+    <section class="secao secao--faixa secao--larga" id="avaliacao" aria-labelledby="titulo-avaliacao">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">07</span>
+          <span class="margem__rotulo">Avaliação</span>
+        </div>
+        <div class="conteudo conteudo--largo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-avaliacao">O que os números mostram e o que eles não mostram.</h2>
+            <p class="linha-fina">Uma rodada com 150 perguntas, 110 respondíveis e 16 dispositivos-ouro. O resultado compara estratégias; não mede cobertura da lei.</p>
+          </header>
+          <div class="numeros">
+  <div class="numeros__item">
+    <span class="numeros__valor">0,762</span>
+    <span class="numeros__rotulo">recall@10</span>
+  </div>
+  <div class="numeros__item">
+    <span class="numeros__valor">0,826</span>
+    <span class="numeros__rotulo">artigo@10</span>
+  </div>
+  <div class="numeros__item">
+    <span class="numeros__valor">0,909</span>
+    <span class="numeros__rotulo">groundedness</span>
+  </div>
+  <div class="numeros__item">
+    <span class="numeros__valor">0,923</span>
+    <span class="numeros__rotulo">abstenção</span>
+  </div>
+</div>
+<p class="numeros__nota mt-3">150 perguntas; 110 respondíveis; 9 de novembro de 2026.</p>
+
+<div class="prosa mt-6">
+  <p>A rodada de 9 de novembro de 2026 usou 150 perguntas, das quais 110 são respondíveis. As outras 40 são de emergência ou fora do corpus e entram nas métricas de segurança e abstenção. Os valores abaixo vêm do pipeline completo: recuperação, hidratação, geração e verificação determinística.</p>
+
+  <p>O recall@10 mede a fração dos dispositivos-ouro recuperados no top-10. O artigo@10 repete a conta no nível do artigo. O groundedness é a fração de afirmações com lastro no contexto recuperado. A abstenção mede o acerto entre abster e responder quando a pergunta está fora do corpus.</p>
+
+  <h3>Resultado da rodada</h3>
+  <p>A tabela compara o valor medido com o limiar definido antes da rodada. O artigo@10 não tem limiar: ele separa erro de artigo de erro de dispositivo. A última linha vem do recorte de segurança, não das 150.</p>
+</div>
+
+<div class="tabela tabela--responsiva">
+  <table>
+    <caption>Rodada ponta a ponta, 150 perguntas, 9 de novembro de 2026</caption>
+    <thead>
+      <tr>
+        <th scope="col">Métrica</th>
+        <th scope="col" class="num">Valor</th>
+        <th scope="col" class="num">Limiar</th>
+        <th scope="col">Leitura</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">recall@10</th>
+        <td class="num" data-label="Valor">0,762</td>
+        <td class="num" data-label="Limiar">≥ 0,850</td>
+        <td data-label="Leitura"><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>não atingiu</span></td>
+      </tr>
+      <tr>
+        <th scope="row">artigo@10</th>
+        <td class="num" data-label="Valor">0,826</td>
+        <td class="num" data-label="Limiar">sem limiar</td>
+        <td data-label="Leitura">Leitura de granularidade.</td>
+      </tr>
+      <tr>
+        <th scope="row">MRR</th>
+        <td class="num" data-label="Valor">0,472</td>
+        <td class="num" data-label="Limiar">≥ 0,600</td>
+        <td data-label="Leitura"><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>não atingiu</span></td>
+      </tr>
+      <tr>
+        <th scope="row">nDCG</th>
+        <td class="num" data-label="Valor">0,506</td>
+        <td class="num" data-label="Limiar">≥ 0,700</td>
+        <td data-label="Leitura"><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>não atingiu</span></td>
+      </tr>
+      <tr>
+        <th scope="row">citation_coverage</th>
+        <td class="num" data-label="Valor">0,617</td>
+        <td class="num" data-label="Limiar">≥ 0,800</td>
+        <td data-label="Leitura"><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>não atingiu</span></td>
+      </tr>
+      <tr>
+        <th scope="row">citation_precision</th>
+        <td class="num" data-label="Valor">0,242</td>
+        <td class="num" data-label="Limiar">≥ 0,950</td>
+        <td data-label="Leitura">Ver o aviso abaixo.</td>
+      </tr>
+      <tr>
+        <th scope="row">groundedness</th>
+        <td class="num" data-label="Valor">0,909</td>
+        <td class="num" data-label="Limiar">≥ 0,950</td>
+        <td data-label="Leitura"><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>não atingiu</span></td>
+      </tr>
+      <tr>
+        <th scope="row">abstention_accuracy</th>
+        <td class="num" data-label="Valor">0,923</td>
+        <td class="num" data-label="Limiar">≥ 0,800</td>
+        <td data-label="Leitura"><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>atingiu</span></td>
+      </tr>
+      <tr>
+        <th scope="row">emergency_routing</th>
+        <td class="num" data-label="Valor">1,000</td>
+        <td class="num" data-label="Limiar">= 1,000</td>
+        <td data-label="Leitura"><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>atingiu no recorte de 40</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="prosa">
+  <p>O recall@10 do pipeline confere com o do sweep de recuperação: 0,762 nos dois. Isso valida o arranjo experimental no nível do recall. O artigo@10 do pipeline é 0,826; o sweep de recuperação, sem geração, mede 0,835 na mesma configuração. A diferença entre as duas execuções não foi decomposta, então os dois números não devem ser misturados. Em ambos, o artigo certo aparece mais vezes que o dispositivo certo, como esperado num contrato que deduplica por artigo.</p>
+</div>
+
+<div class="nota nota--atencao mt-6">
+  <p class="nota__titulo">
+    <svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>
+    citation_precision mede aderência ao gabarito, não alucinação.
+  </p>
+  <p>O 0,242 conta qualquer citação fora do gabarito de 16 dispositivos como imprecisa. Uma resposta que cita um dispositivo recuperado, pertinente e correto, mas ausente da lista-ouro, perde ponto. Com 16 alvos num corpus de 4.933 dispositivos, o teto prático da métrica é baixo. O número não deve ser citado como taxa de alucinação.</p>
+</div>
+
+<div class="prosa mt-8">
+  <h3>Segurança: 0,750 virou 1,000</h3>
+  <p>A rodada ponta a ponta inicial mediu emergency_routing 0,750. 5 de 20 emergências caíram no caminho normal de resposta, porque o classificador era uma lista de frases literais. Todas as cinco eram variações de superfície que a lista não previa, como "ele está com uma arma e está na minha frente" e "estou escondida no banheiro e ele está batendo na porta".</p>
+
+  <p>O classificador foi reescrito em três camadas. Formas iminentes disparam sozinhas. Formas habituais, como "fica me ameaçando", exigem um marcador de presente. Formas passadas disparam, exceto quando a mensagem pergunta sobre prazo, marca o evento como encerrado ("só agora") ou pede caracterização jurídica. O resultado foi 20/20 emergências e 0 falso-positivo em 130 perguntas não-emergência. Os falsos-positivos importam: transformar uma pergunta de prazo em bloco de emergência é resposta errada, ainda que segura. A validação no recorte de 40 perguntas deu emergency_routing 1,000 e abstenção 1,000. Esse 1,000 não é nas 150.</p>
+
+  <h3>Onde a resposta falha</h3>
+  <p>O critério estrito exige todos os dispositivos-ouro no top-10, todos citados e nenhuma afirmação sem suporte. A tabela mostra quantas perguntas de cada categoria falharam nesse critério.</p>
+</div>
+
+<div class="tabela tabela--responsiva">
+  <table>
+    <caption>Falhas por categoria no critério estrito, 150 perguntas</caption>
+    <thead>
+      <tr>
+        <th scope="col">Categoria</th>
+        <th scope="col" class="num">Falhas</th>
+        <th scope="col">Leitura</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">prazo</th>
+        <td class="num" data-label="Falhas">11 / 12</td>
+        <td data-label="Leitura">Categoria mais frágil.</td>
+      </tr>
+      <tr>
+        <th scope="row">ação penal</th>
+        <td class="num" data-label="Falhas">16 / 32</td>
+        <td data-label="Leitura">Metade das perguntas não fechou o critério.</td>
+      </tr>
+      <tr>
+        <th scope="row">medida protetiva</th>
+        <td class="num" data-label="Falhas">21 / 44</td>
+        <td data-label="Leitura">Maior volume de falhas em número absoluto.</td>
+      </tr>
+      <tr>
+        <th scope="row">serviços</th>
+        <td class="num" data-label="Falhas">13 / 22</td>
+        <td data-label="Leitura">Falha em mais da metade.</td>
+      </tr>
+      <tr>
+        <th scope="row">emergência</th>
+        <td class="num" data-label="Falhas">5 / 20</td>
+        <td data-label="Leitura">Corrigido depois da rodada.</td>
+      </tr>
+      <tr>
+        <th scope="row">fora do corpus</th>
+        <td class="num" data-label="Falhas">0 / 20</td>
+        <td data-label="Leitura">A abstenção segurou o recorte.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="prosa">
+  <p>66 das 150 perguntas falharam. Prazo é a categoria mais frágil, com 11 falhas em 12. Perguntas de prazo dependem de o artigo correto ser recuperado e de a resposta mencionar o prazo certo. Fora do corpus, nenhuma das 20 falhou. Medida protetiva concentra o maior volume absoluto, com 21 falhas em 44 perguntas. O prazo é o próximo alvo da avaliação.</p>
+
+  <h3>O que estes números não medem</h3>
+  <ul>
+    <li>As 110 perguntas respondíveis compartilham 16 dispositivos-ouro em 15 artigos. Um recall de 0,76 significa achar o alvo certo dentro de um conjunto de dezesseis, não cobrir violência doméstica.</li>
+    <li>As regras de expansão foram escritas olhando as 20 perguntas semeadas. O conjunto de 110 é in-sample para essas regras, e os números nele são otimistas.</li>
+    <li>Não há avaliação humana. Fluência, utilidade prática, tom e correção jurídica além do lastro da citação não foram medidos.</li>
+    <li>citation_precision mede aderência ao gabarito de 16 dispositivos, não alucinação. Uma citação correta fora do gabarito conta como imprecisa.</li>
+    <li>O p95 foi de 68,2 s contra um orçamento de 8 s. O tempo inclui recuperação, geração e verificação, com chamadas reais ao provedor. A rodada gastou cerca de 50 minutos para 150 perguntas, o que impede uso interativo.</li>
+  </ul>
+
+  <p>O conjunto é um sinal de regressão, não uma medida de cobertura da lei. Ele mostra se uma mudança piorou o que já funcionava.</p>
+</div>
+
+<div class="nota nota--verde mt-6">
+  <p class="nota__titulo">
+    <svg class="icone" aria-hidden="true"><use href="#i-check-circulo"></use></svg>
+    O que a rodada sustenta
+  </p>
+  <p>O pipeline roda de ponta a ponta, a abstenção está sólida e a emergência foi corrigida. O que ela não sustenta: chamar o sistema de pronto ou de SOTA (<span lang="en">state of the art</span>).</p>
+</div>
+
+<div class="prosa mt-6">
+  <p>A definição de cada métrica e o aviso sobre citation_precision estão na <a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/metodologia-avaliacao.md">metodologia de avaliação</a>. Os números completos, com as doze configurações de recuperação, estão no <a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/benchmark-consolidado.md">benchmark consolidado</a>.</p>
+</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEÇÃO 08 · LIMITES -->
+    <section class="secao" id="limites" aria-labelledby="titulo-limites">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">08</span>
+          <span class="margem__rotulo">Limites</span>
+        </div>
+        <div class="conteudo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-limites">O que ainda impede chamar isto de pronto.</h2>
+            <p class="linha-fina">O protótipo demonstra o fluxo e mede o que consegue medir. Os itens abaixo são bloqueios reais, não uma lista de melhorias desejáveis.</p>
+          </header>
+          <div class="prosa">
+  <p>Seis bloqueios separam o protótipo de um sistema que uma pessoa possa usar sem supervisão. Eles não são melhorias desejáveis. Cada um muda o que o sistema pode afirmar, medir ou prometer, e todos seguem abertos em 9 de novembro de 2026. A lista abaixo é o que impede a palavra "pronto". Ela não é um roteiro de melhorias; é uma lista de condições para o protótipo poder ser usado.</p>
+</div>
+
+<ul class="lista-estado lista-estado--atencao mt-6">
+  <li>
+    <svg class="icone" aria-hidden="true"><use href="#i-relogio"></use></svg>
+    <div>
+      <h3>Revisão jurídica humana pendente (G4/G6).</h3>
+      <p class="mt-2">Nenhuma advogada, defensora ou pessoa da rede de atendimento revisou prompt, textos ou respostas. Não há parecer sobre a qualidade jurídica do que o sistema escreve. Os gates G4 e G6 seguem abertos: o G4 combina a avaliação de 20 perguntas com revisão humana, e o G6 combina as 150 com um parecer. A revisão é pré-condição para qualquer uso real, e nenhuma métrica desta página substitui esse parecer. Não há data para essa revisão.</p>
+    </div>
+  </li>
+  <li>
+    <svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>
+    <div>
+      <h3>Latência p95 de 68,2 s contra 8 s.</h3>
+      <p class="mt-2">A p50 ficou em 24,5 s. O tempo inclui recuperação, geração e verificação, com chamadas reais ao provedor. A rodada gastou cerca de 50 minutos para 150 perguntas. O uso interativo não está resolvido, e o problema é separado da acurácia: mesmo com recall melhor, a espera continua. A p95 é um limite máximo, e a p50 já mostra a ordem de grandeza. Os 68,2 s vêm de chamadas reais, não de mock, e representam oito vezes o orçamento.</p>
+    </div>
+  </li>
+  <li>
+    <svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>
+    <div>
+      <h3>Avaliação estreita.</h3>
+      <p class="mt-2">As 110 perguntas respondíveis compartilham 16 dispositivos-ouro em 15 artigos. As regras de expansão foram escritas olhando as 20 perguntas semeadas, então os números são in-sample. As perguntas são paráfrases de poucos cenários, e o split dev/test não é independente em termos de alvo. O conjunto de 20 perguntas é pequeno: 10 respondíveis, 10 de emergência ou fora do corpus. O resultado compara estratégias entre si. Não é SOTA e não mede cobertura da lei.</p>
+    </div>
+  </li>
+  <li>
+    <svg class="icone" aria-hidden="true"><use href="#i-codigo"></use></svg>
+    <div>
+      <h3>Caminho alvo 9B/0.6B não operacional.</h3>
+      <p class="mt-2">Os artefatos locais são GGUF, e o caminho alvo exige safetensors. Ele também precisa de um searcher Qdrant injetado: <code>RETRIEVAL_PATH=target</code> sozinho não monta o pipeline, e o app padrão não monta o caminho alvo. O caminho existe atrás de flag e não teve smoke com os artefatos desta máquina. Sem GPU e checkpoints validados, o fallback é o caminho disponível, e é o que a interface monta por padrão. O alvo não é o caminho que produziu os números desta página.</p>
+    </div>
+  </li>
+  <li>
+    <svg class="icone" aria-hidden="true"><use href="#i-cadeado"></use></svg>
+    <div>
+      <h3>Privacidade e provedor externo.</h3>
+      <p class="mt-2">O OpenRouter é opt-in. As preferências de retenção zero e não coleta são contratuais, não garantia: precisam ser confirmadas no contrato com o provedor. Sem esse contrato, LLM e embedder precisam rodar localmente. Os logs não têm sink de retenção ainda. <code>LOG_QUESTION_TEXT=false</code> descarta a pergunta por padrão; com opt-in, a redação cobre CPF, telefone, e-mail e CEP. A retenção é uma obrigação para quem criar o sink, não uma propriedade do código atual.</p>
+    </div>
+  </li>
+  <li>
+    <svg class="icone" aria-hidden="true"><use href="#i-documento"></use></svg>
+    <div>
+      <h3>Desvios conhecidos.</h3>
+      <p class="mt-2">O filtro de versão pode abster numa citação explícita de artigo revogado. O esperado seria devolver a versão vigente na data do fato. Payloads versionados do Qdrant não são atualizados quando uma versão fecha. Cerca de 13% das folhas não têm a linha do artigo no mesmo <code>norm_version_id</code>; a expansão degrada para a folha e registra <code>incomplete_context</code>, e o contexto fica menor. Os três desvios estão auditados e registrados; nenhum foi corrigido nesta rodada.</p>
+    </div>
+  </li>
+</ul>
+
+<div class="prosa mt-6">
+  <p>Nenhum desses itens é cosmético. A revisão jurídica e a latência mudam a possibilidade de uso; a avaliação estreita muda o que os números podem afirmar; o caminho alvo e a privacidade mudam onde o sistema pode rodar.</p>
+
+  <h3>Próximos passos, na ordem</h3>
+  <ol>
+    <li>Criar um sink de retenção de logs e validar o <code>X-Request-ID</code> em execução ao vivo.</li>
+    <li>Rodar um smoke de ingestão real, do download ao índice, com Postgres vivo.</li>
+    <li>Conseguir checkpoints safetensors e executar o smoke 9B/0.6B (G5).</li>
+    <li>Rodar as 150 perguntas com <code>build_eval_pipeline</code> contra Postgres e Qdrant.</li>
+    <li>Submeter prompt, textos e respostas à revisão jurídica humana (G4/G6).</li>
+  </ol>
+
+  <p>A ordem segue o README: primeiro o que protege dados e prova a operação, depois o que valida o modelo e a resposta.</p>
+
+  <p>O protótipo muda de categoria quando a revisão jurídica acontecer, a p95 cair para a casa dos segundos e a avaliação tiver alvos distintos por pergunta. Até lá, os números medem o fluxo, não a utilidade.</p>
+</div>
+
+<div class="nota nota--neutra mt-6">
+  <p class="nota__titulo">
+    <svg class="icone" aria-hidden="true"><use href="#i-info"></use></svg>
+    Escopo do protótipo
+  </p>
+  <p>O protótipo serve para demonstrar o fluxo e medir estratégias. Não serve para orientar uma pessoa real sem supervisão jurídica.</p>
+</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEÇÃO 09 · RODAR -->
+    <section class="secao" id="rodar" aria-labelledby="titulo-rodar">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">09</span>
+          <span class="margem__rotulo">Rodar</span>
+        </div>
+        <div class="conteudo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-rodar">Reproduzir a entrega.</h2>
+            <p class="linha-fina">Os comandos abaixo sobem o ambiente local, aplicam as migrações, carregam o corpus e iniciam a API. O README cobre as opções completas.</p>
+          </header>
+          <div class="prosa">
+  <p>O ambiente pede Python 3.12 e <code>uv</code>. Docker é opcional e serve para subir Postgres e Qdrant na mesma máquina. O caminho medido usa Postgres como fonte da verdade e Qdrant como índice denso. Postgres guarda normas, versões, dispositivos e o texto literal; o Qdrant guarda os vetores. Sem GPU, o caminho fallback é o que rodou do início ao fim.</p>
+  <p>Os comandos abaixo são de PowerShell. Em Linux e macOS, troque <code>Copy-Item</code> por <code>cp</code> e a atribuição <code>$env:NOME = "..."</code> por <code>export NOME="..."</code>.</p>
+</div>
+
+<div class="prosa mt-8">
+  <h3>1. Dependências</h3>
+  <p>O extra <code>dev</code> instala pytest, ruff e mypy. O extra <code>ml</code> instala <code>sentence-transformers</code>, <code>transformers</code> e <code>torch</code>, necessários para gerar embeddings locais. Só o <code>dev</code> não basta para o índice real.</p>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Dependências</span></div>
+  <pre><code>uv sync --extra dev</code></pre>
+</div>
+
+<div class="prosa">
+  <p>Para indexar com encoder local, some o extra <code>ml</code>: <code>uv sync --extra dev --extra ml</code>.</p>
+</div>
+
+<div class="prosa mt-8">
+  <h3>2. Configuração</h3>
+  <p>Copie o exemplo e edite o <code>.env</code>. <code>EMBEDDING_MODEL_REVISION</code> precisa de um commit ou tag: um valor vazio ou <code>main</code> faz o encoder real falhar de propósito. O padrão <code>LLM_PROVIDER=mock</code> responde sem chave e sem rede.</p>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Configuração</span></div>
+  <pre><code>Copy-Item .env.example .env</code></pre>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Trecho do .env</span></div>
+  <pre><code>LLM_PROVIDER=mock
+EMBEDDING_MODEL_REVISION=&lt;commit-ou-tag&gt;</code></pre>
+</div>
+
+<div class="prosa">
+  <p>A revisão pinada é ignorada quando <code>EMBEDDING_PROVIDER=openrouter</code>; nesse caso o vetor vem do provedor remoto.</p>
+</div>
+
+<div class="prosa mt-8">
+  <h3>3. Infra local</h3>
+  <p>O fallback sobe só o Postgres. O alvo sobe Postgres e Qdrant no perfil <code>target</code>. O Postgres expõe a porta 5432; o Qdrant expõe 6333 e 6334. O <code>.env.example</code> usa 5432 e 6333. Os dados ficam nos volumes <code>pgdata</code> e <code>qdrant_data</code>.</p>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Infra</span></div>
+  <pre><code>docker compose up -d db
+docker compose --profile target up -d</code></pre>
+</div>
+
+<div class="prosa mt-8">
+  <h3>4. Migrações</h3>
+  <p><code>scripts/apply_migrations.py</code> não lê o <code>.env</code>. Ele usa <code>DATABASE_URL</code> do processo ou <code>--database-url</code>. Exporte a variável antes de rodar; o script aplica <code>migrations/*.sql</code> em ordem e faz commit por arquivo.</p>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Migrações</span></div>
+  <pre><code>$env:DATABASE_URL = "postgresql://app:app@localhost:5432/violencia"
+uv run python scripts/apply_migrations.py</code></pre>
+</div>
+
+<div class="prosa">
+  <p>A alternativa é passar <code>--database-url</code> direto no comando, sem exportar nada. Dentro de um virtualenv ativado, <code>python scripts/apply_migrations.py</code> também funciona.</p>
+</div>
+
+<div class="prosa mt-8">
+  <h3>5. Ingestão</h3>
+  <p>O comando padrão roda <code>--stage all</code>: baixa, parseia, valida e carrega no Postgres. <code>--offline</code> usa o que já está em <code>data/raw/</code> e falha se o arquivo não existir. <code>--stage</code> escolhe até onde ir: <code>download</code>, <code>parse</code>, <code>validate</code> ou <code>load</code>.</p>
+  <p>A seleção aceita <code>--source &lt;id&gt;</code>, <code>--priority P0|P1</code> ou <code>--all</code>. Os arquivos brutos ficam em <code>data/raw/</code> com sidecar <code>.meta.json</code> e hash SHA-256. O download é idempotente.</p>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Ingestão</span></div>
+  <pre><code>uv run python -m src.ingest.run --priority P0</code></pre>
+</div>
+
+<div class="prosa mt-8">
+  <h3>6. Índice</h3>
+  <p>O índice fallback com encoder local grava vetores densos a partir dos dispositivos já carregados. Exige <code>EMBEDDING_MODEL_REVISION</code> pinado e o extra <code>ml</code> instalado. Sem os dois, o encoder não carrega e o comando falha.</p>
+  <p>A rodada medida indexou no Qdrant com <code>DENSE_BACKEND=qdrant</code> e <code>qwen/qwen3-embedding-8b</code> via OpenRouter; o <code>.env.example</code> vem com <code>pgvector</code>. O Harrier local não foi usado nessa rodada. Opções da CLI: <code>--source</code>, <code>--database-url</code> e <code>--batch-size</code>.</p>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Índice fallback</span></div>
+  <pre><code>uv run python -m src.index.run --path fallback</code></pre>
+</div>
+
+<div class="prosa">
+  <p>Para reproduzir o índice medido, use o backend Qdrant e o embedding remoto no <code>.env</code>:</p>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Configuração do índice medido</span></div>
+  <pre><code>DENSE_BACKEND=qdrant
+EMBEDDING_PROVIDER=openrouter
+OPENROUTER_EMBEDDING_MODEL=qwen/qwen3-embedding-8b
+OPENROUTER_EMBEDDING_DIMENSIONS=4096</code></pre>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Índice Qdrant</span></div>
+  <pre><code>uv run python -m src.index.run --path qdrant-dense `
+  --database-url $env:DATABASE_URL --qdrant-url $env:QDRANT_URL</code></pre>
+</div>
+
+<div class="prosa">
+  <p>A CLI imprime <code>indexed</code>, <code>skipped</code> e <code>errors</code>, e retorna código 1 se houver erro. Com <code>EMBEDDING_PROVIDER=openrouter</code>, o extra <code>ml</code> não é necessário, mas a chave do provedor é.</p>
+</div>
+
+<div class="prosa mt-8">
+  <h3>7. API e interface</h3>
+  <p>A API serve a interface em <code>/app/</code>; a raiz redireciona para lá. <code>--no-access-log</code> evita que o uvicorn registre a query string. Sem API no ar, a interface abre em modo demonstração explícito, com respostas de exemplo.</p>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>API</span></div>
+  <pre><code>uv run uvicorn src.api.main:app --no-access-log</code></pre>
+</div>
+
+<div class="prosa">
+  <p>A interface fica em <code>http://localhost:8000/app/</code> e usa o design system ZELIA. O <code>/health</code> responde <code>degraded</code> quando Postgres ou Qdrant estão inacessíveis. Os endpoints são <code>POST /chat</code>, <code>GET /health</code> e <code>GET /sources/{device_id}</code>.</p>
+</div>
+
+<div class="prosa mt-8">
+  <h3>8. Testes</h3>
+  <p>A suíte padrão roda sem Postgres e sem Qdrant. Os testes de integração exigem os dois vivos; o CI sobe os serviços e aplica as migrações antes. O teste do OpenRouter é pulado quando <code>OPENROUTER_API_KEY</code> não está definida.</p>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Testes</span></div>
+  <pre><code>uv run pytest -m "not integration"
+uv run pytest -m integration</code></pre>
+</div>
+
+<div class="detalhes mt-6">
+  <details>
+    <summary>Comandos de qualidade <svg class="icone" aria-hidden="true"><use href="#i-mais"></use></svg></summary>
+    <div class="detalhes__conteudo">
+      <div class="codigo">
+        <div class="codigo__topo"><span>Qualidade</span></div>
+        <pre><code>uv run ruff check .
+uv run ruff format --check .
+uv run mypy src</code></pre>
+      </div>
+      <p class="mt-4">Os três comandos são os mesmos que o CI executa nos jobs de lint e de tipos.</p>
+    </div>
+  </details>
+</div>
+
+<div class="prosa mt-8">
+  <p>O <a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/README.md">README completo</a> traz as opções de cada comando, o bloco do OpenRouter e a tabela de variáveis. A <a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/02-arquitetura-e-stack-local.md">arquitetura e a stack local</a> descrevem os componentes, o Docker e os contratos de API.</p>
+</div>
+
+<div class="nota nota--neutra mt-6">
+  <p class="nota__titulo">
+    <svg class="icone" aria-hidden="true"><use href="#i-info"></use></svg>
+    O caminho alvo não está operacional com os artefatos locais.
+  </p>
+  <p><code>RETRIEVAL_PATH=target</code> sozinho não monta o searcher Qdrant, o componente que consulta o índice vetorial. Os artefatos locais são GGUF; o caminho exige safetensors, GPU e injeção de um searcher. O caminho fallback é o que rodou na medição.</p>
+  <p>Para usar o OpenRouter no lugar de modelos locais, siga o <a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/README.md#rodando-com-openrouter">bloco Rodando com OpenRouter</a> do README. É opt-in: exige chave e não habilita o caminho alvo, porque o OpenRouter não oferece modelo multivector.</p>
+</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEÇÃO 10 · REFERÊNCIAS -->
+    <section class="secao secao--final" id="referencias" aria-labelledby="titulo-referencias">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">10</span>
+          <span class="margem__rotulo">Referências</span>
+        </div>
+        <div class="conteudo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-referencias">De onde vem cada afirmação.</h2>
+            <p class="linha-fina">Documentos técnicos, decisões de benchmark e proveniência dos textos. A documentação completa está no repositório.</p>
+          </header>
+          <div class="prosa">
+  <p>Esta página resume as decisões da entrega. Os documentos abaixo têm o detalhe, a evidência e a proveniência de cada número. Todos estão no repositório, na branch <code>main</code>; os links abrem o arquivo no GitHub. A ordem agrupa por função, não por data de publicação. Os números citados nas seções anteriores saem desses relatórios, com data e recorte declarados.</p>
+</div>
+
+<div class="prosa mt-8">
+  <h3>Decisões e evidência</h3>
+  <ul>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/benchmark-consolidado.md">Benchmark consolidado</a>: todas as famílias de recuperação medidas na mesma rodada, no mesmo índice e no mesmo conjunto de perguntas, com o pipeline ponta a ponta. As 110 perguntas respondíveis compartilham 16 dispositivos-ouro, e o texto diz o que isso limita.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/estrategia-recomendada.md">Estratégia recomendada</a>: a configuração canônica, por que o topo da tabela é empate e como revalidar cada valor.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/metodologia-avaliacao.md">Metodologia de avaliação</a>: fórmula, limiar e o que cada métrica não mede, com o recorte das perguntas respondíveis e o aviso sobre a precisão de citação.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/decisoes-benchmark-2026-11.md">Registro de decisões do benchmark</a>: D-01 a D-09, com contexto, evidência e consequência de cada adoção e de cada rejeição.</li>
+  </ul>
+</div>
+
+<div class="prosa mt-8">
+  <h3>Arquitetura e dados</h3>
+  <ul>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/02-arquitetura-e-stack-local.md">Arquitetura e stack local</a>: componentes, banco local, Docker, fluxo de uma pergunta e contratos de API.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/03-dados-e-fontes.md">Dados e fontes</a>: fontes oficiais, licenças, parsing, versionamento e a rotina de atualização do corpus.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/04-chunking-e-modelo-de-dados.md">Chunking e modelo de dados</a>: árvore legal, identificadores, contexto, versionamento e schema SQL.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/05-embeddings-e-recuperacao.md">Embeddings e recuperação</a>: modelos candidatos, busca híbrida, rerank, late interaction e o que ficou fora do MVP.</li>
+  </ul>
+</div>
+
+<div class="prosa mt-8">
+  <h3>Produto, geração e interface</h3>
+  <ul>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/01-visao-e-escopo.md">Visão e escopo</a>: problema, público, promessa, limites, critérios de sucesso e o que está fora do escopo do MVP.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/06-geracao-citacoes-e-seguranca.md">Geração, citações e segurança</a>: contrato de saída do LLM, verificador, emergência, LGPD e prompt.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/11-interface-chatbot.md">Interface do chatbot</a>: telas, estados, componentes e integração com a API.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/design-system.md">Sistema de design ZELIA</a>: marca, cor, tipografia, componentes e tokens, com a origem no manual e as regras de contraste.</li>
+  </ul>
+</div>
+
+<div class="prosa mt-8">
+  <h3>Operação</h3>
+  <ul>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/README.md">README do repositório</a>: quickstart, variáveis de ambiente, OpenRouter, avaliação e limitações declaradas.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/.github/workflows/ci.yml">Workflow de CI</a>: jobs de lint, tipos, testes, integração e o drill de backup e restauração; o job de integração aplica as migrações antes dos testes.</li>
+    <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/README.md">Índice da documentação</a>: mapa dos documentos, decisões que governam o projeto e ordem de leitura sugerida.</li>
+  </ul>
+</div>
+
+<div class="prosa mt-8">
+  <h3>Proveniência e licença</h3>
+  <ul>
+    <li>Textos oficiais não são protegidos por direito autoral, nos termos do art. 8º, IV, da Lei nº 9.610/1998. Ainda assim, confira a fonte oficial e a data de vigência antes de reutilizar.</li>
+    <li>Não há Jusbrasil nem scraping de doutrina. Doutrina está fora do MVP por restrição de licença.</li>
+    <li>As 130 perguntas sintéticas de <code>data/eval/questions_150.jsonl</code> são geradas pelo projeto e marcadas como pendentes de revisão.</li>
+    <li>Não há arquivo <code>LICENSE</code> no repositório; o código não está licenciado publicamente.</li>
+  </ul>
+</div>
+
+<div class="prosa mt-8">
+  <h3>Créditos</h3>
+  <ul>
+    <li>As fontes Afacad Flux e Newsreader estão sob SIL OFL 1.1 e são servidas localmente a partir de <code>site/assets/fonts/</code>, sem requisição a terceiros. As licenças acompanham os arquivos <code>OFL-afacad.txt</code> e <code>OFL-newsreader.txt</code>.</li>
+    <li>A identidade ZELIA vem do Manual de Identidade Visual v1.0, de novembro de 2026. Os tokens da interface estão em <code>web/ui/styles/tokens.css</code>.</li>
+  </ul>
+</div>
+
+<div class="nota mt-6">
+  <p class="nota__titulo">
+    <svg class="icone" aria-hidden="true"><use href="#i-info"></use></svg>
+    Antes de reutilizar
+  </p>
+  <p>Se você for reutilizar os textos legais, confira a fonte oficial e a data de vigência. Esta documentação não dá parecer sobre licenciamento.</p>
+</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="wrap">
+      <div class="rodape__grade">
+        <div>
+          <a class="marca" href="#inicio" aria-label="ZELIA, início">
+            <img src="assets/brand/wordmark-branco.svg" alt="ZELIA" width="132" height="56">
+          </a>
+          <p class="rodape__texto">Documentação da entrega do protótipo de orientação jurídica informativa do RES-IA Challenge 2. Uma ferramenta para ampliar acesso, sem ocupar o lugar da decisão.</p>
+        </div>
+
+        <div>
+          <h2>Documentação</h2>
+          <ul>
+            <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/README.md">Índice da documentação</a></li>
+            <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/benchmark-consolidado.md">Benchmark consolidado</a></li>
+            <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/estrategia-recomendada.md">Estratégia recomendada</a></li>
+            <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/design-system.md">Sistema de design ZELIA</a></li>
+            <li><a href="https://github.com/thiago-cg/res-ia-challenge-2">Repositório</a></li>
+          </ul>
+        </div>
+
+        <div class="rodape__emergencia">
+          <strong>Em perigo agora?</strong>
+          <p>Ligue <a href="tel:190">190</a> (Polícia). Central de Atendimento à Mulher: <a href="tel:180">180</a>, 24 horas. Direitos Humanos: <a href="tel:100">100</a>. Polícia Civil: <a href="tel:197">197</a>.</p>
+          <p class="mt-3">Orientação informativa. Não substitui atendimento jurídico individual, Defensoria Pública ou decisão judicial.</p>
+        </div>
+      </div>
+
+      <div class="rodape__base">
+        <p>Documentação técnica · novembro de 2026 · protótipo sem revisão jurídica humana. Números da rodada de 9 de novembro de 2026.</p>
+        <p>Textos oficiais: Planalto, STJ e CNJ. Sem Jusbrasil. Fontes Afacad Flux e Newsreader sob SIL OFL 1.1.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="scripts/site.js" defer></script>
+  <script src="scripts/fluxo.js" defer></script>
+</body>
+</html>
