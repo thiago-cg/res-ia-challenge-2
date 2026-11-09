@@ -1,0 +1,32 @@
+[
+  {
+    "name": "none",
+    "n": 110,
+    "recall_at_10": 0.7667,
+    "article_recall_at_10": 0.8348,
+    "mrr_at_10": 0.475,
+    "ndcg_at_10": 0.5073,
+    "recall_at_50": 0.7667,
+    "complete": 0.6455
+  },
+  {
+    "name": "cosine",
+    "n": 110,
+    "recall_at_10": 0.5833,
+    "article_recall_at_10": 0.8061,
+    "mrr_at_10": 0.302,
+    "ndcg_at_10": 0.3439,
+    "recall_at_50": 0.5833,
+    "complete": 0.3727
+  },
+  {
+    "name": "llm",
+    "n": 110,
+    "recall_at_10": 0.5606,
+    "article_recall_at_10": 0.8727,
+    "mrr_at_10": 0.5193,
+    "ndcg_at_10": 0.4892,
+    "recall_at_50": 0.5606,
+    "complete": 0.4273
+  }
+]

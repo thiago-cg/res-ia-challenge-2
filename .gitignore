@@ -42,3 +42,7 @@ data/eval/report_production_*.json
 .DS_Store
 Thumbs.db
 
+# Sweep caches and derived inputs (regenerable, see docs/reviews/benchmark-consolidado.md)
+data/eval/_*
+data/eval/d2q_questions.json
+data/eval/questions_safety.jsonl
