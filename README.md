@@ -224,15 +224,23 @@ o comando falha com `ModelFormatError`. Os GGUF locais não servem.
 uv run uvicorn src.api.main:app --no-access-log
 ```
 
-Em outro terminal:
+A interface desenhada é servida pela própria API em **http://localhost:8000/app/**
+(o `/` redireciona para lá). Ela usa o design system ZELIA documentado em
+[`docs/design-system.md`](docs/design-system.md) e o plano em
+[`docs/11-interface-chatbot.md`](docs/11-interface-chatbot.md). Sem API no ar, a
+interface entra em modo demonstração explícito, com respostas de exemplo.
+
+O protótipo em Streamlit continua disponível, em outro terminal:
 
 ```powershell
 uv run streamlit run web/app.py
 ```
 
-A UI fala com `http://localhost:8000` por padrão; defina `API_URL` para apontar
-para outro endereço. Endpoints: `POST /chat`, `GET /health`,
-`GET /sources/{device_id}?version=&date=`.
+A UI fala com a mesma origem quando servida em `/app`; para servir os arquivos
+estáticos em outro endereço, use `python -m http.server 5500 -d web/ui` e a
+interface consulta `http://localhost:8000` por padrão (ou `?api=` para apontar
+para outro endereço). O Streamlit usa a variável `API_URL`. Endpoints:
+`POST /chat`, `GET /health`, `GET /sources/{device_id}?version=&date=`.
 
 `--no-access-log` evita que o uvicorn registre a query string no log de acesso.
 O `/health` reporta `degraded` quando Postgres ou Qdrant estão inacessíveis;

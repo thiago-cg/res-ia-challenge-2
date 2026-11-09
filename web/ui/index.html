@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Zelia · Organização e informação</title>
+  <meta name="description" content="Orientação jurídica informativa, em linguagem simples, com a fonte na mão.">
+  <meta name="theme-color" content="#F5F0E7">
+  <meta name="zelia-api" content="">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles/fonts.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+  <a class="pular" href="#conversa">Ir para a conversa</a>
+
+  <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <symbol id="i-cadeado" viewBox="0 0 24 24">
+        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </symbol>
+      <symbol id="i-escudo" viewBox="0 0 24 24">
+        <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+      </symbol>
+      <symbol id="i-telefone" viewBox="0 0 24 24">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+      </symbol>
+      <symbol id="i-mapa" viewBox="0 0 24 24">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+      </symbol>
+      <symbol id="i-documento" viewBox="0 0 24 24">
+        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+      </symbol>
+      <symbol id="i-seta" viewBox="0 0 24 24">
+        <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+      </symbol>
+      <symbol id="i-seta-cima" viewBox="0 0 24 24">
+        <path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>
+      </symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24">
+        <path d="m6 9 6 6 6-6"/>
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="M20 6 9 17l-5-5"/>
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+      </symbol>
+      <symbol id="i-calendario" viewBox="0 0 24 24">
+        <path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>
+      </symbol>
+      <symbol id="i-link" viewBox="0 0 24 24">
+        <path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+      </symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24">
+        <path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>
+      </symbol>
+      <symbol id="i-fechar" viewBox="0 0 24 24">
+        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+      </symbol>
+      <symbol id="i-microfone" viewBox="0 0 24 24">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>
+      </symbol>
+      <symbol id="i-lixeira" viewBox="0 0 24 24">
+        <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+      </symbol>
+      <symbol id="i-olho-oculto" viewBox="0 0 24 24">
+        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/>
+      </symbol>
+      <symbol id="i-relogio" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+      </symbol>
+      <symbol id="i-sem-sinal" viewBox="0 0 24 24">
+        <path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M5 12.86a10 10 0 0 1 5.17-2.69"/><path d="M19 12.86a10 10 0 0 0-2.01-1.52"/><path d="M2 8.82a15 15 0 0 1 4.18-2.64"/><path d="M22 8.82a15 15 0 0 0-11.29-3.76"/><path d="m2 2 20 20"/>
+      </symbol>
+      <symbol id="i-balanca" viewBox="0 0 24 24">
+        <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+      </symbol>
+      <symbol id="i-alerta" viewBox="0 0 24 24">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+      </symbol>
+      <symbol id="i-pessoas" viewBox="0 0 24 24">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </symbol>
+      <symbol id="i-conversa" viewBox="0 0 24 24">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </symbol>
+      <symbol id="i-livro" viewBox="0 0 24 24">
+        <path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>
+      </symbol>
+      <symbol id="i-ajustes" viewBox="0 0 24 24">
+        <path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/>
+      </symbol>
+      <symbol id="i-sol" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <header class="topo">
+    <div class="topo__marca">
+      <span class="marca__tile" aria-hidden="true">
+        <svg class="marca__simbolo" viewBox="177.379 170.097 237.238 214.644">
+          <path pathLength="1" d="M 199.166 207.216 C 252.424 194.305 305.681 191.884 358.939 199.953 C 384.761 203.181 391.216 214.478 378.305 233.844 L 213.691 320.993 C 200.78 340.36 207.235 351.657 233.057 354.884 C 286.315 362.954 339.572 360.533 392.83 347.622"/>
+        </svg>
+      </span>
+      <img class="marca__wordmark" src="assets/brand/wordmark-azul.svg" alt="Zelia" width="346" height="148">
+    </div>
+
+    <div class="topo__acoes">
+      <span class="selo" id="selo-status">
+        <span class="selo__ponto" aria-hidden="true"></span>
+        <span id="selo-texto">Verificando base…</span>
+      </span>
+      <button class="botao botao--fantasma" type="button" id="abrir-privacidade">
+        <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
+        <span class="botao__texto">Privacidade</span>
+      </button>
+      <button class="botao botao--fantasma" type="button" id="abrir-fontes">
+        <svg class="i" aria-hidden="true"><use href="#i-documento"/></svg>
+        <span class="botao__texto">Fontes</span>
+      </button>
+      <button class="botao botao--icone apenas-mobile" type="button" id="abrir-contexto" aria-label="Abrir contexto" aria-expanded="false" aria-controls="contexto">
+        <svg class="i" aria-hidden="true"><use href="#i-menu"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <p class="faixa-demo" id="faixa-demo" role="status" hidden>
+    <svg class="i" aria-hidden="true"><use href="#i-sol"/></svg>
+    <span><strong>Modo demonstração.</strong> Respostas de exemplo; a API não está conectada.</span>
+  </p>
+
+  <main class="layout">
+    <section class="janela" aria-label="Conversa com a Zelia">
+      <svg class="fio" viewBox="0 0 320 220" aria-hidden="true" focusable="false">
+        <path d="M-20 190 C 80 150, 120 60, 210 40 S 330 60, 360 10"/>
+        <path d="M-10 210 C 90 170, 130 80, 220 60 S 340 80, 370 30"/>
+        <path d="M0 230 C 100 190, 140 100, 230 80 S 350 100, 380 50"/>
+      </svg>
+
+      <div class="thread" id="thread" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversa" tabindex="0"></div>
+
+      <div class="composer-area">
+        <form class="composer" id="form-composer" autocomplete="off">
+          <label class="sr-only" for="campo">Sua pergunta</label>
+          <textarea id="campo" name="mensagem" rows="1" maxlength="8000" placeholder="Escreva no seu tempo…" enterkeyhint="send" aria-describedby="dica-pii"></textarea>
+          <div class="composer__acoes">
+            <button class="botao-icone" type="button" id="microfone" disabled title="Em breve" aria-label="Ditado por voz (em breve)">
+              <svg class="i" aria-hidden="true"><use href="#i-microfone"/></svg>
+            </button>
+            <button class="enviar" type="submit" id="enviar" disabled aria-label="Enviar pergunta">
+              <svg class="i" aria-hidden="true"><use href="#i-seta-cima"/></svg>
+            </button>
+          </div>
+        </form>
+        <div class="composer__meta">
+          <p class="dica-pii" id="dica-pii">
+            <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
+            Não informe nome, CPF, endereço, telefone ou documentos.
+          </p>
+          <button class="chip chip--dados" type="button" id="chip-data">
+            <svg class="i" aria-hidden="true"><use href="#i-calendario"/></svg>
+            <span id="chip-data-texto">Data do fato</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="contexto" id="contexto" aria-label="Sobre esta orientação">
+      <div class="contexto__topo">
+        <strong>Contexto</strong>
+        <button class="botao botao--icone" type="button" id="fechar-contexto" aria-label="Fechar contexto">
+          <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+        </button>
+      </div>
+      <section class="contexto__cartao">
+        <h2 class="contexto__titulo">Sobre esta orientação</h2>
+        <p class="contexto__texto">Orientação informativa. Não substitui atendimento jurídico individual.</p>
+        <div class="status" id="status-servico">
+          <span class="status__ponto" aria-hidden="true"></span>
+          <span class="status__texto" id="status-texto">Consultando os serviços…</span>
+        </div>
+        <p class="contexto__nota" id="nota-base">Base atualizada em —</p>
+      </section>
+
+      <section class="contexto__cartao">
+        <h2 class="contexto__titulo">Data do fato <span class="contexto__opcional">opcional</span></h2>
+        <p class="contexto__texto contexto__texto--fraco">Ela define a versão da lei aplicável à sua pergunta.</p>
+        <div class="campo-data">
+          <input type="date" id="data-fato" aria-label="Data do fato">
+          <button class="botao botao--secundario botao--compacto" type="button" id="limpar-data" hidden>Limpar</button>
+        </div>
+      </section>
+
+      <section class="contexto__cartao">
+        <h2 class="contexto__titulo">Perguntas de exemplo</h2>
+        <div class="exemplos-lista" id="exemplos-lista"></div>
+      </section>
+
+      <section class="contexto__cartao">
+        <h2 class="contexto__titulo">Privacidade</h2>
+        <div class="linha-privacidade">
+          <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
+          <span id="resumo-privacidade">Histórico desligado · conversa só nesta aba</span>
+        </div>
+        <button class="botao botao--secundario botao--largo" type="button" id="abrir-privacidade-2">Ajustar privacidade</button>
+      </section>
+
+      <footer class="contexto__rodape">
+        <p>Zelia · Organização e informação</p>
+        <button class="link" type="button" id="abrir-fontes-2">Fontes e transparência</button>
+      </footer>
+    </aside>
+  </main>
+
+  <div class="veil" id="veil" hidden></div>
+
+  <dialog class="dialogo" id="dialogo-privacidade" tabindex="-1" aria-labelledby="titulo-privacidade">
+    <div class="dialogo__cabecalho">
+      <h2 class="dialogo__titulo" id="titulo-privacidade">Privacidade</h2>
+      <button class="botao botao--icone" type="button" data-fechar aria-label="Fechar">
+        <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+      </button>
+    </div>
+    <p class="dialogo__texto">Você está no controle. Revise suas escolhas quando quiser.</p>
+
+    <h3 class="dialogo__secao">No seu dispositivo</h3>
+    <div class="config">
+      <div class="config__texto">
+        <p class="config__titulo">Histórico de conversas</p>
+        <p class="config__descricao">Salvo apenas neste aparelho</p>
+      </div>
+      <button class="interruptor" type="button" role="switch" aria-checked="false" id="switch-historico" aria-label="Salvar histórico neste aparelho"><span class="interruptor__bolinha"></span></button>
+    </div>
+    <div class="config">
+      <div class="config__texto">
+        <p class="config__titulo">Prévia em notificações</p>
+        <p class="config__descricao">Conteúdo sempre oculto</p>
+      </div>
+      <button class="interruptor" type="button" role="switch" aria-checked="false" disabled aria-label="Prévia em notificações: sempre oculta"><span class="interruptor__bolinha"></span></button>
+    </div>
+    <div class="config">
+      <div class="config__texto">
+        <p class="config__titulo">Acesso por voz</p>
+        <p class="config__descricao">Só quando você toca · em breve</p>
+      </div>
+      <button class="interruptor" type="button" role="switch" aria-checked="false" disabled aria-label="Acesso por voz: em breve"><span class="interruptor__bolinha"></span></button>
+    </div>
+
+    <h3 class="dialogo__secao">Seus dados</h3>
+    <button class="botao botao--secundario botao--largo botao--destrutivo" type="button" id="apagar-conversa">
+      <svg class="i" aria-hidden="true"><use href="#i-lixeira"/></svg>
+      Apagar conversa deste aparelho
+    </button>
+    <p class="dialogo__nota dialogo__nota--alerta" id="nota-apagar" hidden>Toque novamente para confirmar. A conversa será apagada deste aparelho.</p>
+    <p class="dialogo__nota">Nada é enviado a serviços de terceiros. A conversa não aparece em notificações nem no título da aba.</p>
+  </dialog>
+
+  <dialog class="dialogo" id="dialogo-fontes" tabindex="-1" aria-labelledby="titulo-fontes">
+    <div class="dialogo__cabecalho">
+      <h2 class="dialogo__titulo" id="titulo-fontes">Fontes e transparência</h2>
+      <button class="botao botao--icone" type="button" data-fechar aria-label="Fechar">
+        <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+      </button>
+    </div>
+    <p class="dialogo__texto">A Zelia responde apenas com base em dispositivos legais recuperados da base local. Cada afirmação relevante aponta para um dispositivo vigente na data considerada.</p>
+
+    <h3 class="dialogo__secao">O que a base cobre</h3>
+    <ul class="lista-simples">
+      <li>Lei Maria da Penha (Lei 11.340/2006)</li>
+      <li>Dispositivos selecionados do Código Penal e do Código de Processo Penal</li>
+      <li>Súmulas e teses selecionadas</li>
+      <li>Atos do Conselho Nacional de Justiça</li>
+    </ul>
+
+    <div class="ficha">
+      <div><span class="ficha__rotulo">Base atualizada</span><span class="ficha__valor" id="fontes-data">—</span></div>
+      <div><span class="ficha__rotulo">Versão do índice</span><span class="ficha__valor" id="fontes-indice">—</span></div>
+      <div><span class="ficha__rotulo">Serviços</span><span class="ficha__valor" id="fontes-status">—</span></div>
+    </div>
+
+    <p class="dialogo__nota">Orientação informativa. Não substitui atendimento jurídico individual. Em perigo, ligue 190. A Central de Atendimento à Mulher atende no 180, 24 horas.</p>
+    <a class="link link--externo" href="https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2006/lei/l11340.htm" target="_blank" rel="noopener noreferrer">
+      Abrir a Lei 11.340/2006 no Planalto
+      <svg class="i" aria-hidden="true"><use href="#i-link"/></svg>
+    </a>
+  </dialog>
+
+  <dialog class="dialogo dialogo--estreito" id="dialogo-data" tabindex="-1" aria-labelledby="titulo-data">
+    <div class="dialogo__cabecalho">
+      <h2 class="dialogo__titulo" id="titulo-data">Data do fato</h2>
+      <button class="botao botao--icone" type="button" data-fechar aria-label="Fechar">
+        <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+      </button>
+    </div>
+    <p class="dialogo__texto">Informe apenas se souber. A data define a versão da lei aplicável à resposta.</p>
+    <label class="rotulo-campo" for="data-dialogo">Data</label>
+    <input class="campo" type="date" id="data-dialogo">
+    <div class="dialogo__acoes">
+      <button class="botao botao--secundario" type="button" id="data-limpar">Limpar</button>
+      <button class="botao botao--primario" type="button" id="data-aplicar">Aplicar</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="scripts/app.js"></script>
+</body>
+</html>

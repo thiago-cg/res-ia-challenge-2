@@ -22,6 +22,8 @@ from typing import Any, Protocol, cast
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.api.middleware import (
     RequestContextMiddleware,
@@ -1031,7 +1033,26 @@ def create_app(
             )
         return _source_response(row)
 
+    _mount_interface(app)
     return app
+
+
+def _mount_interface(app: FastAPI) -> None:
+    """Serve the designed chatbot UI at ``/app`` and point ``/`` to it.
+
+    The interface is optional: a wheel install without ``web/ui`` keeps the
+    API unchanged, and ``/`` stays a 404.
+    """
+
+    ui_dir = Path(__file__).resolve().parents[2] / "web" / "ui"
+    if not (ui_dir / "index.html").is_file():
+        return
+
+    app.mount("/app", StaticFiles(directory=str(ui_dir), html=True), name="interface")
+
+    @app.get("/", include_in_schema=False)
+    def raiz() -> RedirectResponse:
+        return RedirectResponse(url="/app/")
 
 
 def _source_response(row: Any) -> SourceResponse:
