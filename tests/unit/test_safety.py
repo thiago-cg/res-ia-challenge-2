@@ -147,3 +147,41 @@ def test_emergency_answer_needs_no_retrieval_input() -> None:
     assert any("180" in step for step in answer.proximos_passos)
     assert any("DEAM" in step for step in answer.proximos_passos)
     assert any("Defensoria" in step for step in answer.proximos_passos)
+
+
+# The phrase table used to list literal strings, so it only fired when the
+# message reproduced the exact pronoun and article ("esta com arma", "esta me
+# agredindo").  Real messages vary the surface form, and the evaluation set
+# showed 5 of 20 emergency questions slipping through into the normal answer
+# path.
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "Ele acabou de me empurrar e está gritando comigo.",
+        "Ele está quebrando tudo e me ameaçando agora.",
+        "Ele está com uma arma e está na minha frente.",
+        "Estou escondida no banheiro e ele está batendo na porta.",
+        "Meu companheiro está agredindo minha mãe neste momento.",
+        "Ele está com um revólver na mão.",
+    ],
+)
+def test_imminent_variants_that_are_not_literal_phrases_are_immediate(phrase: str) -> None:
+    assert classify_risk(phrase).immediate is True
+
+
+# The other half of the same problem: widening the table must not turn a
+# historical report, or a question about a past event, into an emergency.  The
+# normal answer path is the correct one for these.
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "Ele me agrediu e eu não sei se ainda dá tempo de denunciar.",
+        "Ele me empurrou e me ameaçou, mas só agora consegui pedir ajuda.",
+        "Ele me bateu e sumiu, ainda posso fazer alguma coisa.",
+        "Meu companheiro me agrediu e eu não registrei nada na época.",
+        "Ele fica me ameaçando e dizendo que eu não valho nada.",
+        "Ele me ameaçou, isso é crime.",
+    ],
+)
+def test_past_reports_and_legal_questions_are_not_immediate(phrase: str) -> None:
+    assert classify_risk(phrase).immediate is False

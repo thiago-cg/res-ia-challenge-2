@@ -23,88 +23,100 @@ class RiskAssessment(BaseModel):
     kind: str | None = None
 
 
-_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    (
-        "agressao",
+_IMMINENT: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = tuple(
+    (category, tuple(re.compile(pattern) for pattern in patterns))
+    for category, patterns in (
         (
-            "esta me batendo",
-            "esta me agredindo",
-            "me agrediu agora",
-            "me bateu agora",
-            "esta aqui",
+            "agressao",
+            (
+                r"esta (me )?(batendo|agredindo|empurrando|chutando|arrastando"
+                r"|enforcando|espancando)",
+                r"acabou de me (empurrar|bater|agredir|chutar|ameacar)",
+                r"esta (quebrando|destruindo) (tudo|a casa|as coisas|os moveis)",
+            ),
         ),
-    ),
-    (
-        "ameaca_de_morte",
         (
-            "vai me matar",
-            "disse que me mata",
-            "ameacou de me matar",
-            "esta me ameacando",
-            "ameacando de me matar",
-            "vou morrer",
+            "ameaca_de_morte",
+            (
+                r"esta me ameacando",
+                r"vai me matar",
+                r"disse que me mata",
+                r"vou morrer",
+            ),
         ),
-    ),
-    (
-        "arma",
         (
-            "esta com arma",
-            "esta com faca",
-            "esta armado",
-            "portando arma",
-            "com uma faca",
+            "arma",
+            (
+                r"esta com (um |uma |a |o )?(arma|faca|revolver|pistola|espingarda)",
+                r"esta armado",
+                r"portando arma",
+            ),
         ),
-    ),
-    (
-        "carcere",
         (
-            "estou presa",
-            "estou trancada",
-            "nao me deixa sair",
-            "nao me deixou sair",
-            "trancou a porta",
-            "me trancou",
+            "carcere",
+            (
+                r"estou (presa|trancada|escondida)",
+                r"nao me (deixa|deixou) sair",
+                r"trancou a porta",
+                r"me trancou",
+                r"batendo na porta",
+            ),
         ),
-    ),
-    (
-        "perseguicao",
         (
-            "esta me seguindo",
-            "esta me perseguindo",
-            "me perseguindo",
-            "nao para de me perseguir",
+            "perseguicao",
+            (
+                r"esta me seguindo",
+                r"esta me perseguindo",
+                r"nao para de me perseguir",
+            ),
         ),
-    ),
-    (
-        "violencia_sexual",
         (
-            "me forcou",
-            "me estuprou",
-            "esta me forcando",
-            "me forcando agora",
-            "esta me estuprando",
-            "estupro",
-            "abusou sexualmente",
+            "violencia_sexual",
+            (
+                r"esta me forcando",
+                r"me forcando agora",
+                r"esta me estuprando",
+            ),
         ),
-    ),
-    (
-        "crise",
         (
-            "nao quero mais viver",
-            "nao quero viver",
-            "vou me matar",
-            "quero morrer",
+            "crise",
+            (
+                r"nao quero mais viver",
+                r"nao quero viver",
+                r"vou me matar",
+                r"quero morrer",
+            ),
         ),
-    ),
-    (
-        "crianca_em_risco",
         (
-            "machucando meu filho",
-            "agredindo meu filho",
-            "meu filho esta sendo agredido",
-            "batendo no meu filho",
+            "crianca_em_risco",
+            (
+                r"(agredindo|batendo em|machucando) (meu|minha) (filho|filha|mae|pai|irmao|irma)",
+                r"meu filho esta sendo agredido",
+            ),
         ),
-    ),
+    )
+)
+
+#: Past forms.  Reporting a completed assault is still an emergency, so these
+#: fire on their own -- unless the message is asking whether it is still in time
+#: to report, which describes the same event as history.
+_PAST: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = tuple(
+    (category, tuple(re.compile(pattern) for pattern in patterns))
+    for category, patterns in (
+        ("agressao", (r"(me|nos) (empurrou|agrediu|bateu|chutou|arrastou|enforcou)",)),
+        ("ameaca_de_morte", (r"ameacou de me matar", r"(me|nos) ameacou")),
+        ("violencia_sexual", (r"me forcou", r"me estuprou", r"abusou sexualmente")),
+    )
+)
+
+#: Iterative forms ("ele fica me ameaçando") describe a pattern of behaviour,
+#: not an event in progress, so they need a present marker to count.
+_HABITUAL: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = tuple(
+    (category, tuple(re.compile(pattern) for pattern in patterns))
+    for category, patterns in (
+        ("ameaca_de_morte", (r"fica me ameacando", r"ameacando (me|minha|meu)")),
+        ("perseguicao", (r"me perseguindo", r"me seguindo")),
+    )
 )
 
 _HISTORICAL_RE = re.compile(
@@ -121,6 +133,18 @@ _HISTORICAL_RE = re.compile(
     r"|\bantigamente\b"
     r"|\bquando\s+eu\s+era\b"
     r"|\bha\s+muito\s+tempo\b"
+    r"|\bna\s+epoca\b"
+)
+
+_ONLY_NOW_RE = re.compile(r"\bso\s+agora\b")
+
+_DEADLINE_RE = re.compile(
+    r"\b(da|dar)\s+tempo\b"
+    r"|\bainda\s+(posso|da|consigo|vale)\b"
+    r"|\bprazo\b"
+    r"|\bquando\s+(posso|devo)\s+denunciar\b"
+    r"|\bnao\s+registrei\b"
+    r"|\b(isso|isto)\s+e\s+crime\b"
 )
 
 _PRESENT_MARKERS = (
@@ -147,16 +171,25 @@ def classify_risk(text: str) -> RiskAssessment:
     normalized = _normalize(text)
 
     historical = bool(_HISTORICAL_RE.search(normalized))
-    present = any(marker in normalized for marker in _PRESENT_MARKERS)
+    only_now = bool(_ONLY_NOW_RE.search(normalized))
+    present = any(marker in normalized for marker in _PRESENT_MARKERS) and not only_now
+    deferred = bool(_DEADLINE_RE.search(normalized))
 
     signals: list[str] = []
     kind: str | None = None
 
-    for category, patterns in _CATEGORIES:
-        if any(pattern in normalized for pattern in patterns):
-            signals.append(category)
-            if kind is None:
-                kind = category
+    for tier, name in ((_IMMINENT, "imminent"), (_HABITUAL, "habitual"), (_PAST, "past")):
+        if name == "habitual" and not present:
+            continue
+        if name == "past" and (deferred or only_now):
+            continue
+        for category, patterns in tier:
+            if any(pattern.search(normalized) for pattern in patterns):
+                signals.append(category)
+                if kind is None:
+                    kind = category
+        if signals:
+            break
 
     if signals:
         if historical and not present:
