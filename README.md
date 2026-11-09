@@ -668,6 +668,8 @@ ele esta batendo na porta") fell through to the normal answer path because the
 classifier was a list of literal phrases. It now catches 20/20 emergencies with
 0 false positives on the 130 non-emergency questions.
 
+The canonical statement of this profile — why each value won, the contract dependency that decides the reranker, and the commands to re-validate it — is [`docs/reviews/estrategia-recomendada.md`](docs/reviews/estrategia-recomendada.md).
+
 ### Tried and rejected (measured, so nobody repeats it)
 
 | Change | Measurement | Decision |
