@@ -103,6 +103,12 @@ class Settings(BaseSettings):
     openrouter_app_name: str = ""
     openrouter_query_instruction: str = ""
 
+    #: Comma-separated provider allow-list for the OpenRouter request body, e.g.
+    #: "deepinfra/fp8".  Pinning the provider removes the run-to-run variance of
+    #: whoever the gateway happens to route to, and an empty value keeps the
+    #: gateway's own routing.
+    openrouter_provider_only: str = ""
+
     @model_validator(mode="after")
     def reject_gguf_models(self) -> "Settings":
         for field in GGUF_FIELDS:
