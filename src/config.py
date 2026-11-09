@@ -19,6 +19,17 @@ GGUF_FIELDS = ("ppx_9b_model_path", "ppx_06b_model_path", "harrier_model_path")
 
 
 class Settings(BaseSettings):
+    """Runtime configuration.
+
+    The retrieval defaults below are a measured decision, not a coincidence:
+    `hybrid_lexical_weight=0.2`, `max_devices_per_article=3`,
+    `query_expansion=True`, `query_rewrite="none"` and
+    `rerank_provider="none"` are the profile chosen by the nov/2026 benchmark.
+    See docs/reviews/estrategia-recomendada.md for why each value won and how to
+    re-validate it, and tests/unit/test_recommended_strategy.py, which fails when
+    one of them drifts without the document.
+    """
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
