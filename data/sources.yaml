@@ -86,3 +86,182 @@ sources:
     priority: P1
     tipo: ato_cnj
     enabled: true
+
+  # ---------------------------------------------------------------------------
+  # Expansão do corpus (2026-11). Todas as URLs são oficiais (planalto.gov.br ou
+  # atos.cnj.jus.br) e foram abertas e conferidas em 2026-11-09: ementa, data e
+  # ausência de marca de revogação. Critério de entrada:
+  #   1. conteúdo autônomo que o texto compilado da LMP/CP não traz; ou
+  #   2. lei alteradora recente (2025+), cujo texto compilado pode estar defasado.
+  # Lei alteradora antiga fica no fim do arquivo, desabilitada (duplicaria artigo).
+  # ---------------------------------------------------------------------------
+
+  # Alterações recentes da Lei Maria da Penha (versionamento e regressão legal)
+  - id: lei-15412-2026
+    title: "Lei nº 15.412/2026"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/l15412.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: lei-15380-2026
+    title: "Lei nº 15.380/2026"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/l15380.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: lei-15125-2025
+    title: "Lei nº 15.125/2025"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15125.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  # Avaliação de risco e medidas de proteção (J1/J2)
+  - id: lei-14149-2021
+    title: "Lei nº 14.149/2021 (Formulário Nacional de Avaliação de Risco)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/L14149.htm"
+    parser: planalto
+    priority: P0
+    tipo: lei
+    enabled: true
+
+  - id: lei-14188-2021
+    title: "Lei nº 14.188/2021 (Sinal Vermelho)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/L14188.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: true
+
+  # Rede de atendimento: saúde, notificação, canal 180 (J3)
+  - id: lei-12845-2013
+    title: "Lei nº 12.845/2013 (Atendimento obrigatório a vítimas de violência sexual)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2013/lei/l12845.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: true
+
+  - id: decreto-7958-2013
+    title: "Decreto nº 7.958/2013 (Atendimento a vítimas de violência sexual)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2013/decreto/d7958.htm"
+    parser: planalto
+    priority: P1
+    tipo: decreto
+    enabled: true
+
+  - id: lei-10778-2003
+    title: "Lei nº 10.778/2003 (Notificação compulsória da violência contra a mulher)"
+    url: "https://www.planalto.gov.br/ccivil_03/leis/2003/l10.778.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: true
+
+  - id: lei-10714-2003
+    title: "Lei nº 10.714/2003 (Central de atendimento Ligue 180)"
+    url: "https://www.planalto.gov.br/ccivil_03/leis/2003/l10.714.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: true
+
+  - id: lei-15116-2025
+    title: "Lei nº 15.116/2025 (Reconstrução dentária para vítimas de violência doméstica)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15116.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: true
+
+  - id: lei-14717-2023
+    title: "Lei nº 14.717/2023 (Pensão especial a órfãos do feminicídio)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2023/lei/L14717.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: true
+
+  - id: lei-13431-2017
+    title: "Lei nº 13.431/2017 (Criança e adolescente vítima ou testemunha de violência)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2017/lei/l13431.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: true
+
+  # Atos do CNJ sobre o tratamento judicial da violência contra a mulher
+  - id: cnj-res-254-2018
+    title: "Resolução CNJ nº 254/2018"
+    url: "https://atos.cnj.jus.br/atos/detalhar/2669"
+    parser: cnj
+    priority: P1
+    tipo: ato_cnj
+    enabled: true
+
+  - id: cnj-res-492-2023
+    title: "Resolução CNJ nº 492/2023"
+    url: "https://atos.cnj.jus.br/atos/detalhar/4986"
+    parser: cnj
+    priority: P1
+    tipo: ato_cnj
+    enabled: true
+
+  # ---------------------------------------------------------------------------
+  # Candidatas desabilitadas: leis que apenas alteram a LMP e já estão no texto
+  # compilado. Habilitar somente se o compilado do Planalto ficar defasado, e
+  # rodar o benchmark antes (risco: o artigo da lei alteradora disputa o ranking
+  # com o artigo vigente da LMP).
+  # ---------------------------------------------------------------------------
+  - id: lei-13827-2019
+    title: "Lei nº 13.827/2019 (Medida protetiva por autoridade judicial ou policial)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2019/lei/L13827.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: false
+
+  - id: lei-13505-2017
+    title: "Lei nº 13.505/2017 (Atendimento policial e pericial especializado)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2017/lei/l13505.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: false
+
+  - id: lei-13894-2019
+    title: "Lei nº 13.894/2019 (Divórcio e competência nos juizados de violência doméstica)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2019/lei/L13894.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: false
+
+  - id: lei-14310-2022
+    title: "Lei nº 14.310/2022 (Registro imediato de medidas protetivas)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/lei/L14310.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: false
+
+  - id: lei-14674-2023
+    title: "Lei nº 14.674/2023 (Auxílio-aluguel)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2023/lei/L14674.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: false
+
+  - id: lei-14857-2024
+    title: "Lei nº 14.857/2024 (Sigilo do nome da vítima)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2024/lei/L14857.htm"
+    parser: planalto
+    priority: P1
+    tipo: lei
+    enabled: false
