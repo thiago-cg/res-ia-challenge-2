@@ -52,6 +52,37 @@ sha256sum data/raw/*.html > data/raw/SHA256SUMS
 
 > O Planalto pode usar codificação legada. Salve os bytes originais e detecte o charset no parser; não confie no `response.text` sem verificar.
 
+### 2.1 Expansão do corpus (novembro/2026)
+
+O manifesto `data/sources.yaml` ganhou normas que sustentam as jornadas J1–J3. Cada URL foi aberta no Planalto/CNJ em 2026-11-09, com ementa e data conferidas e sem marca de revogação.
+
+**Critério de entrada.** Uma norma entra quando (1) traz conteúdo autônomo que o texto compilado da LMP/CP não contém, ou (2) é uma lei alteradora recente (2025+), cujo compilado pode estar defasado. Lei alteradora antiga fica **desabilitada**: o artigo dela duplica o artigo vigente da LMP e disputa o ranking com ele, o que ameaça justamente o dispositivo-ouro.
+
+| Fonte                                                                             | Prioridade | Estado            | Por que ajuda a usuária                                                |
+| --------------------------------------------------------------------------------- | ---------- | ----------------- | ---------------------------------------------------------------------- |
+| Lei 15.412/2026                                                                   | P0         | habilitada        | Medidas protetivas cíveis são título executivo, sem outra ação         |
+| Lei 15.380/2026                                                                   | P0         | habilitada        | Audiência de retratação só a pedido expresso da vítima                 |
+| Lei 15.125/2025                                                                   | P0         | habilitada        | Monitoração eletrônica do agressor                                     |
+| Lei 14.149/2021                                                                   | P0         | habilitada        | Base legal do Formulário Nacional de Avaliação de Risco                |
+| Lei 14.188/2021                                                                   | P1         | habilitada        | Sinal Vermelho e violência psicológica                                 |
+| Lei 12.845/2013, Decreto 7.958                                                    | P1         | habilitadas       | Atendimento hospitalar e policial na violência sexual                  |
+| Lei 10.778/2003                                                                   | P1         | habilitada        | Notificação compulsória nos serviços de saúde                          |
+| Lei 10.714/2003                                                                   | P1         | habilitada        | Base do Ligue 180                                                      |
+| Lei 15.116/2025                                                                   | P1         | habilitada        | Reconstrução dentária no SUS para vítimas                              |
+| Lei 14.717/2023                                                                   | P1         | habilitada        | Pensão especial a órfãos do feminicídio                                |
+| Lei 13.431/2017                                                                   | P1         | habilitada        | Criança e adolescente vítima ou testemunha de violência                |
+| Resoluções CNJ 254/2018, 492/2023                                                 | P1         | habilitadas       | Política judiciária e julgamento com perspectiva de gênero             |
+| Leis 13.827/2019, 13.505/2017, 13.894/2019, 14.310/2022, 14.674/2023, 14.857/2024 | P1         | **desabilitadas** | Já incorporadas ao texto compilado da LMP; habilitar só após benchmark |
+
+**Fora de propósito (de propósito).** Código Civil, ECA completo, CLT e Lei de Alimentos não entram: o conjunto de avaliação exige abstenção em perguntas sobre guarda, divórcio e trabalho (`fora_do_corpus`), e esses textos as tornariam "respondíveis". A Convenção de Belém do Pará (Decreto 1.973/1996) foi verificada, mas usa "Artigo 1" em vez de "Art. 1º" e precisa de ajuste no parser antes de entrar.
+
+**Pendências antes de usar em produção.**
+
+1. Rodar `uv run python -m src.ingest.run --priority P0 --stage validate` (e depois `--all`) numa máquina com acesso ao Planalto. Nesta análise o Planalto não respondeu a clientes HTTP automatizados (timeout), então o parser ainda **não** foi exercitado nas páginas novas.
+2. Reindexar e rodar `scripts/sweep_retrieval.py`. Aceitar a expansão só se o recall@10 por dispositivo não cair além do ruído (≈3–4 pontos, ver [estratégia recomendada](reviews/estrategia-recomendada.md)).
+3. Escrever perguntas de avaliação para as normas novas (hoje o ouro cobre só LMP, CP, CPP, CNJ 5/2020 e súmulas 542/600) e passar pela revisão jurídica.
+4. Confirmar a data do DOU das normas com marcador conservador (31/12 do ano) em `SOURCE_NORMS`.
+
 ## 3. Legislação estruturada e metadados (P0/P1)
 
 ### LexML
