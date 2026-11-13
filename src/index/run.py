@@ -339,7 +339,7 @@ def main(argv: list[str] | None = None) -> int:
 def make_client(url: str) -> Any:
     from qdrant_client import QdrantClient
 
-    return QdrantClient(url=url)
+    return QdrantClient(url=url, timeout=300)
 
 
 def _connect(database_url: str) -> Any:

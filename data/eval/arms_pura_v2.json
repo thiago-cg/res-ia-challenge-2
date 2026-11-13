@@ -1,0 +1,1285 @@
+{
+  "questions": 40,
+  "arms": {
+    "llm_pura": {
+      "scenario": "llm_pura",
+      "n_questions": 40,
+      "recall_at_10": 0.0,
+      "article_recall_at_10": 0.0,
+      "mrr_at_10": 0.0,
+      "ndcg_at_10": 0.0,
+      "citation_precision": 0.0,
+      "citation_coverage": 0.5238095238095237,
+      "groundedness": 0.0,
+      "abstention_accuracy": 0.9473684210526315,
+      "emergency_routing": 1.0,
+      "latency_p50_ms": 52179.824600003485,
+      "latency_p95_ms": 89435.45369999993,
+      "passed": false,
+      "failures": [
+        "q002",
+        "q004",
+        "q006",
+        "q008",
+        "q010",
+        "q018",
+        "q022",
+        "q024",
+        "q026",
+        "q028",
+        "q030",
+        "q032",
+        "q034",
+        "q036",
+        "q038",
+        "q040",
+        "q042",
+        "q044",
+        "q046",
+        "q048",
+        "q050",
+        "q052",
+        "q054",
+        "q056",
+        "q058",
+        "q060",
+        "q062",
+        "q064",
+        "q066",
+        "q068",
+        "q070",
+        "q072",
+        "q074",
+        "q076",
+        "q078",
+        "q080"
+      ],
+      "threshold_failures": [
+        "recall_at_10=0.0000 < 0.8500",
+        "recall_per_question=0.0000 < 0.7000",
+        "mrr_at_10=0.0000 < 0.6000",
+        "ndcg_at_10=0.0000 < 0.7000",
+        "citation_precision=0.0000 < 0.9500",
+        "citation_coverage=0.5238 < 0.8000",
+        "groundedness=0.0000 < 0.9500",
+        "latency_p95_ms=89435.4537 > 8000.0000"
+      ],
+      "by_split": {
+        "test": {
+          "recall_at_10": 0.0,
+          "article_recall_at_10": 0.0,
+          "count": 40
+        }
+      },
+      "by_category": {
+        "acao_penal": {
+          "recall_at_10": 0.0,
+          "article_recall_at_10": 0.0,
+          "recall_per_question": 0.0,
+          "mrr_at_10": 0.0,
+          "ndcg_at_10": 0.0,
+          "citation_precision": 0.0,
+          "citation_coverage": 1.0,
+          "groundedness": 0.0,
+          "abstention_accuracy": 1.0,
+          "emergency_routing": null,
+          "latency_p50_ms": 46294.830900002125,
+          "latency_p95_ms": 73487.32069999824,
+          "count": 6
+        },
+        "medida_protetiva": {
+          "recall_at_10": 0.0,
+          "article_recall_at_10": 0.0,
+          "recall_per_question": 0.0,
+          "mrr_at_10": 0.0,
+          "ndcg_at_10": 0.0,
+          "citation_precision": 0.0,
+          "citation_coverage": 0.6470588235294118,
+          "groundedness": 0.0,
+          "abstention_accuracy": 1.0,
+          "emergency_routing": null,
+          "latency_p50_ms": 57552.448899998126,
+          "latency_p95_ms": 103958.26129999841,
+          "count": 17
+        },
+        "servicos": {
+          "recall_at_10": 0.0,
+          "article_recall_at_10": 0.0,
+          "recall_per_question": 0.0,
+          "mrr_at_10": 0.0,
+          "ndcg_at_10": 0.0,
+          "citation_precision": 0.0,
+          "citation_coverage": 0.14285714285714285,
+          "groundedness": 0.0,
+          "abstention_accuracy": 0.8571428571428571,
+          "emergency_routing": null,
+          "latency_p50_ms": 48811.14630000229,
+          "latency_p95_ms": 65156.93789999932,
+          "count": 7
+        },
+        "emergencia": {
+          "recall_at_10": 0.0,
+          "article_recall_at_10": 0.0,
+          "recall_per_question": 0.0,
+          "mrr_at_10": 0.0,
+          "ndcg_at_10": 0.0,
+          "citation_precision": 0.0,
+          "citation_coverage": 0.0,
+          "groundedness": 0.0,
+          "abstention_accuracy": null,
+          "emergency_routing": 1.0,
+          "latency_p50_ms": 0.13380000018514693,
+          "latency_p95_ms": 1.8119000014849007,
+          "count": 2
+        },
+        "fora_do_corpus": {
+          "recall_at_10": 0.0,
+          "article_recall_at_10": 0.0,
+          "recall_per_question": 0.0,
+          "mrr_at_10": 0.0,
+          "ndcg_at_10": 0.0,
+          "citation_precision": 0.0,
+          "citation_coverage": 0.0,
+          "groundedness": 0.0,
+          "abstention_accuracy": 0.6666666666666666,
+          "emergency_routing": null,
+          "latency_p50_ms": 18942.55929999781,
+          "latency_p95_ms": 68790.07850000198,
+          "count": 3
+        },
+        "prazo": {
+          "recall_at_10": 0.0,
+          "article_recall_at_10": 0.0,
+          "recall_per_question": 0.0,
+          "mrr_at_10": 0.0,
+          "ndcg_at_10": 0.0,
+          "citation_precision": 0.0,
+          "citation_coverage": 0.06666666666666667,
+          "groundedness": 0.0,
+          "abstention_accuracy": 1.0,
+          "emergency_routing": null,
+          "latency_p50_ms": 89266.60040000206,
+          "latency_p95_ms": 141580.020100002,
+          "count": 5
+        }
+      },
+      "extra": {
+        "respostas_com_json_valido": 38,
+        "citacoes_total": 286,
+        "taxa_citacao_inexistente": 0.105,
+        "precisao_vs_gold": 0.087,
+        "cobertura_vs_gold": 0.397,
+        "erros_de_schema": 0,
+        "erros_de_llm": 0
+      }
+    }
+  },
+  "pure_log": [
+    {
+      "id": "q002",
+      "categoria": "acao_penal",
+      "cited": [
+        "lmp/art5",
+        "stj-sum-542",
+        "cp/art147",
+        "lmp/art16",
+        "lmp/art12",
+        "lmp/art19",
+        "lmp/art22",
+        "lmp/art41"
+      ],
+      "valid": [
+        "lmp/art5",
+        "stj-sum-542",
+        "cp/art147",
+        "lmp/art16",
+        "lmp/art12",
+        "lmp/art19",
+        "lmp/art22",
+        "lmp/art41"
+      ],
+      "hit_gold": [
+        "stj-sum-542"
+      ],
+      "gold": [
+        "stj-sum-542"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q004",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-c",
+        "lmp/art19/cpt",
+        "lmp/art19/par1",
+        "lmp/art12/cpt/inc3",
+        "lmp/art5",
+        "lmp/art24-a",
+        "cp/art147",
+        "cp/art147-a",
+        "cp/art147-b"
+      ],
+      "valid": [
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-c",
+        "lmp/art19/cpt",
+        "lmp/art19/par1",
+        "lmp/art12/cpt/inc3",
+        "lmp/art5",
+        "lmp/art24-a",
+        "cp/art147",
+        "cp/art147-a",
+        "cp/art147-b"
+      ],
+      "hit_gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q006",
+      "categoria": "servicos",
+      "cited": [
+        "cnj-rc-425-2021/art1",
+        "lmp/art12",
+        "lmp/art19",
+        "lmp/art22",
+        "lmp/art5"
+      ],
+      "valid": [
+        "lmp/art12",
+        "lmp/art19",
+        "lmp/art22",
+        "lmp/art5"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "cnj-rc-5-2020/art1",
+        "cnj-rc-5-2020/art4"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q008",
+      "categoria": "servicos",
+      "cited": [
+        "cf/art5/inc74",
+        "cf/art134",
+        "lmp/art19",
+        "lmp/art19/par1",
+        "lmp/art8",
+        "lmp/art29",
+        "lmp/art30",
+        "lmp/art5"
+      ],
+      "valid": [
+        "lmp/art19",
+        "lmp/art19/par1",
+        "lmp/art8",
+        "lmp/art29",
+        "lmp/art30",
+        "lmp/art5"
+      ],
+      "hit_gold": [
+        "lmp/art8"
+      ],
+      "gold": [
+        "lmp/art8",
+        "lmp/art9"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q010",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art5",
+        "lmp/art7/inc2",
+        "lmp/art7/inc5",
+        "cp/art147-b",
+        "cp/art140",
+        "cp/art147",
+        "lmp/art19",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "cpp/art38"
+      ],
+      "valid": [
+        "lmp/art5",
+        "cp/art147-b",
+        "cp/art140",
+        "cp/art147",
+        "lmp/art19",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "cpp/art38"
+      ],
+      "hit_gold": [
+        "lmp/art5"
+      ],
+      "gold": [
+        "lmp/art5",
+        "lmp/art7"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q016",
+      "categoria": "fora_do_corpus",
+      "cited": [
+        "lmp/art22"
+      ],
+      "valid": [
+        "lmp/art22"
+      ],
+      "hit_gold": [],
+      "gold": [],
+      "abstained": true
+    },
+    {
+      "id": "q018",
+      "categoria": "fora_do_corpus",
+      "cited": [
+        "cc/art1583",
+        "cc/art1584",
+        "cc/art1586",
+        "lmp/art22/cpt/inc4",
+        "lmp/art5"
+      ],
+      "valid": [
+        "lmp/art22/cpt/inc4",
+        "lmp/art5"
+      ],
+      "hit_gold": [],
+      "gold": [],
+      "abstained": false
+    },
+    {
+      "id": "q020",
+      "categoria": "fora_do_corpus",
+      "cited": [],
+      "valid": [],
+      "hit_gold": [],
+      "gold": [],
+      "abstained": true
+    },
+    {
+      "id": "q022",
+      "categoria": "prazo",
+      "cited": [
+        "cp/art147",
+        "cp/art103",
+        "cp/art109/inc6",
+        "lmp/art19/par5",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art5",
+        "cp/art147-b"
+      ],
+      "valid": [
+        "cp/art147",
+        "cp/art103",
+        "lmp/art19/par5",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art5",
+        "cp/art147-b"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "cp/art103/par-unico",
+        "cpp/art38/par2",
+        "lmp/art16-a"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q024",
+      "categoria": "prazo",
+      "cited": [
+        "lmp/art5",
+        "lmp/art7/cpt/inc1",
+        "lmp/art7/cpt/inc2",
+        "cp/art147",
+        "lmp/art19/par5",
+        "lmp/art19/par1",
+        "lmp/art18",
+        "lmp/art22/cpt/inc2",
+        "lmp/art22/cpt/inc3",
+        "lmp/art22/cpt/inc4",
+        "lmp/art12/cpt/inc1",
+        "cpp/art38",
+        "stj-sum-542",
+        "lmp/art16",
+        "lmp/art24-a"
+      ],
+      "valid": [
+        "lmp/art5",
+        "lmp/art7/cpt/inc1",
+        "lmp/art7/cpt/inc2",
+        "cp/art147",
+        "lmp/art19/par5",
+        "lmp/art19/par1",
+        "lmp/art18",
+        "lmp/art22/cpt/inc2",
+        "lmp/art22/cpt/inc3",
+        "lmp/art22/cpt/inc4",
+        "lmp/art12/cpt/inc1",
+        "cpp/art38",
+        "stj-sum-542",
+        "lmp/art16",
+        "lmp/art24-a"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "cp/art103/par-unico",
+        "cpp/art38/par2",
+        "lmp/art16-a"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q026",
+      "categoria": "prazo",
+      "cited": [
+        "lmp/art5",
+        "lmp/art7/inc1",
+        "cp/art129",
+        "stj-sum-542",
+        "lmp/art12",
+        "lmp/art13",
+        "lmp/art19/par5",
+        "lmp/art22/cpt/inc3/ali-b",
+        "cnj-rc-5-2020/art1",
+        "cp/art109"
+      ],
+      "valid": [
+        "lmp/art5",
+        "cp/art129",
+        "stj-sum-542",
+        "lmp/art12",
+        "lmp/art13",
+        "lmp/art19/par5",
+        "lmp/art22/cpt/inc3/ali-b",
+        "cnj-rc-5-2020/art1",
+        "cp/art109"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "cp/art103/par-unico",
+        "cpp/art38/par2",
+        "lmp/art16-a"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q028",
+      "categoria": "prazo",
+      "cited": [
+        "lmp/art5",
+        "lmp/art7/inc1",
+        "lmp/art12",
+        "lmp/art18",
+        "lmp/art19/cpt",
+        "lmp/art19/par5",
+        "lmp/art22/inc2",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art12-c",
+        "stj-sum-542",
+        "cp/art129/par9",
+        "cp/art147",
+        "cpp/art38",
+        "lmp/art16",
+        "lmp/art16-a"
+      ],
+      "valid": [
+        "lmp/art5",
+        "lmp/art12",
+        "lmp/art18",
+        "lmp/art19/cpt",
+        "lmp/art19/par5",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "stj-sum-542",
+        "cp/art129/par9",
+        "cp/art147",
+        "cpp/art38",
+        "lmp/art16",
+        "lmp/art16-a"
+      ],
+      "hit_gold": [
+        "lmp/art16-a"
+      ],
+      "gold": [
+        "cp/art103/par-unico",
+        "cpp/art38/par2",
+        "lmp/art16-a"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q030",
+      "categoria": "prazo",
+      "cited": [
+        "cp/art147",
+        "cpp/art38",
+        "stj-sum-542",
+        "lmp/art5",
+        "lmp/art16",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "cp/art147-a",
+        "cp/art147-b"
+      ],
+      "valid": [
+        "cp/art147",
+        "cpp/art38",
+        "stj-sum-542",
+        "lmp/art5",
+        "lmp/art16",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "cp/art147-a",
+        "cp/art147-b"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "cp/art103/par-unico",
+        "cpp/art38/par2",
+        "lmp/art16-a"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q032",
+      "categoria": "acao_penal",
+      "cited": [
+        "cp/art147/par-unico",
+        "stj-sum-542",
+        "lmp/art41",
+        "lmp/art16",
+        "lmp/art19/par5"
+      ],
+      "valid": [
+        "stj-sum-542",
+        "lmp/art41",
+        "lmp/art16",
+        "lmp/art19/par5"
+      ],
+      "hit_gold": [
+        "stj-sum-542"
+      ],
+      "gold": [
+        "stj-sum-542"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q034",
+      "categoria": "acao_penal",
+      "cited": [
+        "stj-sum-542",
+        "cp/art129/par9",
+        "lmp/art5",
+        "lmp/art41",
+        "lmp/art16",
+        "cp/art147",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "lmp/art12"
+      ],
+      "valid": [
+        "stj-sum-542",
+        "cp/art129/par9",
+        "lmp/art5",
+        "lmp/art41",
+        "lmp/art16",
+        "cp/art147",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "lmp/art12"
+      ],
+      "hit_gold": [
+        "stj-sum-542"
+      ],
+      "gold": [
+        "stj-sum-542"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q036",
+      "categoria": "acao_penal",
+      "cited": [
+        "stj-sum-542",
+        "lmp/art41",
+        "cp/art147",
+        "lmp/art16",
+        "lmp/art19/par5",
+        "lmp/art5",
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "valid": [
+        "stj-sum-542",
+        "lmp/art41",
+        "cp/art147",
+        "lmp/art16",
+        "lmp/art19/par5",
+        "lmp/art5",
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "hit_gold": [
+        "stj-sum-542"
+      ],
+      "gold": [
+        "stj-sum-542"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q038",
+      "categoria": "acao_penal",
+      "cited": [
+        "lmp/art5",
+        "lmp/art19/par5",
+        "stj-sum-542",
+        "cp/art147",
+        "lmp/art16"
+      ],
+      "valid": [
+        "lmp/art5",
+        "lmp/art19/par5",
+        "stj-sum-542",
+        "cp/art147",
+        "lmp/art16"
+      ],
+      "hit_gold": [
+        "stj-sum-542"
+      ],
+      "gold": [
+        "stj-sum-542"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q040",
+      "categoria": "acao_penal",
+      "cited": [
+        "lmp/art5",
+        "stj-sum-542",
+        "cp/art147",
+        "lmp/art16",
+        "cpp/art38/par2",
+        "lmp/art19/par4",
+        "lmp/art19/par5",
+        "lmp/art22"
+      ],
+      "valid": [
+        "lmp/art5",
+        "stj-sum-542",
+        "cp/art147",
+        "lmp/art16",
+        "cpp/art38/par2",
+        "lmp/art19/par4",
+        "lmp/art19/par5",
+        "lmp/art22"
+      ],
+      "hit_gold": [
+        "stj-sum-542"
+      ],
+      "gold": [
+        "stj-sum-542"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q042",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art19",
+        "lmp/art19/par1",
+        "lmp/art18",
+        "lmp/art27",
+        "lmp/art12",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art24-a",
+        "stj-sum-542"
+      ],
+      "valid": [
+        "lmp/art19",
+        "lmp/art19/par1",
+        "lmp/art18",
+        "lmp/art27",
+        "lmp/art12",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art24-a",
+        "stj-sum-542"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "lmp/art19/par5",
+        "lmp/art19/par6"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q044",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art19/par5",
+        "lmp/art12/par1",
+        "lmp/art18",
+        "lmp/art22",
+        "lmp/art23",
+        "lmp/art5",
+        "lmp/art24-a"
+      ],
+      "valid": [
+        "lmp/art19/par5",
+        "lmp/art12/par1",
+        "lmp/art18",
+        "lmp/art22",
+        "lmp/art23",
+        "lmp/art5",
+        "lmp/art24-a"
+      ],
+      "hit_gold": [
+        "lmp/art19/par5"
+      ],
+      "gold": [
+        "lmp/art19/par5",
+        "lmp/art19/par6"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q046",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art19/par5",
+        "lmp/art19",
+        "lmp/art19/par1",
+        "lmp/art18",
+        "lmp/art12/inc3",
+        "lmp/art22/cpt/inc2",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art24-a",
+        "lmp/art5",
+        "stj-sum-542"
+      ],
+      "valid": [
+        "lmp/art19/par5",
+        "lmp/art19",
+        "lmp/art19/par1",
+        "lmp/art18",
+        "lmp/art22/cpt/inc2",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art24-a",
+        "lmp/art5",
+        "stj-sum-542"
+      ],
+      "hit_gold": [
+        "lmp/art19/par5"
+      ],
+      "gold": [
+        "lmp/art19/par5",
+        "lmp/art19/par6"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q048",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art19/par5",
+        "lmp/art19",
+        "lmp/art19/par1",
+        "lmp/art19/par2",
+        "lmp/art12/inc3",
+        "lmp/art5",
+        "lmp/art22",
+        "lmp/art16",
+        "stj-sum-542"
+      ],
+      "valid": [
+        "lmp/art19/par5",
+        "lmp/art19",
+        "lmp/art19/par1",
+        "lmp/art19/par2",
+        "lmp/art5",
+        "lmp/art22",
+        "lmp/art16",
+        "stj-sum-542"
+      ],
+      "hit_gold": [
+        "lmp/art19/par5"
+      ],
+      "gold": [
+        "lmp/art19/par5",
+        "lmp/art19/par6"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q050",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art19/par5",
+        "lmp/art19/cpt",
+        "lmp/art18",
+        "lmp/art5",
+        "lmp/art22/cpt",
+        "stj-sum-542",
+        "lmp/art16"
+      ],
+      "valid": [
+        "lmp/art19/par5",
+        "lmp/art19/cpt",
+        "lmp/art18",
+        "lmp/art5",
+        "lmp/art22/cpt",
+        "stj-sum-542",
+        "lmp/art16"
+      ],
+      "hit_gold": [
+        "lmp/art19/par5"
+      ],
+      "gold": [
+        "lmp/art19/par5",
+        "lmp/art19/par6"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q052",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art5",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art19",
+        "lmp/art19/par5",
+        "lmp/art18",
+        "lmp/art24-a",
+        "lmp/art20",
+        "cp/art147-a",
+        "cp/art147",
+        "cp/art147-b"
+      ],
+      "valid": [
+        "lmp/art5",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art19",
+        "lmp/art19/par5",
+        "lmp/art18",
+        "lmp/art24-a",
+        "lmp/art20",
+        "cp/art147-a",
+        "cp/art147",
+        "cp/art147-b"
+      ],
+      "hit_gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q054",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art5",
+        "lmp/art7/inc2",
+        "cp/art147",
+        "cp/art147-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art19/par5",
+        "lmp/art18",
+        "lmp/art12/inc1"
+      ],
+      "valid": [
+        "lmp/art5",
+        "cp/art147",
+        "cp/art147-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art19/par5",
+        "lmp/art18"
+      ],
+      "hit_gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q056",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art19",
+        "lmp/art22",
+        "lmp/art24-a",
+        "lmp/art5",
+        "cp/art147"
+      ],
+      "valid": [
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art19",
+        "lmp/art22",
+        "lmp/art24-a",
+        "lmp/art5",
+        "cp/art147"
+      ],
+      "hit_gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q058",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art5",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-c",
+        "lmp/art22/par1",
+        "lmp/art19/par5",
+        "lmp/art12-c",
+        "lmp/art20",
+        "lmp/art24-a",
+        "cp/art147",
+        "cp/art147-a"
+      ],
+      "valid": [
+        "lmp/art5",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-c",
+        "lmp/art22/par1",
+        "lmp/art19/par5",
+        "lmp/art20",
+        "lmp/art24-a",
+        "cp/art147",
+        "cp/art147-a"
+      ],
+      "hit_gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q060",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art24"
+      ],
+      "valid": [
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art24"
+      ],
+      "hit_gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "gold": [
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q062",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art5",
+        "lmp/art5/inc3",
+        "lmp/art5/par-unico",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "cp/art147"
+      ],
+      "valid": [
+        "lmp/art5",
+        "lmp/art5/par-unico",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "cp/art147"
+      ],
+      "hit_gold": [
+        "lmp/art5"
+      ],
+      "gold": [
+        "lmp/art5",
+        "stj-sum-600"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q064",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art5/inc3",
+        "stj-sum-600",
+        "lmp/art7",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "lmp/art16-a"
+      ],
+      "valid": [
+        "stj-sum-600",
+        "lmp/art7",
+        "lmp/art19/par5",
+        "lmp/art22",
+        "lmp/art16-a"
+      ],
+      "hit_gold": [
+        "stj-sum-600"
+      ],
+      "gold": [
+        "lmp/art5",
+        "stj-sum-600"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q066",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art5",
+        "cpp/art70",
+        "lmp/art10",
+        "lmp/art11/inc4",
+        "lmp/art12",
+        "lmp/art18",
+        "lmp/art19/par1",
+        "lmp/art22/cpt/inc3/ali-b",
+        "stj-sum-542",
+        "lmp/art16"
+      ],
+      "valid": [
+        "lmp/art5",
+        "cpp/art70",
+        "lmp/art10",
+        "lmp/art12",
+        "lmp/art18",
+        "lmp/art19/par1",
+        "lmp/art22/cpt/inc3/ali-b",
+        "stj-sum-542",
+        "lmp/art16"
+      ],
+      "hit_gold": [
+        "lmp/art5"
+      ],
+      "gold": [
+        "lmp/art5",
+        "stj-sum-600"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q068",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art5/cpt",
+        "lmp/art5/inc3",
+        "stj-sum-600",
+        "lmp/art7/cpt",
+        "lmp/art22/cpt/inc2",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art19/par5"
+      ],
+      "valid": [
+        "lmp/art5/cpt",
+        "stj-sum-600",
+        "lmp/art7/cpt",
+        "lmp/art22/cpt/inc2",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art19/par5"
+      ],
+      "hit_gold": [
+        "stj-sum-600"
+      ],
+      "gold": [
+        "lmp/art5",
+        "stj-sum-600"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q070",
+      "categoria": "medida_protetiva",
+      "cited": [
+        "lmp/art5",
+        "lmp/art7/inc2",
+        "lmp/art7/inc5",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art19/par5",
+        "lmp/art18",
+        "lmp/art24-a",
+        "cp/art147"
+      ],
+      "valid": [
+        "lmp/art5",
+        "lmp/art22/cpt/inc3/ali-a",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art19/par5",
+        "lmp/art18",
+        "lmp/art24-a",
+        "cp/art147"
+      ],
+      "hit_gold": [
+        "lmp/art5"
+      ],
+      "gold": [
+        "lmp/art5",
+        "stj-sum-600"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q072",
+      "categoria": "servicos",
+      "cited": [
+        "cnj-rc-5-2020/art1",
+        "lmp/art5",
+        "lmp/art19",
+        "lmp/art22"
+      ],
+      "valid": [
+        "cnj-rc-5-2020/art1",
+        "lmp/art5",
+        "lmp/art19",
+        "lmp/art22"
+      ],
+      "hit_gold": [
+        "cnj-rc-5-2020/art1"
+      ],
+      "gold": [
+        "cnj-rc-5-2020/art1",
+        "cnj-rc-5-2020/art4"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q074",
+      "categoria": "servicos",
+      "cited": [
+        "cnj-rc-284-2019/art1",
+        "lmp/art5",
+        "lmp/art19",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art12-c"
+      ],
+      "valid": [
+        "lmp/art5",
+        "lmp/art19",
+        "lmp/art22/cpt/inc3/ali-b"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "cnj-rc-5-2020/art1",
+        "cnj-rc-5-2020/art4"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q076",
+      "categoria": "servicos",
+      "cited": [
+        "lmp/art19/par5",
+        "lmp/art19/cpt",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art5"
+      ],
+      "valid": [
+        "lmp/art19/par5",
+        "lmp/art19/cpt",
+        "lmp/art22/cpt/inc3/ali-b",
+        "lmp/art5"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "cnj-rc-5-2020/art1",
+        "cnj-rc-5-2020/art4"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q078",
+      "categoria": "servicos",
+      "cited": [
+        "lmp/art5",
+        "lmp/art19",
+        "lmp/art12/inc3",
+        "lmp/art19/par5",
+        "lmp/art20",
+        "lmp/art22",
+        "lmp/art22/cpt/inc1",
+        "lmp/art24-a",
+        "stj-sum-542"
+      ],
+      "valid": [
+        "lmp/art5",
+        "lmp/art19",
+        "lmp/art19/par5",
+        "lmp/art20",
+        "lmp/art22",
+        "lmp/art22/cpt/inc1",
+        "lmp/art24-a",
+        "stj-sum-542"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "cnj-rc-5-2020/art1",
+        "cnj-rc-5-2020/art4"
+      ],
+      "abstained": false
+    },
+    {
+      "id": "q080",
+      "categoria": "servicos",
+      "cited": [
+        "lmp/art12-c",
+        "lmp/art19",
+        "lmp/art12",
+        "lmp/art5",
+        "cnj-rc-284-2019/art1"
+      ],
+      "valid": [
+        "lmp/art19",
+        "lmp/art12",
+        "lmp/art5"
+      ],
+      "hit_gold": [],
+      "gold": [
+        "cnj-rc-5-2020/art1",
+        "cnj-rc-5-2020/art4"
+      ],
+      "abstained": true
+    }
+  ]
+}
