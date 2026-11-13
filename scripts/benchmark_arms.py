@@ -191,9 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--questions", type=Path, default=ROOT / "data" / "eval" / "questions_150.jsonl"
     )
-    parser.add_argument(
-        "--out", type=Path, default=ROOT / "data" / "eval" / "benchmark_arms.json"
-    )
+    parser.add_argument("--out", type=Path, default=ROOT / "data" / "eval" / "benchmark_arms.json")
     parser.add_argument("--database-url", required=True)
     parser.add_argument("--qdrant-url", required=True)
     parser.add_argument("--limit", type=int, default=None)
