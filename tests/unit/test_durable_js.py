@@ -7,6 +7,7 @@ pulado explicitamente (nunca "verde por omissão").
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -26,7 +27,16 @@ def test_cliente_duravel_passa_na_suite_node() -> None:
         timeout=120,
     )
     assert resultado.returncode == 0, resultado.stdout + resultado.stderr
-    assert "# fail 0" in resultado.stdout
+    # O reporter padrão do Node muda entre versões: TAP escreve "# fail 0", o
+    # reporter spec escreve "ℹ fail 0". Exigir o marcador exato fazia o teste
+    # passar aqui (Node 22) e falhar no CI (Node 20). O que importa é não haver
+    # falha e haver teste de verdade — suíte vazia não conta como verde.
+    assert re.search(r"^[ \t]*[#ℹ][ \t]*fail 0[ \t]*$", resultado.stdout, re.MULTILINE), (
+        resultado.stdout
+    )
+    assert re.search(r"^[ \t]*[#ℹ][ \t]*pass [1-9]\d*[ \t]*$", resultado.stdout, re.MULTILINE), (
+        resultado.stdout
+    )
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node não está disponível")
