@@ -272,11 +272,16 @@ def load_parse_result(
     return report
 
 
-def load_current_versions(conn: Any, norm_id: str) -> list[dict[str, Any]]:
-    """Read one current row per device for ``norm_id``.
+def load_known_versions(conn: Any, norm_id: str) -> list[dict[str, Any]]:
+    """Read the newest known version of every device in ``norm_id``.
 
-    The date/status window matches the retrieval default, so the ingest CLI
-    diffs against exactly the rows a ``data_fato=None`` query would consider.
+    The diff needs every device the parse can produce, not only the ones in
+    force today.  Scoping this read to the retrieval window (status
+    vigente/alterado, start <= today, end >= today) hid three cases and broke
+    the re-ingest of an unchanged source: a cancelled enunciado, a closed
+    version and a device whose vigência starts in the future all looked like
+    *new* devices, so the diff tried to insert them again and hit "device
+    version for event N already exists" or "vigencia_inicio is in the future".
     Rows may come back as mappings (``dict_row``) or tuples.
     """
 
@@ -288,10 +293,7 @@ def load_current_versions(conn: Any, norm_id: str) -> list[dict[str, Any]]:
                dv.vigencia_inicio
         FROM device_versions dv
         WHERE dv.norm_id = %s
-          AND dv.vigencia_status IN ('vigente', 'alterado')
-          AND dv.vigencia_inicio <= CURRENT_DATE
-          AND (dv.vigencia_fim IS NULL OR dv.vigencia_fim >= CURRENT_DATE)
-        ORDER BY dv.device_id, dv.vigencia_inicio DESC
+        ORDER BY dv.device_id, dv.vigencia_inicio DESC, dv.norm_version_id DESC
     """
     with conn.cursor() as cur:
         cur.execute(sql, (norm_id,))

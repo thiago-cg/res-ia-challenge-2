@@ -94,11 +94,51 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     log_level: str = "INFO"
 
+    # Multiagente durável (docs/12 §21.9). Desligado por padrão: o caminho legado /chat continua
+    # sendo o padrão até a UI ser migrada (T11).
+    multiagent_enabled: bool = False
+    resumable_conversations_enabled: bool = False
+    web_search_enabled: bool = False
+
+    #: Pesquisa web (ADR-09). O modelo decisor NAO e servido como chat: ele vive na Decisions API.
+    #: "perplexity" usa a API nativa, unica que documenta e devolve "search_results" com
+    #: mode=web_grounding. "openrouter" usa o mesmo modelo pela alpha decisions do OpenRouter, que
+    #: responde 200 mas NAO devolve evidencia (verificado em 2026-11-16) - serve para julgar
+    #: evidencia ja obtida, nao para buscar.
+    web_search_provider: Literal["serpapi", "perplexity", "openrouter"] = "serpapi"
+    serpapi_api_key: str = ""
+    serpapi_base_url: str = "https://serpapi.com"
+    serpapi_engine: str = "google_light"
+    serpapi_gl: str = "br"
+    serpapi_hl: str = "pt"
+    perplexity_api_key: str = ""
+    perplexity_base_url: str = "https://api.perplexity.ai"
+    web_search_model: str = "pplx-decider-v1.2"
+    web_search_max_results: int = Field(default=5, ge=1, le=20)
+    web_search_max_staleness: int = Field(default=86400, ge=0)
+    #: SerpApi google_light mede p50 11 s e p95 44 s; 30 s cortaria a cauda.
+    web_search_timeout: float = Field(default=60.0, gt=0)
+    web_search_max_caracteres_pergunta: int = Field(default=500, gt=0)
+
+    #: Lista separada por virgula de dominios oficiais aceitos como evidencia (ADR-09). Vazia
+    #: significa "nao filtrar por dominio"; para produção juridica deve apontar para fontes
+    #: oficiais (planalto.gov.br, stj.jus.br, cnj.jus.br, ...).
+    web_search_allowlist: str = ""
+    conversation_retention_days: int = Field(default=30, gt=0)
+    tombstone_retention_days: int = Field(default=90, ge=0)
+    run_lease_seconds: int = Field(default=60, gt=0)
+    run_deadline_seconds: int = Field(default=90, gt=0)
+    worker_poll_seconds: float = Field(default=2.0, gt=0)
+
     #: Hard cap on generated tokens; 0 means no cap.  The configured chat model
     #: spends tokens on a reasoning trace before the answer, so a small cap
     #: truncates the JSON and the answer is rejected by verification.  The
     #: reranker uses rerank_max_tokens with its own non-reasoning model.
     llm_max_tokens: int = Field(default=0, ge=0)
+
+    #: Timeout da chamada de geração. Modelos com raciocínio explícito gastam a maior parte do
+    #: tempo antes de emitir o JSON; 30 s (o default do Protocol) é pouco e vira "llm_indisponivel".
+    llm_timeout: float = Field(default=90.0, gt=0)
 
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"

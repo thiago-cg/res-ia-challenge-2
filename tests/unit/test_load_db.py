@@ -5,7 +5,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from src.contracts import Device, DeviceVersion
 from src.index.load_db import (
-    load_current_versions,
+    load_known_versions,
     load_parse_result,
     load_versions,
     record_ingest_run,
@@ -268,11 +268,11 @@ class CurrentVersionConnection:
         return self.cursor_obj
 
 
-def test_load_current_versions_uses_current_status_and_date_window() -> None:
+def test_load_known_versions_reads_every_status_without_a_date_window() -> None:
     inicio = date(2020, 1, 1)
     conn = CurrentVersionConnection(rows=[("lmp/art1", "hash-1", "lmp", inicio)])
 
-    rows = load_current_versions(conn, "lmp")
+    rows = load_known_versions(conn, "lmp")
 
     assert rows == [
         {
@@ -283,13 +283,15 @@ def test_load_current_versions_uses_current_status_and_date_window() -> None:
         }
     ]
     sql = " ".join(conn.cursor_obj.executions[-1][0].split())
-    assert "dv.vigencia_status IN ('vigente', 'alterado')" in sql
-    assert "dv.vigencia_inicio <= CURRENT_DATE" in sql
-    assert "dv.vigencia_fim IS NULL OR dv.vigencia_fim >= CURRENT_DATE" in sql
     assert "DISTINCT ON (dv.device_id)" in sql
+    # A status or date filter here hides cancelled, closed and future-dated
+    # devices from the diff, which then re-adds them and collides on insert.
+    assert "vigencia_status" not in sql
+    assert "CURRENT_DATE" not in sql
+    assert "ORDER BY dv.device_id, dv.vigencia_inicio DESC, dv.norm_version_id DESC" in sql
 
 
-def test_load_current_versions_accepts_dict_rows() -> None:
+def test_load_known_versions_accepts_dict_rows() -> None:
     inicio = date(2020, 1, 1)
     conn = CurrentVersionConnection(
         rows=[
@@ -302,7 +304,7 @@ def test_load_current_versions_accepts_dict_rows() -> None:
         ]
     )
 
-    rows = load_current_versions(conn, "lmp")
+    rows = load_known_versions(conn, "lmp")
 
     assert rows[0]["device_id"] == "lmp/art1"
     assert rows[0]["vigencia_inicio"] == inicio

@@ -9,6 +9,7 @@
 import { criarCliente } from "./api.js";
 import { escapar, markdown } from "./markdown.js";
 import { EXEMPLOS, EXEMPLO_EMERGENCIA, RESPOSTAS_DEMO, respostaDemo } from "./demo.js";
+import { criarClienteDuravel, novoIdMensagem } from "./durable.js";
 
 const CHAVE_HISTORICO = "zelia.historico.v1";
 const CHAVE_PREFERENCIAS = "zelia.preferencias.v1";
@@ -52,7 +53,11 @@ const MOTIVOS_ABSTENCAO = {
   fora_do_corpus: "A pergunta está fora do que a base cobre.",
 };
 
+let duravel = null;
+
 const estado = {
+  conversaId: "",
+  duravelAtivo: false,
   mensagens: [],
   sessao: "",
   dataFato: "",
@@ -530,11 +535,13 @@ async function enviar(texto) {
     const resposta =
       estado.modo === "demo"
         ? await respostaComAtraso(limpo)
-        : await estado.api.conversar({
-            sessao: estado.sessao,
-            mensagem: limpo,
-            fatos: fatosAtuais(),
-          });
+        : estado.duravelAtivo
+          ? await enviarDuravel(limpo)
+          : await estado.api.conversar({
+              sessao: estado.sessao,
+              mensagem: limpo,
+              fatos: fatosAtuais(),
+            });
 
     digitando.remove();
     estado.mensagens.push({ papel: "assistente", resposta });
@@ -562,6 +569,19 @@ async function enviar(texto) {
     estado.ocupado = false;
     atualizarEnviar();
   }
+}
+
+/**
+ * Envia pelo fluxo durável: aceita o trabalho, acompanha por revisão e devolve o mesmo
+ * ChatResponse que a interface já sabe renderizar. Se a aba fechar no meio, a próxima abertura
+ * retoma — nada é reenviado.
+ */
+async function enviarDuravel(texto) {
+  const envio = await duravel.enviar(estado.conversaId, {
+    mensagem: texto,
+    clientMessageId: novoIdMensagem(),
+  });
+  return duravel.aguardar(estado.conversaId, envio.runId, { intervalo: 1500 });
 }
 
 /* --- composer ------------------------------------------------------------ */
@@ -649,8 +669,8 @@ function carregarHistorico() {
 function sincronizarPrivacidade() {
   el.switchHistorico.setAttribute("aria-checked", String(estado.historico));
   el.resumoPrivacidade.textContent = estado.historico
-    ? "Histórico ligado · salvo só neste aparelho"
-    : "Histórico desligado · conversa só nesta aba";
+    ? "Histórico ligado · salvo neste aparelho"
+    : "Histórico desligado · a conversa fica protegida no servidor";
 }
 
 function alternarHistorico() {
@@ -785,14 +805,53 @@ async function conectar() {
     const saude = await estado.api.saude(10000);
     estado.modo = "api";
     aplicarSaude(saude);
+    const restaurou = await ativarFluxoDuravel();
+    if (restaurou) {
+      renderThread();
+      rolarParaFim(true);
+      anunciar("Conversa retomada.");
+    }
   } catch (erro) {
     if (erro?.tipo === "rede") {
-      aplicarModoDemo();
+      // INV16: indisponibilidade real não vira demonstração. O selo muda, a conversa não finge.
+      estado.modo = "api";
+      aplicarSaudeDesconhecida();
       return;
     }
     // A API respondeu (ou demorou): segue no modo real, com status incerto.
     estado.modo = "api";
     aplicarSaudeDesconhecida();
+  }
+}
+
+/**
+ * Detecta se o servidor oferece o fluxo durável e, se sim, retoma a conversa existente.
+ * A ausência do recurso é normal: cai no caminho legado sem alarde.
+ */
+async function ativarFluxoDuravel() {
+  try {
+    if (!duravel) duravel = criarClienteDuravel(estado.api?.base || "", {});
+    const atual = await duravel.conversaAtual();
+    let restaurou = false;
+
+    if (atual?.id) {
+      estado.conversaId = atual.id;
+      // Retomada: a resposta já publicada aparece ao reabrir, sem reenviar nada.
+      if (atual.last_result && estado.mensagens.length === 0) {
+        const ultima = (atual.messages || []).filter((m) => m.role === "user").pop();
+        if (ultima) estado.mensagens.push({ papel: "usuario", texto: ultima.content });
+        estado.mensagens.push({ papel: "assistente", resposta: atual.last_result });
+        restaurou = estado.mensagens.length > 0;
+      }
+    } else {
+      const criada = await duravel.criarConversa();
+      estado.conversaId = criada?.conversation_id || "";
+    }
+    estado.duravelAtivo = Boolean(estado.conversaId);
+    return restaurou;
+  } catch {
+    estado.duravelAtivo = false;
+    return false;
   }
 }
 

@@ -124,7 +124,7 @@ def load_corpus(paths: Sequence[str | Path]) -> list[CorpusRow]:
 
 
 def dedupe_corpus_rows(rows: Sequence[CorpusRow]) -> list[CorpusRow]:
-    """Keep one row per pair, preferring the latest vigÃªncia and the longest text."""
+    """Keep one row per pair, preferring the latest vigência and the longest text."""
 
     best: dict[PairKey, CorpusRow] = {}
     for row in rows:
@@ -439,7 +439,7 @@ class GoldContextPipeline:
         devices = hydrate(pairs, repo=self.repo).devices
         if not devices:
             return PipelineResult(fallback_abstain("contexto_incompleto"), False, None)
-        expanded = self._pipeline._expand(devices)
+        expanded = self._pipeline.expand_devices(devices)
         return self._pipeline._generate(
             message,
             facts or default_facts(),

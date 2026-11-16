@@ -207,5 +207,28 @@ def _validate_limit(limit: int) -> None:
         raise ValueError("limit must be positive")
 
 
+def embedding_dimension(conn: Any) -> int | None:
+    """Declared dimension of ``device_versions.embedding``, or None when open.
+
+    pgvector stores the dimension in ``atttypmod``; ``vector`` without a size
+    reports -1.  Reading it lets the indexer refuse a 4096-dim vector for a
+    ``vector(1024)`` column *before* paying for the embeddings, instead of
+    failing one batch at a time at INSERT.
+    """
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT atttypmod FROM pg_attribute
+               WHERE attrelid = 'device_versions'::regclass AND attname = 'embedding'"""
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    typmod = _value(row, 0, "atttypmod")
+    if typmod is None or int(typmod) <= 0:
+        return None
+    return int(typmod)
+
+
 def _vector_literal(vector: list[float]) -> str:
     return "[" + ",".join(repr(float(value)) for value in vector) + "]"

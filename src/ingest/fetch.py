@@ -22,6 +22,23 @@ class SourceManifestError(Exception):
     pass
 
 
+#: Sent on every download.  planalto.gov.br answers a request that carries the
+#: default python-httpx/x.y agent by accepting the connection and then never
+#: replying, so the client sees a read timeout instead of an HTTP error
+#: (measured 2026-11-16: no UA -> no response in 12 s; any UA -> 200 in 0.4 s).
+#: The value keeps the project identifiable instead of impersonating a browser.
+USER_AGENT = (
+    "Mozilla/5.0 (compatible; ZeliaCorpusIngest/1.0; "
+    "+https://github.com/res-ia/zelia) ingestao de fontes legais publicas"
+)
+
+DEFAULT_HEADERS: dict[str, str] = {
+    "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+}
+
+
 class FetchError(Exception):
     pass
 
@@ -111,7 +128,24 @@ def _atomic_write(path: Path, data: bytes) -> None:
 _META_CHARSET_RE = re.compile(rb"charset\s*=\s*[\"']?\s*([A-Za-z0-9._:-]+)", re.IGNORECASE)
 
 
+#: Byte-order marks, longest first so UTF-32 is not mistaken for UTF-16.
+#: A BOM outranks any declared charset: planalto.gov.br serves the Lei Maria
+#: da Penha page as UTF-16LE with no charset meta, and decoding those bytes as
+#: cp1252 yields mojibake that parses to zero articles.
+_BOMS: tuple[tuple[bytes, str], ...] = (
+    (b"\xff\xfe\x00\x00", "utf-32"),
+    (b"\x00\x00\xfe\xff", "utf-32"),
+    (b"\xef\xbb\xbf", "utf-8-sig"),
+    (b"\xff\xfe", "utf-16"),
+    (b"\xfe\xff", "utf-16"),
+)
+
+
 def detect_charset(raw: bytes) -> str:
+    for bom, encoding in _BOMS:
+        if raw.startswith(bom):
+            return encoding
+
     match = _META_CHARSET_RE.search(raw[:4096])
     if match:
         declared = match.group(1).decode("ascii", errors="ignore").strip("\"'").lower()
@@ -122,11 +156,45 @@ def detect_charset(raw: bytes) -> str:
         else:
             return declared
 
+    # No BOM and no declaration: a high NUL density means UTF-16 without a BOM.
+    head = raw[:200]
+    if head and head.count(0) / len(head) > 0.3:
+        return "utf-16"
+
     try:
         raw.decode("utf-8")
     except UnicodeDecodeError:
         return "cp1252"
     return "utf-8"
+
+
+def verify_raw_matches_sidecar(source: Source, path: str | Path, dest_dir: str | Path) -> None:
+    """Refuse an offline raw file whose bytes no longer match the sidecar.
+
+    ``--offline`` reads whatever sits in ``data/raw``.  A truncated or
+    overwritten file produced a parser error ("no article found") that pointed
+    at the parser, not at the 3 bytes on disk.  The sidecar records the hash
+    of what was downloaded, so a mismatch is detectable before parsing.
+    """
+
+    meta_path = Path(dest_dir) / f"{source.id}.meta.json"
+    if not meta_path.is_file():
+        return
+    try:
+        meta: Any = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    expected = meta.get("sha256") if isinstance(meta, dict) else None
+    if not isinstance(expected, str) or not expected:
+        return
+    actual = _sha256_file(Path(path))
+    if actual == expected:
+        return
+    raise FetchError(
+        f"{source.id}: raw file {Path(path).name} does not match its download "
+        f"sidecar (expected sha256 {expected[:12]}..., found {actual[:12]}...); "
+        "run --stage download to fetch it again"
+    )
 
 
 def fetch_source(
@@ -136,6 +204,7 @@ def fetch_source(
     timeout: float = 30,
     retries: int = 3,
     backoff: float = 0.5,
+    headers: dict[str, str] | None = None,
 ) -> FetchResult:
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
@@ -171,13 +240,20 @@ def fetch_source(
                     status_code=meta.get("status", 200),
                 )
 
+    request_headers = {**DEFAULT_HEADERS, **(headers or {})}
+    # A blackholed peer answers the TCP handshake and then goes silent, so the
+    # read budget is what bounds the call; the connect budget stays short.
+    request_timeout = httpx.Timeout(timeout, connect=min(timeout, 15.0))
+
     owns_client = client is None
     http_client = client if client is not None else httpx.Client(follow_redirects=True)
     last_error: FetchError | None = None
     try:
         for attempt in range(retries + 1):
             try:
-                response = http_client.get(source.url, timeout=timeout)
+                response = http_client.get(
+                    source.url, timeout=request_timeout, headers=request_headers
+                )
             except httpx.TimeoutException as exc:
                 last_error = FetchError(f"{source.id}: timeout after {timeout}s")
                 if attempt < retries:
