@@ -22,6 +22,7 @@ __all__ = [
     "dependencia_conversa",
     "emitir_cookie",
     "limpar_cookie",
+    "token_do_cookie",
 ]
 
 
@@ -58,6 +59,20 @@ def limpar_cookie(resposta: Response) -> None:
         samesite="lax",
         secure=True,
     )
+
+
+def token_do_cookie(request: Request, *, status_code: int, detail: str) -> str:
+    """Exige o cookie de capacidade **antes** de qualquer acesso a banco.
+
+    Sem token não há o que autenticar: abrir conexão só para descobrir isso consome uma conexão
+    do pool por requisição anônima e, onde não há banco, transforma um 401 em erro de conexão.
+    O token é o único portador de identidade; o id da conversa nunca autoriza (INV01).
+    """
+
+    token = request.cookies.get(COOKIE_NOME)
+    if not token:
+        raise HTTPException(status_code=status_code, detail=detail)
+    return token
 
 
 def dependencia_conversa(

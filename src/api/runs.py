@@ -18,7 +18,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from src.api.auth import COOKIE_NOME
+from src.api.auth import token_do_cookie
 
 TERMINAIS = frozenset({"succeeded", "failed", "cancelled", "expired"})
 
@@ -59,8 +59,8 @@ def criar_router_runs(
 
     router = APIRouter()
 
-    def _autorizar(conn: Any, request: Request, conversation_id: uuid.UUID) -> uuid.UUID:
-        autenticada = autenticar(conn, request.cookies.get(COOKIE_NOME))
+    def _autorizar(conn: Any, token: str, conversation_id: uuid.UUID) -> uuid.UUID:
+        autenticada = autenticar(conn, token)
         if autenticada is None:
             raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
         if autenticada != conversation_id:
@@ -74,8 +74,9 @@ def criar_router_runs(
         request: Request,
         since: int | None = None,
     ) -> Any:
+        token = token_do_cookie(request, status_code=401, detail="Sessão inválida ou expirada.")
         with conectar() as conn:
-            _autorizar(conn, request, conversation_id)
+            _autorizar(conn, token, conversation_id)
             run = obter(conn, run_id)
             if run is None or run["conversation_id"] != conversation_id:
                 raise HTTPException(status_code=404, detail="Execução não encontrada.")
@@ -90,8 +91,9 @@ def criar_router_runs(
 
     @router.get("/conversations/{conversation_id}/runs/{run_id}/result")
     def resultado(conversation_id: uuid.UUID, run_id: uuid.UUID, request: Request) -> Any:
+        token = token_do_cookie(request, status_code=401, detail="Sessão inválida ou expirada.")
         with conectar() as conn:
-            _autorizar(conn, request, conversation_id)
+            _autorizar(conn, token, conversation_id)
             run = obter(conn, run_id)
             if run is None or run["conversation_id"] != conversation_id:
                 raise HTTPException(status_code=404, detail="Execução não encontrada.")
@@ -103,8 +105,9 @@ def criar_router_runs(
     def cancelar_execucao(
         conversation_id: uuid.UUID, run_id: uuid.UUID, request: Request
     ) -> dict[str, str]:
+        token = token_do_cookie(request, status_code=401, detail="Sessão inválida ou expirada.")
         with conectar() as conn:
-            _autorizar(conn, request, conversation_id)
+            _autorizar(conn, token, conversation_id)
             run = obter(conn, run_id)
             if run is None or run["conversation_id"] != conversation_id:
                 raise HTTPException(status_code=404, detail="Execução não encontrada.")
