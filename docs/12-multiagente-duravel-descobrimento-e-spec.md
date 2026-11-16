@@ -2281,3 +2281,43 @@ mesma pergunta antes de tratar "responde" como garantido.
 
 O primeiro POST devolveu **422**: `ChatRequest` exige `session_id` e tem `extra="forbid"`. É
 contrato correto, só não estava documentado para quem chama a API manualmente.
+
+### 22.30 O que o CI encontrou que o ambiente local escondia (2026-11-16)
+
+A primeira execução do PR reprovou o job `test` com **três falhas**, todas em
+`tests/unit/test_api_v1_mount.py`, e todas invisíveis aqui porque a máquina local tem `.env` com
+chaves reais e um Postgres rodando com a base ingerida:
+
+```text
+test_health_publica_capacidades        assert {'web_search': False} == {'web_search': True}
+test_rota_v1_sem_cookie_e_401          psycopg.OperationalError: connection refused (5432)
+test_capacidades_seguem_as_flags       idem
+```
+
+**Causa 1 — valor esperado herdado do ambiente.** O teste fixava `web_search: True`, que vinha de
+`WEB_SEARCH_ENABLED=true` no `.env` local. O valor esperado passa a vir da flag entregue ao
+construtor, então o teste mede o que diz medir.
+
+**Causa 2 — a rota abria conexão antes de exigir o cookie.** Duas rotas liam o cookie *dentro* do
+`with conectar()`: sem banco, o 401 virava erro de conexão. O conserto não foi no teste.
+`token_do_cookie(request)` em `src/api/auth.py` recusa a requisição **antes** de qualquer I/O, e
+`/messages`, `/current`, `DELETE` e as três rotas de execução passaram a usar o guarda. O teste
+novo troca o abridor de conexão por um que levanta `AssertionError` e verifica que a rota anônima
+responde 401/404 mesmo assim.
+
+Isso fecha um vetor que não era só de teste: requisição anônima consumia conexão do pool.
+
+**Causa 3 — formato de saída do Node.** `test_durable_js.py` exigia `# fail 0`; o Node 22 local
+imprime TAP (`# fail 0`) e o Node 20 do runner imprime o reporter spec (`ℹ fail 0`). A asserção
+passou a aceitar os dois marcadores e a exigir `pass >= 1`, para que suíte vazia não conte como
+verde.
+
+Depois dos três consertos, o PR ficou com **5 de 5 jobs verdes** (`lint`, `typecheck`, `test`,
+`integration`, `backup-restore`).
+
+#### Lição de processo, não de código
+
+Os 948 testes verdes locais não provavam nada sobre o ambiente de CI: `.env` presente e banco
+disponível **mascararam** duas dependências implícitas. O experimento que teria pegado isso antes do
+push é barato — mover `.env` para longe e rodar a suíte. Fiz isso depois, e ele sozinho não bastava
+porque o Postgres continuava de pé; o CI provou o que a simulação não provou.
