@@ -113,6 +113,10 @@
         <span class="selo__ponto" aria-hidden="true"></span>
         <span id="selo-texto">Verificando base…</span>
       </span>
+      <button class="botao botao--fantasma" type="button" id="abrir-delegacias">
+        <svg class="i" aria-hidden="true"><use href="#i-mapa"/></svg>
+        <span class="botao__texto">Delegacias</span>
+      </button>
       <button class="botao botao--fantasma" type="button" id="abrir-privacidade">
         <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
         <span class="botao__texto">Privacidade</span>
@@ -197,6 +201,15 @@
       <section class="contexto__cartao">
         <h2 class="contexto__titulo">Perguntas de exemplo</h2>
         <div class="exemplos-lista" id="exemplos-lista"></div>
+      </section>
+
+      <section class="contexto__cartao">
+        <h2 class="contexto__titulo">Delegacias perto de você</h2>
+        <p class="contexto__texto contexto__texto--fraco">Telefone, horário e a Delegacia da Mulher mais próxima.</p>
+        <button class="botao botao--secundario botao--largo" type="button" id="abrir-delegacias-2">
+          <svg class="i" aria-hidden="true"><use href="#i-mapa"/></svg>
+          Encontrar delegacias
+        </button>
       </section>
 
       <section class="contexto__cartao">
@@ -286,6 +299,50 @@
       Abrir a Lei 11.340/2006 no Planalto
       <svg class="i" aria-hidden="true"><use href="#i-link"/></svg>
     </a>
+  </dialog>
+
+  <dialog class="dialogo dialogo--largo" id="dialogo-delegacias" tabindex="-1" aria-labelledby="titulo-delegacias">
+    <div class="dialogo__cabecalho">
+      <h2 class="dialogo__titulo" id="titulo-delegacias">Delegacias perto de você</h2>
+      <button class="botao botao--icone" type="button" data-fechar aria-label="Fechar">
+        <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+      </button>
+    </div>
+    <p class="dialogo__texto">Mostramos as delegacias mais próximas e a Delegacia da Mulher (DEAM), com telefone e horário. Em perigo agora, ligue <a class="link" href="tel:190">190</a>.</p>
+
+    <p class="deleg__privacidade">
+      <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
+      <span>Sua localização é usada só para calcular a distância. Não é guardada, não vai para a URL nem para o histórico, e esta tela não usa mapas de terceiros.</span>
+    </p>
+
+    <div class="deleg__busca">
+      <button class="botao botao--primario botao--largo" type="button" id="deleg-usar-local">
+        <svg class="i" aria-hidden="true"><use href="#i-mapa"/></svg>
+        Usar minha localização
+      </button>
+      <p class="deleg__ou"><span>ou informe a cidade</span></p>
+      <form class="deleg__cidade" id="deleg-form-cidade" autocomplete="off">
+        <label class="sr-only" for="deleg-uf">Estado (UF)</label>
+        <select class="campo deleg__uf" id="deleg-uf" name="uf"></select>
+        <label class="sr-only" for="deleg-municipio">Cidade</label>
+        <input class="campo" id="deleg-municipio" name="municipio" type="text" maxlength="120" placeholder="Cidade" autocomplete="off" autocapitalize="words" spellcheck="false">
+        <button class="botao botao--secundario" type="submit">Buscar</button>
+      </form>
+    </div>
+
+    <p class="deleg__status" id="deleg-status" role="status" hidden></p>
+    <div class="deleg__resultado" id="deleg-resultado" hidden></div>
+
+    <div class="deleg__rodape">
+      <button class="botao botao--fantasma botao--compacto" type="button" id="deleg-limpar" hidden>
+        <svg class="i" aria-hidden="true"><use href="#i-lixeira"/></svg>
+        Limpar resultado
+      </button>
+      <button class="botao botao--secundario botao--compacto deleg__sair" type="button" id="deleg-sair">
+        <svg class="i" aria-hidden="true"><use href="#i-olho-oculto"/></svg>
+        Sair rápido
+      </button>
+    </div>
   </dialog>
 
   <dialog class="dialogo dialogo--estreito" id="dialogo-data" tabindex="-1" aria-labelledby="titulo-data">

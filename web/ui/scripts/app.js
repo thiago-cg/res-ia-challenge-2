@@ -8,6 +8,7 @@
 
 import { criarCliente } from "./api.js";
 import { escapar, markdown } from "./markdown.js";
+import { criarPainelDelegacias } from "./delegacias.js";
 import { EXEMPLOS, EXEMPLO_EMERGENCIA, RESPOSTAS_DEMO, respostaDemo } from "./demo.js";
 
 const CHAVE_HISTORICO = "zelia.historico.v1";
@@ -1059,6 +1060,8 @@ function iniciar() {
   el.dialogoFontes = document.getElementById("dialogo-fontes");
   el.abrirPrivacidade = document.getElementById("abrir-privacidade");
   el.abrirPrivacidade2 = document.getElementById("abrir-privacidade-2");
+  el.abrirDelegacias = document.getElementById("abrir-delegacias");
+  el.abrirDelegacias2 = document.getElementById("abrir-delegacias-2");
   el.abrirFontes = document.getElementById("abrir-fontes");
   el.abrirFontes2 = document.getElementById("abrir-fontes-2");
   el.switchHistorico = document.getElementById("switch-historico");
@@ -1077,6 +1080,19 @@ function iniciar() {
   estado.historico = preferencias.historico;
   estado.sessao = novaSessao();
   estado.api = criarCliente(resolverBaseApi());
+
+  const painelDelegacias = criarPainelDelegacias({
+    api: estado.api,
+    modo: () => estado.modo,
+    abrirDialogo,
+    fecharDialogo,
+    anunciar,
+  });
+  el.abrirDelegacias.addEventListener("click", () => painelDelegacias.abrir());
+  el.abrirDelegacias2.addEventListener("click", () => {
+    if (document.body.classList.contains("contexto-aberto")) fecharContexto();
+    painelDelegacias.abrir();
+  });
 
   preencherExemplos();
   sincronizarPrivacidade();

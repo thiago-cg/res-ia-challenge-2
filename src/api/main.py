@@ -38,6 +38,7 @@ from src.api.schemas import (
     HealthResponse,
     NearbyRequest,
     NearbyResponse,
+    ReferenciaOut,
     ServiceOut,
     SourceResponse,
     legal_notice,
@@ -1139,6 +1140,15 @@ def create_app(
                 _service_out(*result.deam_mais_proxima) if result.deam_mais_proxima else None
             ),
             aviso=result.aviso,
+            referencia=(
+                ReferenciaOut(
+                    latitude=result.referencia.latitude,
+                    longitude=result.referencia.longitude,
+                    rotulo=result.referencia.rotulo,
+                )
+                if result.referencia
+                else None
+            ),
         )
 
     @app.get("/health", response_model=HealthResponse)

@@ -71,3 +71,12 @@ class PostgresServicesRepo:
         with _connect(self.database_url) as conn, conn.cursor() as cur:
             cur.execute(sql, (uf, municipio))
             return [_to_point(row) for row in cur.fetchall()]
+
+    def by_uf(self, uf: str) -> Sequence[ServicePoint]:
+        sql = f"""
+            SELECT {_COLUMNS} FROM services
+            WHERE uf = %s AND latitude IS NOT NULL
+        """  # noqa: S608
+        with _connect(self.database_url) as conn, conn.cursor() as cur:
+            cur.execute(sql, (uf,))
+            return [_to_point(row) for row in cur.fetchall()]

@@ -182,8 +182,17 @@ class ServiceOut(BaseModel):
     coordenada_verificada: bool
 
 
+class ReferenciaOut(BaseModel):
+    """Ponto de partida das distâncias quando a busca foi por cidade (centro da cidade)."""
+
+    latitude: float
+    longitude: float
+    rotulo: str
+
+
 class NearbyResponse(BaseModel):
     servicos: list[ServiceOut]
+    referencia: ReferenciaOut | None = None
     deam_mais_proxima: ServiceOut | None
     aviso: str | None
     emergencia: dict[str, str] = {"policia_militar": "190", "central_mulher": "180"}

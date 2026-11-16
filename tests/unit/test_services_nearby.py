@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -81,6 +82,9 @@ class FakeServices:
     def by_municipio(self, uf: str, municipio: str) -> Sequence[ServicePoint]:
         return [p for p in self.points if p.uf == uf and p.municipio.lower() == municipio.lower()]
 
+    def by_uf(self, uf: str) -> Sequence[ServicePoint]:
+        return [p for p in self.points if p.uf == uf]
+
 
 DEAM_I = point(1, "DEAM I", "deam", -15.8215, -47.9095)
 DEAM_II = point(2, "DEAM II", "deam", -15.8145, -48.1120, verificada=False)
@@ -155,14 +159,54 @@ def test_filter_by_type() -> None:
     assert [p.tipo for p, _ in result.servicos] == ["delegacia_comum"]
 
 
-def test_municipality_fallback_puts_deam_first_and_has_no_distance() -> None:
+def test_city_search_measures_from_the_city_centre() -> None:
     source = FakeServices([DP_6, DEAM_I, SAO_PAULO_DP])
 
-    result = find_nearby(source, uf="df", municipio="brasília")
+    result = find_nearby(source, uf="df", municipio="brasilia")  # sem acento, minúsculas
+
+    assert result.referencia is not None
+    assert result.referencia.rotulo == "centro de Brasília/DF"
+    assert [p.nome for p, _ in result.servicos][:2] == ["DEAM I", "6ª DP"]
+    assert all(d is not None for _, d in result.servicos)
+    assert result.deam_mais_proxima is not None and result.deam_mais_proxima[0].nome == "DEAM I"
+
+
+def test_city_search_in_another_city_changes_the_results() -> None:
+    # Regressão: a busca por cidade não pode devolver sempre as mesmas delegacias.
+    source = FakeServices([DEAM_I, DEAM_II, SAO_PAULO_DP])
+
+    sp = find_nearby(source, uf="SP", municipio="São Paulo")
+    df = find_nearby(source, uf="DF", municipio="Brasília")
+
+    assert sp.servicos[0][0].nome == "DP SP"
+    assert df.servicos[0][0].nome == "DEAM I"
+    assert sp.referencia != df.referencia
+
+
+def test_city_without_nearby_service_shows_the_closest_with_a_warning() -> None:
+    result = find_nearby(FakeServices([DEAM_I]), uf="GO", municipio="Goiânia")
+
+    assert result.servicos and result.servicos[0][1] > 50  # type: ignore[operator]
+    assert result.aviso is not None and "perto de você" in result.aviso
+
+
+def test_unknown_municipality_falls_back_to_the_state_with_a_warning() -> None:
+    # "Gama" é região administrativa do DF, não município: não pode virar beco sem saída.
+    de_outro_estado = replace(SAO_PAULO_DP, uf="SP")
+    source = FakeServices([DP_6, DEAM_I, de_outro_estado])
+
+    result = find_nearby(source, uf="DF", municipio="Gama")
 
     assert [p.nome for p, _ in result.servicos] == ["DEAM I", "6ª DP"]
-    assert all(d is None for _, d in result.servicos)
+    assert result.aviso is not None and "Não encontramos essa cidade" in result.aviso
     assert result.deam_mais_proxima is not None
+
+
+def test_unknown_state_has_no_results_and_says_so() -> None:
+    result = find_nearby(FakeServices([DEAM_I]), uf="AM", municipio="Manaus")
+
+    assert result.servicos == []
+    assert result.aviso is not None and "Ainda não temos" in result.aviso
 
 
 def test_needs_a_location_or_a_municipality() -> None:
@@ -205,13 +249,21 @@ def test_api_exposes_whether_the_coordinate_is_verified() -> None:
     assert body["servicos"][0]["coordenada_verificada"] is False
 
 
-def test_api_by_municipality_without_coordinates() -> None:
+def test_api_by_municipality_returns_distances_and_reference() -> None:
     client = make_client([DEAM_I, DP_6])
 
     body = client.post("/services/nearby", json={"uf": "DF", "municipio": "Brasília"}).json()
 
     assert [s["nome"] for s in body["servicos"]] == ["DEAM I", "6ª DP"]
-    assert body["servicos"][0]["distancia_km"] is None
+    assert body["servicos"][0]["distancia_km"] is not None
+    assert body["referencia"]["rotulo"] == "centro de Brasília/DF"
+    assert body["referencia"]["latitude"] == pytest.approx(-15.7795, abs=0.01)
+
+
+def test_api_by_point_has_no_reference() -> None:
+    body = make_client([DEAM_I]).post("/services/nearby", json={"lat": -15.8, "lon": -47.9}).json()
+
+    assert body["referencia"] is None
 
 
 @pytest.mark.parametrize(

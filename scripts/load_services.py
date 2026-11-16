@@ -6,6 +6,8 @@
 
 Linhas sem latitude/longitude NÃO são carregadas: o script as lista no final para você
 completar o CSV. Reexecutar não duplica linhas (upsert por uf + município + nome + endereço).
+Uma linha só é atualizada por uma fonte de mesma origem: dados do OSM nunca sobrescrevem os
+curados à mão.
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ ON CONFLICT (uf, municipio, nome, (coalesce(endereco, ''))) DO UPDATE SET
     origem = EXCLUDED.origem,
     fonte_url = EXCLUDED.fonte_url,
     atualizado_em = EXCLUDED.atualizado_em
+WHERE services.origem = EXCLUDED.origem
 """
 
 

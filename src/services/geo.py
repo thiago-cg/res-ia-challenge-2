@@ -53,6 +53,8 @@ class ServicesSource(Protocol):
 
     def by_municipio(self, uf: str, municipio: str) -> Sequence[ServicePoint]: ...
 
+    def by_uf(self, uf: str) -> Sequence[ServicePoint]: ...
+
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Great-circle distance in kilometres."""
@@ -105,20 +107,57 @@ def nearest(
 
 
 @dataclass(frozen=True)
+class Referencia:
+    """Ponto a partir do qual as distâncias foram medidas, quando não é a localização da pessoa."""
+
+    latitude: float
+    longitude: float
+    rotulo: str
+
+
+@dataclass(frozen=True)
 class NearbyResult:
     servicos: list[tuple[ServicePoint, float | None]]
     deam_mais_proxima: tuple[ServicePoint, float] | None
     aviso: str | None
+    referencia: Referencia | None = None
 
 
 AVISO_DISTANTE = (
     "Não encontramos serviços cadastrados perto de você. "
     "Ligue 190 (emergência) ou 180 (Central de Atendimento à Mulher)."
 )
+AVISO_CIDADE_NAO_ENCONTRADA = (
+    "Não encontramos essa cidade na nossa lista. Mostramos os serviços do estado: "
+    "confirme por telefone qual atende a sua região. "
+    "Ligue 190 (emergência) ou 180 (Central de Atendimento à Mulher)."
+)
 AVISO_SEM_RESULTADO = (
     "Ainda não temos serviços cadastrados para essa região. "
     "Ligue 190 (emergência) ou 180 (Central de Atendimento à Mulher)."
 )
+
+
+def _por_ponto(
+    source: ServicesSource, lat: float, lon: float, tipo: str | None, limit: int
+) -> NearbyResult:
+    found = nearest(source, lat, lon, tipo=tipo, limit=limit)
+    deam: tuple[ServicePoint, float] | None = None
+    if found and tipo in (None, "deam"):
+        deam = next(((p, d) for p, d in found if p.tipo == "deam"), None)
+    if deam is None and tipo in (None, "deam"):
+        closest_deam = nearest(source, lat, lon, tipo="deam", limit=1)
+        deam = closest_deam[0] if closest_deam else None
+    aviso = None
+    if not found:
+        aviso = AVISO_SEM_RESULTADO
+    elif found[0][1] > NEAR_KM:
+        aviso = AVISO_DISTANTE
+    return NearbyResult(
+        servicos=[(p, round(d, 2)) for p, d in found],
+        deam_mais_proxima=(deam[0], round(deam[1], 2)) if deam else None,
+        aviso=aviso,
+    )
 
 
 def find_nearby(
@@ -134,33 +173,39 @@ def find_nearby(
     """Services by coordinates (nearest first) or, without a location, by municipality."""
 
     if lat is not None and lon is not None:
-        found = nearest(source, lat, lon, tipo=tipo, limit=limit)
-        deam: tuple[ServicePoint, float] | None = None
-        if found and tipo in (None, "deam"):
-            deam = next(((p, d) for p, d in found if p.tipo == "deam"), None)
-        if deam is None and tipo in (None, "deam"):
-            closest_deam = nearest(source, lat, lon, tipo="deam", limit=1)
-            deam = closest_deam[0] if closest_deam else None
-        aviso = None
-        if not found:
-            aviso = AVISO_SEM_RESULTADO
-        elif found[0][1] > NEAR_KM:
-            aviso = AVISO_DISTANTE
-        return NearbyResult(
-            servicos=[(p, round(d, 2)) for p, d in found],
-            deam_mais_proxima=(deam[0], round(deam[1], 2)) if deam else None,
-            aviso=aviso,
-        )
+        return _por_ponto(source, lat, lon, tipo, limit)
 
     if uf and municipio:
+        from src.services.municipios import buscar
+
+        cidade = buscar(uf, municipio)
+        if cidade is not None:
+            # Cidade conhecida: mede a partir do centro dela, como se fosse um ponto.
+            resultado = _por_ponto(source, cidade.latitude, cidade.longitude, tipo, limit)
+            return NearbyResult(
+                servicos=resultado.servicos,
+                deam_mais_proxima=resultado.deam_mais_proxima,
+                aviso=resultado.aviso,
+                referencia=Referencia(
+                    latitude=round(cidade.latitude, 4),
+                    longitude=round(cidade.longitude, 4),
+                    rotulo=f"centro de {cidade.nome}/{cidade.uf}",
+                ),
+            )
         rows = [p for p in source.by_municipio(uf.upper(), municipio) if tipo in (None, p.tipo)]
+        aviso = None
+        if not rows:
+            # Cidade fora da lista (ex.: região administrativa do DF, grafia diferente):
+            # melhor mostrar o estado, com aviso, do que deixar a pessoa sem resposta.
+            rows = [p for p in source.by_uf(uf.upper()) if tipo in (None, p.tipo)]
+            aviso = AVISO_CIDADE_NAO_ENCONTRADA if rows else AVISO_SEM_RESULTADO
         rows.sort(key=lambda p: (TIPOS.index(p.tipo) if p.tipo in TIPOS else len(TIPOS), p.nome))
         rows = rows[:limit]
         deam_row = next((p for p in rows if p.tipo == "deam"), None)
         return NearbyResult(
             servicos=[(p, None) for p in rows],
             deam_mais_proxima=(deam_row, 0.0) if deam_row else None,
-            aviso=None if rows else AVISO_SEM_RESULTADO,
+            aviso=aviso,
         )
 
     raise ValueError("informe lat/lon ou uf/municipio")

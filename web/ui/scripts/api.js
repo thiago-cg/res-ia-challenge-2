@@ -71,5 +71,31 @@ export function criarCliente(base) {
 
       return resposta.json();
     },
+
+    /**
+     * Delegacias mais próximas. POST (e não GET) para que a localização nunca
+     * apareça em query string, histórico ou log de acesso. A localização não é
+     * guardada aqui: sai da função junto com a resposta.
+     */
+    async servicosProximos(corpo, tempoLimite = 15000) {
+      const resposta = await comTempoLimite(
+        `${raiz}/services/nearby`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(corpo),
+        },
+        tempoLimite,
+      );
+
+      if (!resposta.ok) {
+        throw new ErroApi("Não foi possível consultar as delegacias.", {
+          status: resposta.status,
+          tipo: "http",
+        });
+      }
+
+      return resposta.json();
+    },
   };
 }
