@@ -24,7 +24,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.api.auth import COOKIE_NOME, emitir_cookie, limpar_cookie
+from src.api.auth import emitir_cookie, limpar_cookie, token_do_cookie
 from src.api.schemas import ChatResponse
 from src.safety.risk import classify_risk, emergency_answer
 
@@ -81,8 +81,8 @@ def criar_router(
             return resposta.model_dump()
 
         # 2. Autorização: o id não autoriza nada (INV01/INV02).
+        token = token_do_cookie(request, status_code=401, detail="Sessão inválida ou expirada.")
         with conectar() as conn:
-            token = request.cookies.get(COOKIE_NOME)
             autenticada = autenticar(conn, token)
             if autenticada is None:
                 raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
@@ -155,8 +155,9 @@ def criar_router(
         nada. Sem o cookie, 404 — não confirma existência.
         """
 
+        token = token_do_cookie(request, status_code=404, detail="Conversa não encontrada.")
         with conectar() as conn:
-            autenticada = autenticar(conn, request.cookies.get(COOKIE_NOME))
+            autenticada = autenticar(conn, token)
             if autenticada is None:
                 raise HTTPException(status_code=404, detail="Conversa não encontrada.")
             conversa = obter(conn, autenticada)
@@ -204,8 +205,9 @@ def criar_router(
 
         from src.services.runs import cancelar_ativos
 
+        token = token_do_cookie(request, status_code=401, detail="Sessão inválida ou expirada.")
         with conectar() as conn:
-            autenticada = autenticar(conn, request.cookies.get(COOKIE_NOME))
+            autenticada = autenticar(conn, token)
             if autenticada is None:
                 raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
             if autenticada != conversation_id:
