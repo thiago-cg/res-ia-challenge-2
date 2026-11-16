@@ -2,7 +2,8 @@
 
 > **Documento vivo.** Este arquivo é o artefato único de descoberta, decisão e especificação (SDD).
 > As seções abaixo correspondem ao briefing de origem e estão preenchidas com evidência.
-> Nada foi implementado: o trabalho parou no gate de aprovação da §16.
+> O gate da §16 foi aprovado e o incremento foi implementado, revisado e commitado; o registro
+> de execução, com erros e medições, está na §22, e o relatório final na §24.
 
 ## 0. Identificação
 
@@ -15,8 +16,9 @@
 | Sincronia com remoto | HEAD == `origin/main` == commit `main` no GitHub (0/0), working tree limpa |
 | Último commit | merge do PR #11, 2026-11-13 |
 | Data da descoberta | 2026-11-16 |
-| Fase | Descoberta + design + spec implementável |
-| Implementação | **Não iniciada** (por instrução da §23 do briefing) |
+| Fase | Descoberta + design + spec implementável + incremento executado |
+| Implementação | T03–T18 implementadas e revisadas; base legal real ingerida (§22.28) |
+| Gate de aprovação | Aprovado em `P01–P04` com as opções recomendadas (§16) |
 
 ### 0.1 Como a descoberta foi feita
 

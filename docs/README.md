@@ -43,6 +43,7 @@ O produto não dá veredito sobre o caso, não substitui a Defensoria Pública e
 | [09 — Roadmap do protótipo](09-roadmap-prototipo.md)                     | Fases, tarefas, critérios de aceite e o que fica para depois     |
 | [10 — Plano de implementação](10-plano-implementacao.md)                 | Plano executável: tasks, arquivos, interfaces, testes e gates    |
 | [11 — Interface do chatbot](11-interface-chatbot.md)                     | Plano da interface: telas, estados, componentes e integração     |
+| [12 — Multiagente durável](12-multiagente-duravel-descobrimento-e-spec.md) | Descoberta, 10 ADRs, spec e backlog do incremento executado    |
 | [Sistema de design](design-system.md)                                    | Marca ZELIA extraída do manual: cor, tipo, componentes e tokens  |
 
 ### Revisões, benchmarks e decisões
@@ -67,6 +68,8 @@ O produto não dá veredito sobre o caso, não substitui a Defensoria Pública e
 6. **Para decidir o que não construir:** 07.
 7. **Para medir e fechar o MVP:** 08 e 09.
 8. **Para executar o desenvolvimento:** 10 (tasks, arquivos, dependências e gates).
+9. **Para entender a execução durável e a base real:** 12 (§22 traz o registro de execução,
+   com os defeitos encontrados e as medições).
 
 ## 5. Regras de ouro
 
