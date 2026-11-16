@@ -1,9 +1,10 @@
 # Sistema de design — ZELIA
 
-Extraído do **Manual de Identidade Visual ZELIA v1.0** (novembro de 2026, 14 páginas),
-arquivo `zelia_manual_identidade_v1.pdf`. Este documento é a referência de marca e de
-interface do projeto: tudo o que a interface do chatbot usa em cor, tipo, espaço,
-componente e tom vem daqui.
+Extraído do **Manual de Identidade Visual ZELIA v1.0** (novembro de 2026, 14 páginas) e do
+**kit de marca v1.0** distribuído com ele. O manual está versionado no repositório em
+[`assets/marca/zelia-manual-identidade-v1.pdf`](assets/marca/zelia-manual-identidade-v1.pdf).
+Este documento é a referência de marca e de interface do projeto: tudo o que a interface do
+chatbot usa em cor, tipo, espaço, componente e tom vem daqui.
 
 - **Tokens de execução:** [`web/ui/styles/tokens.css`](../web/ui/styles/tokens.css)
 - **Assets de marca:** [`web/ui/assets/brand/`](../web/ui/assets/brand/)
@@ -70,9 +71,18 @@ de outro jeito", "Continuar depois").
 - **Assinatura principal:** símbolo + wordmark, sempre nesta ordem, com o ponto solar
   alinhado à altura das ascendentes.
 
-Proporções extraídas do PDF: símbolo `237,24 × 214,64` (razão 1,105); wordmark
-`346,45 × 147,90` (razão 2,342); espessura do wordmark `16,585` para altura de `147,90`
-(≈ 11,2% da altura). O ponto solar tem diâmetro `24,1` (≈ 16% da altura do wordmark).
+Geometria dos vetores oficiais — **medida nos arquivos**, não estimada:
+
+| Peça | `viewBox` | Traço | Traço desenhado | Fração da caixa |
+| --- | --- | --- | --- | --- |
+| Símbolo | `0 0 128 128` | 18 u | `x 13–110`, `y 22–107` | 76,6% largura · 67,2% altura |
+| Wordmark | `0 0 230 100` | 11 u | ocupa a caixa inteira | 100% largura · 98% altura |
+
+Consequência prática para a interface: **a caixa do símbolo é maior que o traço**. Para obter
+um traço de 20 px é preciso uma caixa de ~26 px; dimensionar o SVG em 20 px deixaria o desenho
+com 15 px, abaixo do mínimo de 16 px. O símbolo traz a área de proteção embutida no arquivo
+(≈ 0,8 a 1,4× o diâmetro do ponto solar); o wordmark **não** traz — nele a proteção é aplicada
+no layout. O ponto solar do wordmark tem **Ø 16** (16% da altura).
 
 ### 3.2 Arquivos oficiais no repositório
 
@@ -83,27 +93,66 @@ Proporções extraídas do PDF: símbolo `237,24 × 214,64` (razão 1,105); word
 | [`wordmark-azul.svg`](../web/ui/assets/brand/wordmark-azul.svg) | Assinatura principal em fundos claros |
 | [`wordmark-branco.svg`](../web/ui/assets/brand/wordmark-branco.svg) | Assinatura reversa em fundos escuros |
 | [`wordmark-tinta.svg`](../web/ui/assets/brand/wordmark-tinta.svg) | Uso monocromático em documentos |
-| [`icone-app.svg`](../web/ui/assets/brand/icone-app.svg) | Ícone de aplicativo, 1024 × 1024, raio 232 |
+| [`icone-app.svg`](../web/ui/assets/brand/icone-app.svg) | Ícone de aplicativo, 1024 × 1024, raio 224 |
 | [`favicon.svg`](../web/ui/assets/brand/favicon.svg) | Favicon (mesma geometria) |
 
-Os SVGs foram vetorizados a partir do PDF original, com os caminhos preservados
-(traço arredondado, sem conversão para contorno). O `favicon.svg` é o mesmo desenho do
-ícone do app.
+Os SVGs são os **vetores oficiais do kit v1.0**, copiados sem retraçado. O `favicon.svg` é a
+mesma arte do ícone do app. Os PNGs (`png/icone-app-48/192/512/1024.png`) existem para manifest,
+atalhos e loja.
+
+| Origem no kit | Nome no repositório |
+| --- | --- |
+| `zelia-wordmark-blue.svg` | `wordmark-azul.svg` |
+| `zelia-wordmark-white.svg` | `wordmark-branco.svg` |
+| `zelia-wordmark-ink.svg` | `wordmark-tinta.svg` |
+| `zelia-symbol-blue.svg` | `simbolo-azul.svg` |
+| `zelia-symbol-white.svg` | `simbolo-branco.svg` |
+| `zelia-app-icon.svg` | `icone-app.svg` · `favicon.svg` |
+
+- **Manual completo no repositório:**
+  [`docs/assets/marca/zelia-manual-identidade-v1.pdf`](assets/marca/zelia-manual-identidade-v1.pdf)
+- **Regras de uso do kit:** [`web/ui/assets/brand/LEIA-ME.md`](../web/ui/assets/brand/LEIA-ME.md)
 
 ### 3.3 Área de proteção e tamanhos
 
-- **Área de proteção:** equivalente à altura do ponto solar em todos os lados
-  (`x` no manual). Na prática web, no mínimo **16 px** livres ao redor.
-- **Tamanho mínimo digital:** **16 px** (símbolo). Wordmark: **88 px** de largura.
+- **Área de proteção:** `1x`, equivalente à altura do ponto solar, em todos os lados. No
+  símbolo, boa parte disso já vem no `viewBox`; no wordmark, é aplicada no layout.
+- **Tamanho mínimo digital:** **16 px** para o traço desenhado do símbolo. Como a caixa do SVG
+  é maior que o traço, `width` de elemento precisa de **≥ 21 px** — abaixo disso o desenho
+  cai abaixo do mínimo mesmo com o CSS "correto".
 - **Tamanho mínimo impresso:** 5 mm.
+- **Wordmark:** mínimo de **88 px** de largura (regra do projeto; o manual só fixa o mínimo do
+  símbolo).
 - O símbolo é legível de 16 px a grandes formatos sem redesenho.
 
 ### 3.4 Versões e usos incorretos
 
-Versões previstas: **principal** (fundos claros), **reversa** (fundos escuros), **símbolo**
-(ícone e avatar).
+| Versão | Situação de uso |
+| --- | --- |
+| **Principal** | fundos claros — aveia, branco quente |
+| **Reversa** | fundos escuros — azul pulso, tinta |
+| **Símbolo** | ícone de app, avatar, favicon |
 
-Nunca: distorcer, girar, contornar, aplicar sombra, trocar as cores, usar em baixo contraste.
+O manual lista o que **não** se faz com a marca: distorcer, girar, contornar, aplicar sombra,
+trocar as cores e usar em baixo contraste (branco sobre Sol dá 1,8:1 — reprovado).
+
+### 3.5 Aplicação na interface
+
+O símbolo aparece em três lugares, sempre branco sobre azul pulso ou tinta: o tile do cabeçalho
+(`.marca__tile`, 36 px, raio 11), o avatar das mensagens da assistente (`.avatar`, 32 px,
+circular) e o ícone do app. O wordmark azul acompanha o tile no cabeçalho; nos fundos escuros do
+site, entra a versão branca.
+
+Como o `viewBox` do símbolo usa 76,6% da largura, as duas regras de CSS dimensionam a **caixa**:
+
+```css
+.marca__simbolo { width: 26px; }  /* traço ≈ 3,7 px, desenho ≈ 20 px */
+.avatar svg     { width: 19px; }  /* traço ≈ 2,7 px, desenho ≈ 15 px */
+```
+
+Na documentação publicada (`site/`), o wordmark azul abre o cabeçalho e o branco fecha o
+rodapé sobre tinta; o `site/share.png` (1200 × 630) é montado com as mesmas peças — wordmark
+azul, símbolo grande e a manchete com o gesto editorial em Newsreader itálico.
 
 ---
 
