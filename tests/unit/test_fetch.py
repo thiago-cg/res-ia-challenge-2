@@ -9,12 +9,14 @@ import pytest
 
 from src.ingest import run as run_module
 from src.ingest.fetch import (
+    USER_AGENT,
     FetchError,
     Source,
     SourceManifestError,
     detect_charset,
     fetch_source,
     load_sources,
+    verify_raw_matches_sidecar,
 )
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -48,9 +50,16 @@ class FakeClient:
     def __init__(self, *results: object) -> None:
         self.results = list(results)
         self.calls: list[str] = []
+        self.headers: list[dict[str, str]] = []
 
-    def get(self, url: str, timeout: float | None = None) -> FakeResponse:
+    def get(
+        self,
+        url: str,
+        timeout: object | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> FakeResponse:
         self.calls.append(url)
+        self.headers.append(dict(headers or {}))
         result = self.results.pop(0)
         if isinstance(result, Exception):
             raise result
@@ -59,7 +68,12 @@ class FakeClient:
 
 
 class NoNetworkClient:
-    def get(self, url: str, timeout: float | None = None) -> FakeResponse:
+    def get(
+        self,
+        url: str,
+        timeout: object | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> FakeResponse:
         raise AssertionError("fetch_source must not hit the network for an unchanged file")
 
 
@@ -139,6 +153,62 @@ def test_fetch_writes_raw_bytes_without_decoding(tmp_path: Path) -> None:
     assert meta["content_type"] == "text/html; charset=windows-1252"
     assert meta["status"] == 200
     assert "retrieved_at" in meta
+
+
+def test_fetch_sends_an_identifiable_user_agent(tmp_path: Path) -> None:
+    # planalto.gov.br blackholes the default httpx agent (no response), which
+    # surfaced as a read timeout instead of HTTP 200.  Every download must
+    # carry an explicit agent and the Portuguese accept-language.
+    client = FakeClient(FakeResponse(200, b"<html>ok</html>"))
+
+    fetch_source(make_source(), tmp_path, client=client)
+
+    sent = client.headers[0]
+    assert sent["User-Agent"] == USER_AGENT
+    assert "python-httpx" not in sent["User-Agent"].lower()
+    assert sent["Accept-Language"].startswith("pt-BR")
+
+
+def test_fetch_extra_headers_override_defaults(tmp_path: Path) -> None:
+    client = FakeClient(FakeResponse(200, b"ok"))
+
+    fetch_source(make_source(), tmp_path, client=client, headers={"User-Agent": "custom/1"})
+
+    assert client.headers[0]["User-Agent"] == "custom/1"
+    assert client.headers[0]["Accept-Language"].startswith("pt-BR")
+
+
+def test_verify_raw_matches_sidecar_rejects_a_truncated_file(tmp_path: Path) -> None:
+    # data/raw/lmp.html was left holding 3 bytes ("raw") while its sidecar
+    # still described the real page; --offline parsed the 3 bytes and reported
+    # "no article found", blaming the parser.
+    raw = b"<html>real page</html>"
+    path = tmp_path / "lmp.html"
+    path.write_bytes(b"raw")
+    (tmp_path / "lmp.meta.json").write_text(
+        json.dumps({"sha256": sha256(raw), "status": 200}), encoding="utf-8"
+    )
+
+    with pytest.raises(FetchError, match="does not match its download sidecar"):
+        verify_raw_matches_sidecar(make_source(), path, tmp_path)
+
+
+def test_verify_raw_matches_sidecar_accepts_matching_bytes(tmp_path: Path) -> None:
+    raw = b"<html>real page</html>"
+    path = tmp_path / "lmp.html"
+    path.write_bytes(raw)
+    (tmp_path / "lmp.meta.json").write_text(
+        json.dumps({"sha256": sha256(raw), "status": 200}), encoding="utf-8"
+    )
+
+    verify_raw_matches_sidecar(make_source(), path, tmp_path)
+
+
+def test_verify_raw_matches_sidecar_ignores_a_missing_sidecar(tmp_path: Path) -> None:
+    path = tmp_path / "lmp.html"
+    path.write_bytes(b"anything")
+
+    verify_raw_matches_sidecar(make_source(), path, tmp_path)
 
 
 def test_fetch_is_idempotent_when_hash_matches(tmp_path: Path) -> None:
@@ -248,6 +318,34 @@ def test_detect_charset_ignores_unknown_declared_encoding() -> None:
     raw = b'<meta charset="x-unknown-charset">texto'
 
     assert detect_charset(raw) == "utf-8"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (b"\xff\xfe" + "<html>Lei</html>".encode("utf-16-le"), "utf-16"),
+        (b"\xfe\xff" + "<html>Lei</html>".encode("utf-16-be"), "utf-16"),
+        (b"\xef\xbb\xbf" + b"<html>Lei</html>", "utf-8-sig"),
+    ],
+)
+def test_detect_charset_honours_byte_order_mark(raw: bytes, expected: str) -> None:
+    # planalto.gov.br serves the Lei Maria da Penha page as UTF-16LE with no
+    # charset meta; decoding it as cp1252 produced text that parsed to zero
+    # articles, so the BOM must win over every other signal.
+    assert detect_charset(raw) == expected
+    assert "<html>" in raw.decode(expected, errors="strict")
+
+
+def test_detect_charset_bom_outranks_declared_meta() -> None:
+    raw = b"\xef\xbb\xbf" + b'<meta charset="iso-8859-1">Lei'
+
+    assert detect_charset(raw) == "utf-8-sig"
+
+
+def test_detect_charset_recognises_utf16_without_bom() -> None:
+    raw = "<html>Lei</html>  ".encode("utf-16-le")
+
+    assert detect_charset(raw) == "utf-16"
 
 
 def test_cli_parses_selection_flags() -> None:

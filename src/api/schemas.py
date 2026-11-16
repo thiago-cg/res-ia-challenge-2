@@ -131,3 +131,4 @@ class HealthResponse(BaseModel):
     index_version: str | None = None
     last_ingest: str | None = None
     data_atualizacao_base: str | None = None
+    capabilities: dict[str, bool] = Field(default_factory=dict)

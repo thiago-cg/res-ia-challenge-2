@@ -39,7 +39,9 @@ def _elapsed_ms(start: float) -> float:
 
 
 def _is_chat_path(path: str) -> bool:
-    return path == "/chat" or path.startswith("/chat/")
+    """Rotas com conteúdo de conversa: nunca em cache (ADR-02)."""
+
+    return path == "/chat" or path.startswith("/chat/") or path.startswith("/api/v1/")
 
 
 def _sanitize_header_identifier(value: str | None) -> str | None:

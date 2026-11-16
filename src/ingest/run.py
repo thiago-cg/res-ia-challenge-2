@@ -18,7 +18,7 @@ from typing import Any
 
 from src.config import get_settings
 from src.index.load_db import (
-    load_current_versions,
+    load_known_versions,
     load_parse_result,
     record_ingest_run,
     source_content_hash,
@@ -31,6 +31,7 @@ from src.ingest.fetch import (
     _raw_filename,
     fetch_source,
     load_sources,
+    verify_raw_matches_sidecar,
 )
 from src.ingest.models import ParseResult
 from src.ingest.normalize import normalize_parse_result
@@ -215,6 +216,7 @@ def _run_source(
                 raise IngestStageError(
                     f"raw file not found for {source.id}: {raw_path}; run --stage download first"
                 )
+            verify_raw_matches_sidecar(source, raw_path, args.dest_dir)
         else:
             raw_path = fetch_source(
                 source,
@@ -251,7 +253,7 @@ def _run_source(
         ingest_run_id = record_ingest_run(conn, source.id, "running")
         conn.commit()
         normalized = normalize_parse_result(parsed)
-        current = load_current_versions(conn, normalized.norm.id)
+        current = load_known_versions(conn, normalized.norm.id)
         if not current:
             loaded = load_parse_result(conn, normalized, ingest_run_id=ingest_run_id)
             report.added = loaded.devices_loaded

@@ -15,6 +15,8 @@ dependencies = [
     "pgvector",
     "qdrant-client>=1.15,<1.16",
     "pymupdf>=2.1",
+    "langgraph>=1.2.22",
+    "langgraph-checkpoint-postgres>=3.2.1",
 ]
 
 [project.optional-dependencies]
