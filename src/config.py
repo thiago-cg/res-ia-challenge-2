@@ -80,6 +80,8 @@ class Settings(BaseSettings):
     #: authored against the 20-question set; "llm" replaces them with a general
     #: rewrite of the question into legal vocabulary plus subquestions.
     query_rewrite: Literal["none", "llm"] = "none"
+    #: Serve ``/chat`` through the multi-agent layer (same answers, plus a trace).
+    multiagent: bool = True
     query_rewrite_model: str = ""
     query_rewrite_timeout: float = Field(default=30.0, gt=0)
 

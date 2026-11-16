@@ -25,6 +25,8 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.agents import MultiAgentPipeline, Trace, TracedResult
+from src.agents.safety import SafetyAgent
 from src.api.middleware import (
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
@@ -34,6 +36,9 @@ from src.api.schemas import (
     ChatRequest,
     ChatResponse,
     HealthResponse,
+    NearbyRequest,
+    NearbyResponse,
+    ServiceOut,
     SourceResponse,
     legal_notice,
 )
@@ -63,6 +68,8 @@ from src.retrieve.hydrate import hydrate, resolve_citation
 from src.retrieve.query import default_facts, extract_data_fato, understand_query
 from src.retrieve.rerank import MultiVectorEncoder, Rescore, rerank
 from src.safety.risk import classify_risk, emergency_answer
+from src.services.geo import ServicePoint, ServicesSource, find_nearby
+from src.services.repo import PostgresServicesRepo
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +84,17 @@ class PipelineResult:
     data_atualizacao_base: str | None = None
     retrieved_ids: tuple[str, ...] = ()
     claims_supported: tuple[bool, ...] = ()
+
+
+@dataclass(frozen=True)
+class Evidence:
+    """Outcome of the retrieval step: devices to ground on, or why to abstain."""
+
+    devices: tuple[RetrievedDevice, ...] = ()
+    facts: QueryFacts | None = None
+    subquestions: tuple[str, ...] = ()
+    abstain_reason: str | None = None
+    explicit: bool = False
 
 
 class ChatPipeline(Protocol):
@@ -391,6 +409,24 @@ class LegalRAGPipeline:
         if classify_risk(message).immediate:
             return self._result(emergency_answer(), emergencia=True)
 
+        evidence = self.retrieve(message, facts)
+        if evidence.abstain_reason is not None:
+            return self._abstain(evidence.abstain_reason)
+        return self._generate(
+            message,
+            evidence.facts or default_facts(),
+            evidence.subquestions,
+            evidence.devices,
+        )
+
+    def retrieve(self, message: str, facts: QueryFacts | None = None) -> Evidence:
+        """Find the legal devices that ground an answer (no generation).
+
+        Returns an ``Evidence`` carrying either the hydrated devices or the
+        reason retrieval must abstain.  Shared by ``answer`` and by the
+        retrieval agent, so both follow exactly the same steps.
+        """
+
         facts = self._with_extracted_data_fato(message, facts)
 
         try:
@@ -401,20 +437,25 @@ class LegalRAGPipeline:
             )
         except Exception as exc:
             logger.warning("explicit_citation_failed error=%s", type(exc).__name__)
-            return self._abstain("erro_recuperacao")
+            return Evidence(abstain_reason="erro_recuperacao")
 
         if resolution.resolved:
             try:
                 explicit = self._explicit_devices(resolution, facts)
             except Exception as exc:
                 logger.warning("explicit_hydration_failed error=%s", type(exc).__name__)
-                return self._abstain("erro_recuperacao")
+                return Evidence(abstain_reason="erro_recuperacao")
             if not explicit:
-                return self._abstain("citacao_explicita_sem_versao_vigente")
-            return self._generate(message, facts or default_facts(), [message], explicit)
+                return Evidence(abstain_reason="citacao_explicita_sem_versao_vigente")
+            return Evidence(
+                devices=tuple(explicit),
+                facts=facts or default_facts(),
+                subquestions=(message,),
+                explicit=True,
+            )
 
         if self._is_explicit_miss(resolution):
-            return self._abstain("citacao_explicita_nao_encontrada")
+            return Evidence(abstain_reason="citacao_explicita_nao_encontrada")
 
         plan = understand_query(
             message,
@@ -435,10 +476,10 @@ class LegalRAGPipeline:
             )
         except Exception as exc:
             logger.warning("retrieval_failed error=%s", type(exc).__name__)
-            return self._abstain("falha_na_recuperacao")
+            return Evidence(abstain_reason="falha_na_recuperacao")
 
         if not candidates:
-            return self._abstain("nenhum_dispositivo_recuperado")
+            return Evidence(abstain_reason="nenhum_dispositivo_recuperado")
 
         # A reranker has to read the legal text, so the pool is hydrated before
         # ranking; without that it would order candidates by their id alone.
@@ -460,17 +501,21 @@ class LegalRAGPipeline:
             )[: self.settings.max_devices]
         except Exception as exc:
             logger.warning("ranking_failed error=%s", type(exc).__name__)
-            return self._abstain("erro_recuperacao")
+            return Evidence(abstain_reason="erro_recuperacao")
 
         try:
             hydrated = selected if hydrated_pool else hydrate(selected, repo=self.repo).devices
         except Exception as exc:
             logger.warning("hydration_failed error=%s", type(exc).__name__)
-            return self._abstain("erro_recuperacao")
+            return Evidence(abstain_reason="erro_recuperacao")
         if not hydrated:
-            return self._abstain("contexto_incompleto")
+            return Evidence(abstain_reason="contexto_incompleto")
         expanded = self._expand(hydrated)
-        return self._generate(message, plan.fatos, plan.subperguntas, expanded)
+        return Evidence(
+            devices=tuple(expanded),
+            facts=plan.fatos,
+            subquestions=tuple(plan.subperguntas),
+        )
 
     @staticmethod
     def _with_extracted_data_fato(message: str, facts: QueryFacts | None) -> QueryFacts | None:
@@ -744,6 +789,41 @@ class LazyChatPipeline:
             self._pipeline = pipeline
         return pipeline.answer(message, facts)
 
+    def answer_traced(self, message: str, facts: QueryFacts | None = None) -> TracedResult:
+        """Same as ``answer`` but also returns the multi-agent trail when available."""
+
+        if classify_risk(message).immediate:
+            trace = Trace()
+            trace.start()
+            safety = SafetyAgent().assess(message, trace_id=trace.trace_id)
+            trace.record(safety)
+            return TracedResult(PipelineResult(emergency_answer(), True, None), trace)
+
+        pipeline = self._pipeline
+        if pipeline is None:
+            try:
+                pipeline = self._factory()
+            except Exception as exc:
+                logger.error("pipeline_unavailable error=%s", type(exc).__name__)
+                return TracedResult(
+                    PipelineResult(fallback_abstain("servico_indisponivel"), False, None),
+                    Trace(),
+                )
+            self._pipeline = pipeline
+        traced = getattr(pipeline, "answer_traced", None)
+        if callable(traced):
+            return cast(TracedResult, traced(message, facts))
+        return TracedResult(pipeline.answer(message, facts), Trace())
+
+
+def _emergency_trace(message: str) -> list[dict[str, Any]]:
+    """Trail for an emergency answered at the API edge (no agent besides Safety runs)."""
+
+    trace = Trace()
+    trace.start()
+    trace.record(SafetyAgent().assess(message, trace_id=trace.trace_id))
+    return trace.to_list()
+
 
 def _as_rerank_encoder(
     encoder: Encoder | MultiVectorEncoder | None,
@@ -803,6 +883,30 @@ def build_default_pipeline(
         rescore=rescore,
         data_atualizacao_base=data_atualizacao_base,
     )
+
+
+def _service_out(point: ServicePoint, distance_km: float | None) -> ServiceOut:
+    return ServiceOut(
+        nome=point.nome,
+        tipo=point.tipo,  # type: ignore[arg-type]
+        uf=point.uf,
+        municipio=point.municipio,
+        endereco=point.endereco,
+        telefone=point.telefone,
+        horario=point.horario,
+        latitude=point.latitude,
+        longitude=point.longitude,
+        distancia_km=distance_km,
+        fonte_url=point.fonte_url,
+        atualizado_em=point.atualizado_em,
+        coordenada_verificada=point.coordenada_verificada,
+    )
+
+
+def _with_agents(pipeline: LegalRAGPipeline, settings: Settings) -> ChatPipeline:
+    """Serve through the multi-agent layer unless MULTIAGENT=false."""
+
+    return MultiAgentPipeline(pipeline) if settings.multiagent else pipeline
 
 
 def build_eval_pipeline() -> Callable[[Mapping[str, Any]], Any]:
@@ -905,6 +1009,7 @@ def create_app(
     source_repo: SourceRepo | None = None,
     health_probe: HealthProbe | None = None,
     data_atualizacao_base: str | None = None,
+    services_repo: ServicesSource | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(level=settings.log_level)
@@ -915,7 +1020,7 @@ def create_app(
         data_atualizacao_base=data_atualizacao_base,
     )
     resolved_pipeline = pipeline or LazyChatPipeline(
-        lambda: build_default_pipeline(settings, data_atualizacao_base)
+        lambda: _with_agents(build_default_pipeline(settings, data_atualizacao_base), settings)
     )
 
     app = FastAPI(
@@ -926,6 +1031,7 @@ def create_app(
     app.state.settings = settings
     app.state.pipeline = resolved_pipeline
     app.state.source_repo = repo
+    app.state.services_repo = services_repo or PostgresServicesRepo(settings.database_url)
     app.state.health_probe = probe
     app.state.data_atualizacao_base = data_atualizacao_base
 
@@ -947,6 +1053,8 @@ def create_app(
                 emergencia=True,
                 data_atualizacao_base=http_request.app.state.data_atualizacao_base,
             )
+            if payload.trace:
+                response.trace = _emergency_trace(payload.message)
             logger.info(
                 "chat_response request_id=%s abstencao=%s emergencia=%s citacoes=%d",
                 request_id,
@@ -956,11 +1064,18 @@ def create_app(
             )
             return response
 
+        trail: list[dict] | None = None
         try:
-            result = http_request.app.state.pipeline.answer(
-                payload.message,
-                payload.query_facts(),
-            )
+            traced = getattr(http_request.app.state.pipeline, "answer_traced", None)
+            if payload.trace and callable(traced):
+                outcome = traced(payload.message, payload.query_facts())
+                result = outcome.result
+                trail = outcome.trace.to_list()
+            else:
+                result = http_request.app.state.pipeline.answer(
+                    payload.message,
+                    payload.query_facts(),
+                )
         except Exception as exc:
             logger.error("chat_failure request_id=%s error=%s", request_id, type(exc).__name__)
             raise HTTPException(
@@ -978,6 +1093,7 @@ def create_app(
             emergencia=result.emergencia,
             data_atualizacao_base=data_atualizacao,
         )
+        response.trace = trail
         logger.info(
             "chat_response request_id=%s abstencao=%s emergencia=%s citacoes=%d",
             request_id,
@@ -986,6 +1102,44 @@ def create_app(
             len(response.citacoes),
         )
         return response
+
+    @app.post("/services/nearby", response_model=NearbyResponse)
+    def services_nearby(payload: NearbyRequest, http_request: Request) -> NearbyResponse:
+        """Nearest delegacias. The location is used for this request only: it is never
+        stored and never logged (only counts are)."""
+
+        request_id = getattr(http_request.state, "request_id", None) or uuid4().hex
+        lat = round(payload.lat, 3) if payload.lat is not None else None  # ~110 m
+        lon = round(payload.lon, 3) if payload.lon is not None else None
+        try:
+            result = find_nearby(
+                http_request.app.state.services_repo,
+                lat=lat,
+                lon=lon,
+                uf=payload.uf,
+                municipio=payload.municipio,
+                tipo=payload.tipo,
+                limit=payload.limit,
+            )
+        except Exception as exc:
+            logger.error("services_failure request_id=%s error=%s", request_id, type(exc).__name__)
+            raise HTTPException(
+                status_code=503,
+                detail="Não foi possível consultar os serviços agora. Ligue 190 ou 180.",
+            ) from None
+        logger.info(
+            "services_nearby request_id=%s mode=%s results=%d",
+            request_id,
+            "point" if lat is not None else "municipio",
+            len(result.servicos),
+        )
+        return NearbyResponse(
+            servicos=[_service_out(p, d) for p, d in result.servicos],
+            deam_mais_proxima=(
+                _service_out(*result.deam_mais_proxima) if result.deam_mais_proxima else None
+            ),
+            aviso=result.aviso,
+        )
 
     @app.get("/health", response_model=HealthResponse)
     def health(http_request: Request) -> HealthResponse:

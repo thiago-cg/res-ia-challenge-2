@@ -43,6 +43,7 @@ O produto não dá veredito sobre o caso, não substitui a Defensoria Pública e
 | [09 — Roadmap do protótipo](09-roadmap-prototipo.md)                     | Fases, tarefas, critérios de aceite e o que fica para depois     |
 | [10 — Plano de implementação](10-plano-implementacao.md)                 | Plano executável: tasks, arquivos, interfaces, testes e gates    |
 | [11 — Interface do chatbot](11-interface-chatbot.md)                     | Plano da interface: telas, estados, componentes e integração     |
+| [12 — Arquitetura multiagente](12-arquitetura-multiagente.md)            | Agentes, responsabilidades, fluxo de interação e demonstração    |
 | [Sistema de design](design-system.md)                                    | Marca ZELIA extraída do manual: cor, tipo, componentes e tokens  |
 
 ### Revisões, benchmarks e decisões
