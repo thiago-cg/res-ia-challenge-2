@@ -17,7 +17,7 @@ const CHAVE_SESSAO = "zelia.sessao";
 const LIMITE_MENSAGENS = 40;
 const LIMITE_CARACTERES = 8000;
 
-const SIMBOLO = `<svg viewBox="177.379 170.097 237.238 214.644" aria-hidden="true" focusable="false"><path pathLength="1" d="M 199.166 207.216 C 252.424 194.305 305.681 191.884 358.939 199.953 C 384.761 203.181 391.216 214.478 378.305 233.844 L 213.691 320.993 C 200.78 340.36 207.235 351.657 233.057 354.884 C 286.315 362.954 339.572 360.533 392.83 347.622"/></svg>`;
+const SIMBOLO = `<svg viewBox="0 0 128 128" aria-hidden="true" focusable="false"><path pathLength="1" d="M22 36Q55 28 88 33Q104 35 96 47L28 83Q20 95 36 97Q69 102 102 94"/></svg>`;
 
 const ICONES_ENCAMINHAMENTO = {
   policia: { nome: "Polícia", icone: "escudo", telefone: "190" },
