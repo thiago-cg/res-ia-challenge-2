@@ -45,6 +45,7 @@ O produto não dá veredito sobre o caso, não substitui a Defensoria Pública e
 | [11 — Interface do chatbot](11-interface-chatbot.md)                     | Plano da interface: telas, estados, componentes e integração     |
 | [12 — Multiagente durável](12-multiagente-duravel-descobrimento-e-spec.md) | Descoberta, 10 ADRs, spec e backlog do incremento executado    |
 | [12 — Arquitetura multiagente](12-arquitetura-multiagente.md)            | Agentes, responsabilidades, fluxo de interação e demonstração    |
+| [13 — Relatório do protótipo multiagente](13-relatorio-prototipo-multiagente.md) | Entrega: arquitetura, agentes, fluxo, demonstração e limites |
 | [Sistema de design](design-system.md)                                    | Marca ZELIA extraída do manual: cor, tipo, componentes e tokens  |
 
 ### Revisões, benchmarks e decisões
