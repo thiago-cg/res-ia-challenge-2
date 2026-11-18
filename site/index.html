@@ -227,12 +227,12 @@
                 <tr>
                   <th scope="row">Busca híbrida</th>
                   <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
-                  <td>Postgres FTS e Qdrant denso, com RRF, expansão determinística e teto de 3 por artigo. Medida em 110 perguntas respondíveis.</td>
+                  <td>Postgres FTS e busca densa no índice vetorial, com RRF, expansão determinística e teto de 3 por artigo. Medida em 40 perguntas com gabarito sobre a base real: hit@5 0,70 e hit@10 0,88.</td>
                 </tr>
                 <tr>
                   <th scope="row">Geração e verificação</th>
                   <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
-                  <td>150 perguntas com chamadas reais ao provedor. O modelo devolve IDs; a citação é montada a partir do banco e verificada por código.</td>
+                  <td>O modelo devolve IDs; a citação é montada a partir do banco e verificada por código. Executado em 150 perguntas na rodada de 9 de novembro e em conversas ponta a ponta sobre a base real em 16 e 18 de novembro.</td>
                 </tr>
                 <tr>
                   <th scope="row">Multiagente e execução durável</th>
@@ -242,7 +242,7 @@
                 <tr>
                   <th scope="row">Segurança e emergência</th>
                   <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
-                  <td>20 de 20 emergências roteadas e 0 falso-positivo em 130 perguntas não-emergência, após a reescrita do classificador.</td>
+                  <td>20 de 20 emergências roteadas e 0 falso-positivo em 130 perguntas não-emergência, após a reescrita do classificador (rodada de 9 de novembro). A emergência segue na frente de qualquer I/O: 0,19 ms no trace de 18 de novembro.</td>
                 </tr>
                 <tr>
                   <th scope="row">Caminho alvo 9B/0.6B</th>
