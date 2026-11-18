@@ -65,7 +65,7 @@ class AnswerAgent:
         trace_id: str = "",
     ) -> AgentMessage:
         draft = self._draft(prompt, devices)
-        if draft.status == "ok":
+        if draft.status == "ok" and draft.answer is not None:
             return AgentMessage(
                 sender=self.name,
                 recipient="verificador",

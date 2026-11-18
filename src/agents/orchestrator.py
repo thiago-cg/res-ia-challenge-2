@@ -115,6 +115,10 @@ class MultiAgentPipeline:
                     pipeline._result(draft.answer, emergencia=False, retrieved_ids=retrieved_ids),
                 )
 
+            if draft.answer is None:  # status "ok" always carries an answer
+                return self._end(
+                    trace, pipeline._abstain("erro_recuperacao", retrieved_ids=retrieved_ids)
+                )
             checked = self.verifier.check(
                 draft.answer, devices, attempt=attempt, trace_id=trace.trace_id
             )
