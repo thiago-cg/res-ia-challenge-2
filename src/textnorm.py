@@ -66,6 +66,53 @@ def roman_to_int(token: str) -> int | None:
     return _roman_to_int(token)
 
 
+#: Canonical Roman spelling, largest value first.
+_CANONICAL_ROMAN: tuple[tuple[int, str], ...] = (
+    (1000, "m"),
+    (900, "cm"),
+    (500, "d"),
+    (400, "cd"),
+    (100, "c"),
+    (90, "xc"),
+    (50, "l"),
+    (40, "xl"),
+    (10, "x"),
+    (9, "ix"),
+    (5, "v"),
+    (4, "iv"),
+    (1, "i"),
+)
+
+#: Classical upper bound; above it Roman spelling is not defined.
+_MAX_ROMAN = 3999
+
+
+def _to_roman(number: int) -> str:
+    output: list[str] = []
+    remaining = number
+    for value, glyph in _CANONICAL_ROMAN:
+        while remaining >= value:
+            output.append(glyph)
+            remaining -= value
+    return "".join(output)
+
+
+def canonical_roman_to_int(token: str) -> int | None:
+    """Convert only tokens that are the canonical spelling of the number.
+
+    ``roman_to_int`` does arithmetic on any run of Roman letters, so ordinary
+    Portuguese words come back as numbers: ``mim`` is 1999, ``mil`` is 1049,
+    ``vim`` is 1004 and ``vivi`` is 10.  Canonical numerals have exactly one
+    spelling (1999 is ``MCMXCIX``, never ``MIM``), so converting the number
+    back to letters rejects the words and keeps every numeral a citation can
+    carry.
+    """
+    number = roman_to_int(token)
+    if number is None or number > _MAX_ROMAN:
+        return None
+    return number if _to_roman(number) == token else None
+
+
 def _base_normalize(text: str) -> str:
     text = text.lower()
     text = text.replace("\u00ba", "").replace("\u00b0", "").replace("\u00aa", "a")
@@ -114,7 +161,7 @@ def _convert_inciso_romans(text: str) -> str:
         while index < len(tokens):
             current = tokens[index]
             if expecting_value:
-                number = _roman_to_int(current)
+                number = canonical_roman_to_int(current)
                 if number is not None:
                     output.append(str(number))
                     expecting_value = False

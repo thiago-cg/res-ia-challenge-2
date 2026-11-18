@@ -3,8 +3,10 @@ import pytest
 from src.textnorm import (
     MAX_FTS_TERMS,
     build_fts_query,
+    canonical_roman_to_int,
     normalize_citation_forms,
     normalize_search_text,
+    roman_to_int,
     strip_accents,
 )
 
@@ -12,6 +14,57 @@ from src.textnorm import (
 def test_strip_accents() -> None:
     assert strip_accents("Ação, violência, parágrafo") == "Acao, violencia, paragrafo"
     assert strip_accents("já está") == "ja esta"
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("i", 1),
+        ("ii", 2),
+        ("iii", 3),
+        ("iv", 4),
+        ("ix", 9),
+        ("x", 10),
+        ("xiv", 14),
+        ("xx", 20),
+        ("ci", 101),
+        ("mcmxcix", 1999),
+    ],
+)
+def test_canonical_roman_accepts_real_numerals(token: str, expected: int) -> None:
+    assert canonical_roman_to_int(token) == expected
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "mim",
+        "mil",
+        "vim",
+        "vivi",
+        "civil",
+        "cidade",
+        "casa",
+        "",
+        "mmmm",
+    ],
+)
+def test_canonical_roman_rejects_words(token: str) -> None:
+    """Plain arithmetic reads these as numbers; only canonical spelling is a numeral."""
+
+    assert canonical_roman_to_int(token) is None
+
+
+def test_roman_arithmetic_is_still_available_for_other_callers() -> None:
+    """Documents why the canonical guard exists instead of tightening roman_to_int."""
+
+    assert roman_to_int("mim") == 1999
+    assert canonical_roman_to_int("mim") is None
+
+
+def test_inciso_conversion_ignores_a_word_that_looks_like_a_numeral() -> None:
+    assert normalize_citation_forms("o inciso mim") == "o inciso mim"
+    assert normalize_citation_forms("inciso III") == "inciso 3"
 
 
 @pytest.mark.parametrize(
