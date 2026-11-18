@@ -134,6 +134,7 @@ class HealthResponse(BaseModel):
     index_version: str | None = None
     last_ingest: str | None = None
     data_atualizacao_base: str | None = None
+    capabilities: dict[str, bool] = Field(default_factory=dict)
 
 
 ServiceTipo = Literal["deam", "nucleo_atendimento_mulher", "delegacia_comum"]
@@ -199,4 +200,3 @@ class NearbyResponse(BaseModel):
     aviso_legal: str = (
         "Confirme o endereço e o horário por telefone antes de ir. Em perigo imediato, ligue 190."
     )
-    capabilities: dict[str, bool] = Field(default_factory=dict)

@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -65,6 +65,7 @@ from src.retrieve.citations import CitationCatalog
 from src.retrieve.expand import artigo_id
 from src.retrieve.hybrid import DenseSearcher, FtsSearcher, QdrantSearcher
 from src.retrieve.hydrate import resolve_citation
+from src.retrieve.query import default_facts
 from src.retrieve.rerank import MultiVectorEncoder, Rescore
 from src.safety.risk import classify_risk, emergency_answer
 from src.services.geo import ServicePoint, ServicesSource, find_nearby
@@ -102,6 +103,7 @@ class Evidence:
     subquestions: tuple[str, ...] = ()
     abstain_reason: str | None = None
     explicit: bool = False
+    retrieved_ids: tuple[str, ...] = ()
 
 
 class ChatPipeline(Protocol):
@@ -418,118 +420,30 @@ class LegalRAGPipeline:
 
         evidence = self.retrieve(message, facts)
         if evidence.abstain_reason is not None:
-            return self._abstain(evidence.abstain_reason)
+            return self._abstain(evidence.abstain_reason, retrieved_ids=evidence.retrieved_ids)
         return self._generate(
             message,
             evidence.facts or default_facts(),
             evidence.subquestions,
-            evidence.devices,
+            list(evidence.devices),
         )
 
     def retrieve(self, message: str, facts: QueryFacts | None = None) -> Evidence:
         """Find the legal devices that ground an answer (no generation).
 
-        Returns an ``Evidence`` carrying either the hydrated devices or the
-        reason retrieval must abstain.  Shared by ``answer`` and by the
-        retrieval agent, so both follow exactly the same steps.
+        Shared by ``answer`` and by the retrieval agent, so both follow exactly the
+        same steps (the service ``recuperar`` owns them).
         """
 
-        facts = self._with_extracted_data_fato(message, facts)
-
-        try:
-            resolution = resolve_explicit_citation(
-                message,
-                catalog=self.catalog,
-                data_fato=facts.data_fato if facts else None,
-            )
-        except Exception as exc:
-            logger.warning("explicit_citation_failed error=%s", type(exc).__name__)
-            return Evidence(abstain_reason="erro_recuperacao")
-
-        if resolution.resolved:
-            try:
-                explicit = self._explicit_devices(resolution, facts)
-            except Exception as exc:
-                logger.warning("explicit_hydration_failed error=%s", type(exc).__name__)
-                return Evidence(abstain_reason="erro_recuperacao")
-            if not explicit:
-                return Evidence(abstain_reason="citacao_explicita_sem_versao_vigente")
-            return Evidence(
-                devices=tuple(explicit),
-                facts=facts or default_facts(),
-                subquestions=(message,),
-                explicit=True,
-            )
-
-        if self._is_explicit_miss(resolution):
-            return Evidence(abstain_reason="citacao_explicita_nao_encontrada")
-
-        plan = understand_query(
         recuperacao = recuperar(message, facts, self.deps_recuperacao())
-        if recuperacao.abstencao is not None:
-            return self._abstain(recuperacao.abstencao, retrieved_ids=recuperacao.retrieved_ids)
-        return self._generate(
-            message,
-            recuperacao.facts,
-            recuperacao.subperguntas,
-            list(recuperacao.devices),
-        )
-        try:
-            candidates = hybrid_search(
-                plan,
-                dense=self.dense,
-                fts=self.fts,
-                qdrant=self.qdrant,
-                path=self.settings.retrieval_path,
-                data_fato=plan.fatos.data_fato,
-                lexical_weight=self.settings.hybrid_lexical_weight,
-            )
-        except Exception as exc:
-            logger.warning("retrieval_failed error=%s", type(exc).__name__)
-            return Evidence(abstain_reason="falha_na_recuperacao")
-
-        if not candidates:
-            return Evidence(abstain_reason="nenhum_dispositivo_recuperado")
-
-        # A reranker has to read the legal text, so the pool is hydrated before
-        # ranking; without that it would order candidates by their id alone.
-        hydrated_pool = False
-        try:
-            pool = list(candidates)
-            if self.rescore is not None:
-                pool = hydrate(pool[: self.settings.rerank_pool], repo=self.repo).devices
-                hydrated_pool = True
-            ranked = rerank(
-                plan.consulta_juridica,
-                pool,
-                encoder=_as_rerank_encoder(self.encoder),
-                top_k=self.settings.max_devices,
-                rescore=self.rescore,
-            )
-            selected = dedupe_by_artigo(
-                ranked, max_per_article=self.settings.max_devices_per_article
-            )[: self.settings.max_devices]
-        except Exception as exc:
-            logger.warning("ranking_failed error=%s", type(exc).__name__)
-            return Evidence(abstain_reason="erro_recuperacao")
-
-        try:
-            hydrated = selected if hydrated_pool else hydrate(selected, repo=self.repo).devices
-        except Exception as exc:
-            logger.warning("hydration_failed error=%s", type(exc).__name__)
-            return Evidence(abstain_reason="erro_recuperacao")
-        if not hydrated:
-            return Evidence(abstain_reason="contexto_incompleto")
-        expanded = self._expand(hydrated)
         return Evidence(
-            devices=tuple(expanded),
-            facts=plan.fatos,
-            subquestions=tuple(plan.subperguntas),
+            devices=tuple(recuperacao.devices),
+            facts=recuperacao.facts,
+            subquestions=tuple(recuperacao.subperguntas),
+            abstain_reason=recuperacao.abstencao,
+            explicit=recuperacao.explicita,
+            retrieved_ids=tuple(recuperacao.retrieved_ids),
         )
-
-    @staticmethod
-    def _with_extracted_data_fato(message: str, facts: QueryFacts | None) -> QueryFacts | None:
-        """Fill a missing fact date from the question; never override the client."""
 
     def expand_devices(self, devices: Sequence[RetrievedDevice]) -> list[RetrievedDevice]:
         """Expande remissões para o artigo inteiro (API pública usada pelo avaliador)."""
@@ -803,15 +717,6 @@ class LazyChatPipeline:
         return TracedResult(pipeline.answer(message, facts), Trace())
 
 
-def _emergency_trace(message: str) -> list[dict[str, Any]]:
-    """Trail for an emergency answered at the API edge (no agent besides Safety runs)."""
-
-    trace = Trace()
-    trace.start()
-    trace.record(SafetyAgent().assess(message, trace_id=trace.trace_id))
-    return trace.to_list()
-
-
 def build_default_pipeline(
     settings: Settings, data_atualizacao_base: str | None
 ) -> LegalRAGPipeline:
@@ -914,6 +819,15 @@ def build_eval_pipeline() -> Callable[[Mapping[str, Any]], Any]:
         ) from exc
     _probe_eval_encoder(settings, getattr(pipeline, "encoder", None))
     return make_eval_pipeline(pipeline)
+
+
+def _emergency_trace(message: str) -> list[dict[str, Any]]:
+    """Trail for an emergency answered at the API edge (no agent besides Safety runs)."""
+
+    trace = Trace()
+    trace.start()
+    trace.record(SafetyAgent().assess(message, trace_id=trace.trace_id))
+    return trace.to_list()
 
 
 def _probe_eval_encoder(settings: Settings, encoder: Any) -> None:

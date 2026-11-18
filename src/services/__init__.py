@@ -1,4 +1,4 @@
-"""Nearest-service lookup (delegacias) for the map."""
+"""Serviços de domínio: pipeline da API (T04) e busca de delegacias próximas."""
 
 from src.services.geo import (
     ServicePoint,
@@ -8,4 +8,3 @@ from src.services.geo import (
 )
 
 __all__ = ["ServicePoint", "bounding_box", "find_nearby", "haversine_km"]
-"""Serviços de domínio extraídos do pipeline da API (T04)."""

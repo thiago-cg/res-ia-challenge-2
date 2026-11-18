@@ -1,5 +1,5 @@
 -- Geolocated services (delegacias) for the "nearest police station" map.
--- Idempotent: scripts/apply_migrations.py re-applies every file.
+-- Idempotent (IF NOT EXISTS): safe to re-run on a database that already has it.
 
 ALTER TABLE services
     ADD COLUMN IF NOT EXISTS latitude double precision,
