@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from collections.abc import Sequence
 from typing import Any, Protocol
@@ -13,6 +14,31 @@ logger = logging.getLogger(__name__)
 
 class LLMUnavailable(Exception):
     """Raised when the LLM cannot produce a response after retries."""
+
+
+_RATE_LOCK = threading.Lock()
+_RATE_LAST_AT: float | None = None
+
+
+def _wait_for_slot(min_interval: float) -> None:
+    """Espaca as chamadas de chat do processo inteiro.
+
+    A cota do provedor e global, nao por cliente: o benchmark monta um cliente para o
+    preflight e outro dentro do pipeline, e um limite por instancia deixaria os dois
+    dispararem juntos. O relogio e compartilhado para que "3 RPM" signifique 3 por
+    minuto no processo, que e o que o provedor conta.
+    """
+
+    global _RATE_LAST_AT
+
+    if min_interval <= 0:
+        return
+    with _RATE_LOCK:
+        if _RATE_LAST_AT is not None:
+            remaining = min_interval - (time.monotonic() - _RATE_LAST_AT)
+            if remaining > 0:
+                time.sleep(remaining)
+        _RATE_LAST_AT = time.monotonic()
 
 
 class LLMClient(Protocol):
@@ -100,6 +126,7 @@ class _HTTPLLM:
         max_tokens: int = 1024,
         client: httpx.Client | None = None,
         extra_payload: dict[str, Any] | None = None,
+        min_interval: float = 0.0,
     ) -> None:
         if not base_url:
             raise ValueError("LLM base_url is required")
@@ -116,6 +143,7 @@ class _HTTPLLM:
         self.backoff_base = backoff_base
         self.max_tokens = max_tokens
         self.extra_payload: dict[str, Any] = dict(extra_payload or {})
+        self.min_interval = max(0.0, float(min_interval))
         self._owns_client = client is None
         self._client = client or httpx.Client()
 
@@ -168,6 +196,7 @@ class _HTTPLLM:
         last_error = "unknown"
 
         for attempt in range(attempts):
+            _wait_for_slot(self.min_interval)
             try:
                 response = self._client.post(
                     self.endpoint,
@@ -248,6 +277,7 @@ class OpenRouterLLM(_HTTPLLM):
         max_retries: int = 2,
         backoff_base: float = 0.5,
         max_tokens: int = 1024,
+        min_interval: float = 0.0,
         site_url: str = "",
         app_name: str = "",
         provider_only: str = "",
@@ -274,6 +304,7 @@ class OpenRouterLLM(_HTTPLLM):
             max_tokens=max_tokens,
             client=client,
             extra_payload=extra,
+            min_interval=min_interval,
         )
 
     @property
@@ -287,6 +318,10 @@ class OpenRouterLLM(_HTTPLLM):
         if self.app_name:
             headers["X-Title"] = self.app_name
         return headers
+
+
+def _min_interval(settings: object) -> float:
+    return float(getattr(settings, "llm_min_interval_seconds", 0.0) or 0.0)
 
 
 def get_llm(settings: object, *, model: str | None = None) -> LLMClient:
@@ -319,6 +354,7 @@ def get_llm(settings: object, *, model: str | None = None) -> LLMClient:
             site_url=str(getattr(settings, "openrouter_site_url", "") or ""),
             app_name=str(getattr(settings, "openrouter_app_name", "") or ""),
             provider_only=str(getattr(settings, "openrouter_provider_only", "") or ""),
+            min_interval=_min_interval(settings),
         )
 
     model_name = str(getattr(settings, "llm_model", "") or "default")
@@ -326,8 +362,18 @@ def get_llm(settings: object, *, model: str | None = None) -> LLMClient:
     api_key = str(getattr(settings, "llm_api_key", "") or "")
 
     if provider == "local":
-        return LocalLLM(base_url=base_url, api_key=api_key, model_name=model_name)
+        return LocalLLM(
+            base_url=base_url,
+            api_key=api_key,
+            model_name=model_name,
+            min_interval=_min_interval(settings),
+        )
     if provider == "api":
-        return APILLM(base_url=base_url, api_key=api_key, model_name=model_name)
+        return APILLM(
+            base_url=base_url,
+            api_key=api_key,
+            model_name=model_name,
+            min_interval=_min_interval(settings),
+        )
 
     raise ValueError(f"unknown LLM provider: {provider}")

@@ -4,11 +4,13 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
+from src.generate import llm as llm_module
 from src.generate.llm import (
     APILLM,
     LLMUnavailable,
     LocalLLM,
     MockLLM,
+    OpenRouterLLM,
     get_llm,
 )
 from src.generate.prompt import PROMPT_VERSION
@@ -57,6 +59,87 @@ def test_get_llm_selects_mock_by_default() -> None:
     client = get_llm(SimpleNamespace(llm_provider="mock"))
 
     assert isinstance(client, MockLLM)
+
+
+class _FakeTime:
+    """Relogio controlado: registra as esperas e avanca sem dormir de verdade."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+        self.sleeps: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+def _ok_client(*, min_interval: float = 0.0) -> OpenRouterLLM:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    return OpenRouterLLM(
+        api_key="k",
+        model_name="openrouter/free",
+        min_interval=min_interval,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+
+def test_min_interval_spaces_consecutive_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeTime()
+    monkeypatch.setattr(llm_module, "time", fake)
+    monkeypatch.setattr(llm_module, "_RATE_LAST_AT", None)
+
+    client = _ok_client(min_interval=20.0)
+    client.complete("system", "user")
+    client.complete("system", "user")
+
+    assert fake.sleeps == [pytest.approx(20.0)]
+
+
+def test_min_interval_zero_never_waits(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeTime()
+    monkeypatch.setattr(llm_module, "time", fake)
+    monkeypatch.setattr(llm_module, "_RATE_LAST_AT", None)
+
+    client = _ok_client()
+    client.complete("system", "user")
+    client.complete("system", "user")
+
+    assert fake.sleeps == []
+
+
+def test_min_interval_is_shared_by_every_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dois clientes no mesmo processo nao podem disparar juntos."""
+
+    fake = _FakeTime()
+    monkeypatch.setattr(llm_module, "time", fake)
+    monkeypatch.setattr(llm_module, "_RATE_LAST_AT", None)
+
+    first = _ok_client(min_interval=20.0)
+    second = _ok_client(min_interval=20.0)
+    first.complete("system", "user")
+    second.complete("system", "user")
+
+    assert fake.sleeps == [pytest.approx(20.0)]
+
+
+def test_get_llm_forwards_the_configured_interval() -> None:
+    client = get_llm(
+        SimpleNamespace(
+            llm_provider="openrouter",
+            openrouter_api_key="k",
+            openrouter_model="openrouter/free",
+            llm_min_interval_seconds=20.0,
+        )
+    )
+
+    assert isinstance(client, OpenRouterLLM)
+    assert client.min_interval == 20.0
+    assert client.model_name == "openrouter/free"
 
 
 def test_get_llm_selects_local_and_api() -> None:
