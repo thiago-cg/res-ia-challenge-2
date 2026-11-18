@@ -52,6 +52,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--limit", type=int, default=None, help="debug: first N questions")
     parser.add_argument(
+        "--model",
+        default=None,
+        help="override do modelo de chat, ex.: openrouter/free",
+    )
+    parser.add_argument(
+        "--min-interval",
+        type=float,
+        default=None,
+        help="segundos entre chamadas de chat; 20 = 3 RPM",
+    )
+    parser.add_argument(
+        "--dense-backend",
+        default="qdrant",
+        choices=("qdrant", "pgvector"),
+        help="backend denso; pgvector e o caminho medido na secao 22.28",
+    )
+    parser.add_argument(
         "--no-expansion",
         action="store_true",
         help="ablation: disable deterministic legal-vocabulary query expansion",
@@ -78,15 +95,18 @@ def main(argv: list[str] | None = None) -> int:
         print("no questions selected", file=sys.stderr)
         return 2
 
-    settings = get_settings().model_copy(
-        update={
-            "database_url": args.database_url,
-            "qdrant_url": args.qdrant_url,
-            "retrieval_path": "fallback",
-            "dense_backend": "qdrant",
-            "query_expansion": not args.no_expansion,
-        }
-    )
+    overrides: dict[str, Any] = {
+        "database_url": args.database_url,
+        "qdrant_url": args.qdrant_url,
+        "retrieval_path": "fallback",
+        "dense_backend": args.dense_backend,
+        "query_expansion": not args.no_expansion,
+    }
+    if args.model:
+        overrides["openrouter_model"] = args.model
+    if args.min_interval is not None:
+        overrides["llm_min_interval_seconds"] = args.min_interval
+    settings = get_settings().model_copy(update=overrides)
     if settings.llm_provider != "openrouter" or settings.embedding_provider != "openrouter":
         print(
             "this benchmark requires LLM_PROVIDER=openrouter and "
@@ -155,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
     payload = {
         "generated_at": datetime.now(UTC).isoformat(),
         "git_commit": _git_commit(),
-        "backend": "postgres-fts+qdrant-dense",
+        "backend": f"postgres-fts+{settings.dense_backend}",
         "models": {
             "llm": settings.openrouter_model,
             "embedding": settings.openrouter_embedding_model,
@@ -163,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
             "prompt_version": PROMPT_VERSION,
             "query_instruction": settings.openrouter_query_instruction,
             "query_expansion": settings.query_expansion,
+            "min_interval_seconds": settings.llm_min_interval_seconds,
         },
         "database": {
             "device_versions": _db_count(repo, "device_versions"),
@@ -275,28 +296,41 @@ def _git_commit() -> str | None:
 
 
 def _markdown(payload: dict[str, Any]) -> str:
+    collection = (payload.get("qdrant") or {}).get("collection")
+    indice = f"Qdrant `{collection}`" if collection else "pgvector (coluna `vector(1024)`)"
+    intervalo = float(payload["models"].get("min_interval_seconds") or 0.0)
+
     lines = [
-        "# Benchmark produção: Postgres FTS + Qdrant dense",
+        "# Benchmark de produção: FTS + busca densa",
         "",
         f"- Gerado em: `{payload['generated_at']}`",
         f"- Backend: `{payload['backend']}`",
         f"- LLM: `{payload['models']['llm']}`",
         f"- Embeddings: `{payload['models']['embedding']}` "
         f"({payload['models']['embedding_dimensions']}d)",
+        f"- Índice vetorial: {indice}",
         f"- Instrução de consulta: `{payload['models']['query_instruction'] or '(vazia)'}`",
         f"- Postgres: {payload['database']['device_versions']} versões, "
         f"{payload['database']['devices']} dispositivos",
-        f"- Qdrant: `{payload['qdrant']['collection']}`",
         f"- Perguntas: {payload['questions']}",
         f"- Commit: `{payload.get('git_commit') or 'desconhecido'}`",
         "- Expansão de consulta: "
         + ("on" if payload["models"]["query_expansion"] else "off (ablação)"),
-        "",
-        "| Cenário | Recall@10 dispositivo | Recall@10 artigo | Recall/pergunta | MRR@10 | "
-        "nDCG@10 | Precisão citação | Cobertura citação | Groundedness | Abstenção | "
-        "Emergência | p50 (ms) | p95 (ms) |",
-        "| --- |" + " ---: |" * 12,
     ]
+    if intervalo > 0:
+        linhas_por_minuto = int(round(60 / intervalo))
+        lines.append(
+            f"- Intervalo mínimo entre chamadas: {intervalo:g} s (~{linhas_por_minuto} RPM)"
+        )
+    lines.extend(
+        [
+            "",
+            "| Cenário | Recall@10 dispositivo | Recall@10 artigo | Recall/pergunta | MRR@10 | "
+            "nDCG@10 | Precisão citação | Cobertura citação | Groundedness | Abstenção | "
+            "Emergência | p50 (ms) | p95 (ms) |",
+            "| --- |" + " ---: |" * 12,
+        ]
+    )
     for name, report in payload["scenarios"].items():
         lines.append(
             f"| {name} | {report['recall_at_10']:.3f} | {report['article_recall_at_10']:.3f} | "
@@ -343,22 +377,25 @@ def _markdown(payload: dict[str, Any]) -> str:
             "## Notas",
             "",
             "- `hybrid` usa FTS real do Postgres (`websearch_to_tsquery('portuguese')` "
-            "sobre `search_text` sem acento, `ts_rank_cd`) + Qdrant dense 4096d, "
-            "fundidos por RRF k=60.",
-            "- `dense` usa somente Qdrant. `gold` hidrata os dispositivos-ouro do "
-            "Postgres: seu recall, MRR, nDCG e precisão de citação são 1,000 por "
-            "construção e não medem recuperação.",
+            "sobre `search_text` sem acento, `ts_rank_cd`) + busca densa no índice "
+            "vetorial, fundidos por RRF k=60.",
+            "- `Recall@10` é por dispositivo: uma pergunta com 2 ou 3 dispositivos-ouro "
+            "que recupera só um deles marca 0,5, não 1,0. Não é o mesmo número que "
+            "`hit@k` (acertou algum).",
             "- `Recall@10 artigo` conta acerto por artigo, porque a spec deduplica por "
-            "artigo e devolve um dispositivo por artigo; o gold é por dispositivo.",
+            "artigo; o gold é por dispositivo.",
             "- `Groundedness` é o portão de aceitação ecoado: 1,000 sempre que a "
             "resposta é aceita, 0,000 quando é rejeitada.",
             "- `Precisão de citação` divide pelo número de citações que o modelo "
             "escolheu, então citar menos infla o número.",
             "- `Emergência` não penaliza falso positivo: só conta casos de emergência.",
-            "- Latência inclui rede, Postgres, Qdrant e LLM; com n=20 o p95 é a "
-            "segunda pior amostra e mistura emergências sem chamada de LLM.",
-            "- O conjunto tem 20 perguntas, das quais 10 são respondíveis: as médias "
-            "de recuperação são sobre essas 10.",
+            "- A recuperação não depende do gerador: com `QUERY_REWRITE=none` e "
+            "`RERANK_PROVIDER=none`, a lista de dispositivos é a mesma entre modelos. "
+            "O que muda com o modelo é aceitação, cobertura de citação e latência.",
+            "- Latência inclui rede, Postgres, índice vetorial e LLM; o p95 é a cauda "
+            "das chamadas reais.",
+            "- Para medir com camada gratuita e cota: `--model openrouter/free "
+            "--min-interval 20` (3 RPM).",
             "",
         ]
     )
