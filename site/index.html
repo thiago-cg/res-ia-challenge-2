@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ZELIA · Documentação da entrega — como funciona o RAG</title>
-  <meta name="description" content="Como o protótipo ZELIA recupera dispositivos legais, verifica cada citação e se abstém quando não há base. Documentação técnica da entrega do RES-IA Challenge 2.">
+  <title>ZELIA · Documentação da entrega — como funciona o RAG multiagente</title>
+  <meta name="description" content="Como o protótipo ZELIA recupera dispositivos legais, verifica cada citação e se abstém quando não há base: quatro agentes, trace auditável e execução durável. Documentação técnica da entrega do RES-IA Challenge 2.">
   <meta name="page-type" content="software">
   <meta name="site-kind" content="software">
   <meta name="theme-color" content="#F5F0E7">
@@ -88,6 +88,7 @@
         <a href="#fluxo">Fluxo</a>
         <a href="#dados">Dados</a>
         <a href="#recuperacao">Recuperação</a>
+        <a href="#multiagente">Multiagente</a>
         <a href="#avaliacao">Avaliação</a>
         <a href="#limites">Limites</a>
         <a href="#rodar">Rodar</a>
@@ -111,6 +112,7 @@
           <a href="#dados">Dados</a>
           <a href="#recuperacao">Recuperação</a>
           <a href="#geracao">Geração e verificação</a>
+          <a href="#multiagente">Multiagente</a>
           <a href="#avaliacao">Avaliação</a>
           <a href="#limites">Limites</a>
           <a href="#rodar">Rodar</a>
@@ -139,7 +141,7 @@
           </div>
 
           <p class="capa__meta">
-            <span>4.959 versões indexadas</span>
+            <span>10.797 versões indexadas</span>
             <span>150 perguntas no teste ponta a ponta</span>
             <span>revisão jurídica pendente</span>
           </p>
@@ -203,12 +205,12 @@
 
           <div class="prosa">
             <p>O sistema responde perguntas jurídicas de mulheres em situação de violência doméstica com base em dispositivos oficiais. Ele não dá veredito sobre o caso, não promete resultado e não substitui a Defensoria Pública. A resposta mostra a fonte; quando não há evidência suficiente, o sistema se abstém.</p>
-            <p>A stack do protótipo é Python 3.12 com FastAPI, Postgres com pgvector, Qdrant 1.15.3, Qwen3 Embedding 8B via OpenRouter e <code>deepseek/deepseek-v4.1-flash-1017</code> como gerador, com o provedor fixado em <code>deepinfra/fp8</code>. O app padrão usa <code>LLM_PROVIDER=mock</code>; os números desta página vêm das rodadas com o provedor real.</p>
+            <p>A stack do protótipo é Python 3.12 com FastAPI, Postgres com pgvector, Qdrant 1.15.3, Qwen3 Embedding 8B via OpenRouter e <code>qwen/qwen3.7-flash</code> como gerador. A camada multiagente roda sobre LangGraph, com quatro agentes e um orquestrador que registra cada passagem. O app padrão usa <code>LLM_PROVIDER=mock</code>; os números desta página vêm das rodadas com o provedor real.</p>
           </div>
 
           <div class="tabela">
             <table>
-              <caption>Estado da entrega em 9 de novembro de 2026</caption>
+              <caption>Estado da entrega em 18 de novembro de 2026</caption>
               <thead>
                 <tr>
                   <th scope="col">Componente</th>
@@ -219,23 +221,28 @@
               <tbody>
                 <tr>
                   <th scope="row">Carga e índice</th>
-                  <td><span class="estado estado--parcial"><svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>Parcial</span></td>
-                  <td>4.959 versões de dispositivo carregadas e indexadas no Qdrant, em 4096 dimensões. O download ao vivo das fontes não foi repetido nesta rodada.</td>
+                  <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
+                  <td>10.797 versões de dispositivo de 25 normas, indexadas em 1.024 dimensões no pgvector. A ingestão foi refeita do download ao índice, e a reingestão é idempotente: 25 de 25 fontes, zero adições, zero alterações e zero remoções.</td>
                 </tr>
                 <tr>
                   <th scope="row">Busca híbrida</th>
                   <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
-                  <td>Postgres FTS e Qdrant denso, com RRF, expansão determinística e teto de 3 por artigo. Medida em 110 perguntas respondíveis.</td>
+                  <td>Postgres FTS e busca densa no índice vetorial, com RRF, expansão determinística e teto de 3 por artigo. Medida em 40 perguntas com gabarito sobre a base real: hit@5 0,70 e hit@10 0,88.</td>
                 </tr>
                 <tr>
                   <th scope="row">Geração e verificação</th>
                   <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
-                  <td>150 perguntas com chamadas reais ao provedor. O modelo devolve IDs; a citação é montada a partir do banco e verificada por código.</td>
+                  <td>O modelo devolve IDs; a citação é montada a partir do banco e verificada por código. Executado em 150 perguntas na rodada de 9 de novembro e em conversas ponta a ponta sobre a base real em 16 e 18 de novembro.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Multiagente e execução durável</th>
+                  <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
+                  <td>Quatro agentes com responsabilidade única e um orquestrador que registra cada passagem. A execução sobrevive à aba fechada: o worker reivindica com lease, publica de forma idempotente e o resultado volta por revisão. A camada devolve a mesma resposta do pipeline anterior nos 9 cenários do teste de equivalência.</td>
                 </tr>
                 <tr>
                   <th scope="row">Segurança e emergência</th>
                   <td><span class="estado estado--ok"><svg class="icone" aria-hidden="true"><use href="#i-check"></use></svg>Executado</span></td>
-                  <td>20 de 20 emergências roteadas e 0 falso-positivo em 130 perguntas não-emergência, após a reescrita do classificador.</td>
+                  <td>20 de 20 emergências roteadas e 0 falso-positivo em 130 perguntas não-emergência, após a reescrita do classificador (rodada de 9 de novembro). A emergência segue na frente de qualquer I/O: 0,19 ms no trace de 18 de novembro.</td>
                 </tr>
                 <tr>
                   <th scope="row">Caminho alvo 9B/0.6B</th>
@@ -254,6 +261,14 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div class="nota nota--atencao mt-6">
+            <p class="nota__titulo">
+              <svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>
+              Dois retratos, um deles datado.
+            </p>
+            <p>A tabela acima reflete <strong>18 de novembro de 2026</strong>: base real de 25 normas, pgvector em 1.024 dimensões, <code>qwen/qwen3.7-flash</code> e a camada multiagente. A seção de avaliação, mais adiante, é a rodada de <strong>9 de novembro</strong>, com outro gerador, índice Qdrant em 4.096 dimensões e 4.959 versões. Ela permanece na página porque é a medição que comparou estratégias no mesmo corpus, e é dela que vêm os limiares. Os dois conjuntos não devem ser somados nem comparados linha a linha: mudaram o corpus, o backend e o modelo.</p>
           </div>
 
           <div class="duas-colunas mt-8">
@@ -282,7 +297,7 @@
               <svg class="icone" aria-hidden="true"><use href="#i-info"></use></svg>
               Onde não houve medição, está escrito.
             </p>
-            <p>Os números desta página vêm dos relatórios de 7 e 9 de novembro de 2026. Eles comparam estratégias no mesmo corpus e no mesmo conjunto de perguntas. Não são uma medida de cobertura da lei e não substituem avaliação humana.</p>
+            <p>Os números desta página vêm de duas medições datadas: a rodada de 7 e 9 de novembro de 2026, que compara estratégias no mesmo corpus e no mesmo conjunto de perguntas, e a medição de 18 de novembro sobre a base real. Cada seção diz de qual delas veio. Nenhuma das duas é medida de cobertura da lei, e nenhuma substitui avaliação humana.</p>
           </div>
         </div>
       </div>
@@ -634,7 +649,7 @@
           </div>
           <div class="fluxo__ficha-linha">
             <dt>Faz</dt>
-            <dd>Postgres FTS sobre <code>search_text</code> sem acentos; Qdrant denso 4096d; RRF k=60 com peso lexical 0,2; filtro de versão.</dd>
+            <dd>Postgres FTS sobre <code>search_text</code> sem acentos; índice vetorial 1.024d; RRF k=60 com peso lexical 0,2; filtro de versão.</dd>
           </div>
           <div class="fluxo__ficha-linha">
             <dt>Sai</dt>
@@ -839,8 +854,8 @@
                   <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-banco"></use></svg>
                 </div>
                 <h4>Dois índices</h4>
-                <p>Postgres guarda o texto; Qdrant, o vetor denso de 4096 dimensões.</p>
-                <span class="trilha__carga">4096d</span>
+                <p>Postgres guarda o texto e o vetor denso; o Qdrant é o índice alternativo do caminho-alvo.</p>
+                <span class="trilha__carga">1024d</span>
               </li>
             </ol>
             <p class="trilha__nota">
@@ -865,9 +880,9 @@
         <p class="dados__subtitulo">Lei Maria da Penha</p>
       </div>
       <dl class="dados__numeros">
-        <div><dt>Normas</dt><dd>5</dd></div>
-        <div><dt>Artigos</dt><dd>1.312</dd></div>
-        <div><dt>Versões de dispositivo</dt><dd>4.959</dd></div>
+        <div><dt>Normas</dt><dd>25</dd></div>
+        <div><dt>Artigos</dt><dd>2.620</dd></div>
+        <div><dt>Versões de dispositivo</dt><dd>10.797</dd></div>
       </dl>
     </div>
 
@@ -907,14 +922,14 @@
             <p class="dados__id"><code>lmp/art7/cpt/inc3</code></p>
             <p class="dados__citacao">Lei nº 11.340/2006, art. 7, caput, inciso III</p>
             <p class="dados__literal">“a violência sexual, entendida como qualquer conduta que a constranja a presenciar, a manter ou a participar de relação sexual não desejada...”</p>
-            <p class="dados__meta">texto literal · contexto do artigo · vetor de 4096 dimensões</p>
+            <p class="dados__meta">texto literal · contexto do artigo · vetor de 1.024 dimensões</p>
           </div>
           <div class="dados__folha">
             <p class="dados__tag">Dispositivo</p>
             <p class="dados__id"><code>lmp/art7/cpt/inc4</code></p>
             <p class="dados__citacao">Lei nº 11.340/2006, art. 7, caput, inciso IV</p>
             <p class="dados__literal">“a violência patrimonial, entendida como qualquer conduta que configure retenção, subtração, destruição parcial ou total de seus objetos...”</p>
-            <p class="dados__meta">texto literal · contexto do artigo · vetor de 4096 dimensões</p>
+            <p class="dados__meta">texto literal · contexto do artigo · vetor de 1.024 dimensões</p>
           </div>
         </div>
       </div>
@@ -952,7 +967,7 @@
             <p class="linha-fina">Duas pernas, uma fusão e três decisões medidas. O que parecia sofisticado perdeu para regras determinísticas e um dedupe corrigido.</p>
           </header>
           <div class="prosa">
-  <p>A configuração atual é híbrida. A perna lexical usa o Postgres FTS com <code>to_tsvector('portuguese', search_text)</code>, <code>websearch_to_tsquery</code> e escore IDF. A perna densa usa o Qdrant com Qwen3 Embedding 8B em 4096 dimensões. As duas listas se fundem por RRF, que combina as posições e não os escores, com <code>k</code>=60 e peso lexical 0,2. A expansão de consulta é determinística, feita por regras, e o teto é de 3 dispositivos por artigo, preservando a ordem global. O Postgres é a fonte da verdade e o Qdrant é o índice; a hidratação é por <code>(device_id, norm_version_id)</code>, o que amarra cada resultado à versão da lei.</p>
+  <p>A configuração atual é híbrida. A perna lexical usa o Postgres FTS com <code>to_tsvector('portuguese', search_text)</code>, <code>websearch_to_tsquery</code> e escore IDF. A perna densa usa o índice vetorial — pgvector no caminho padrão, Qdrant no caminho-alvo — com Qwen3 Embedding 8B em 1.024 dimensões. As duas listas se fundem por RRF, que combina as posições e não os escores, com <code>k</code>=60 e peso lexical 0,2. A expansão de consulta é determinística, feita por regras, e o teto é de 3 dispositivos por artigo, preservando a ordem global. O Postgres é a fonte da verdade e o índice vetorial é derivado dele; a hidratação é por <code>(device_id, norm_version_id)</code>, o que amarra cada resultado à versão da lei.</p>
 
   <p>Essa não é a configuração mais precisa no papel. O denso sem teto marca 0,776, o híbrido sem teto 0,771 e o híbrido com teto 3 fica em 0,762. A escolha não vem do topo da tabela. É a configuração que combina precisão suficiente com degradação graciosa e auditabilidade: se o provedor de embedding falha, a perna lexical sustenta a resposta; o teto de 3 mostra artigos diferentes; e o caminho sem LLM na consulta pode ser repetido e auditado.</p>
 </div>
@@ -1049,9 +1064,10 @@
 
       <div class="busca__perna busca__perna--densa">
         <p class="dados__tag">Perna densa</p>
-        <h4>Qdrant</h4>
+        <h4>Índice vetorial</h4>
         <ul>
-          <li><code>qwen3-embedding-8b</code>, 4096 dimensões</li>
+          <li><code>qwen3-embedding-8b</code>, 1.024 dimensões</li>
+          <li>pgvector no caminho padrão; Qdrant no caminho-alvo</li>
           <li>cosseno, vetores em float16</li>
           <li>busca aproximada no mesmo espaço da consulta</li>
         </ul>
@@ -1360,11 +1376,113 @@
       </div>
     </section>
 
-    <!-- SEÇÃO 07 · AVALIAÇÃO -->
-    <section class="secao secao--faixa secao--larga" id="avaliacao" aria-labelledby="titulo-avaliacao">
+    <!-- SEÇÃO 07 · MULTIAGENTE -->
+    <section class="secao secao--larga" id="multiagente" aria-labelledby="titulo-multiagente">
       <div class="wrap grade-secao">
         <div class="margem" aria-hidden="true">
           <span class="margem__numero">07</span>
+          <span class="margem__rotulo">Multiagente</span>
+        </div>
+        <div class="conteudo conteudo--largo">
+          <header class="cabecalho-secao">
+            <h2 id="titulo-multiagente">Quatro agentes, uma regra: quem escreve não aprova.</h2>
+            <p class="linha-fina">As etapas do fluxo viraram agentes que trocam mensagens tipadas, com um orquestrador registrando cada passagem. A resposta é a mesma; a colaboração passou a ser visível.</p>
+          </header>
+
+          <div class="prosa">
+            <p>Até a versão anterior, risco, recuperação, geração e verificação eram métodos de uma única classe. Agora cada etapa é um agente com uma responsabilidade única, e nenhum deles conversa com outro diretamente: todo repasse é uma mensagem tipada que o orquestrador entrega e registra. A separação que mais importa é entre <strong>Resposta</strong> e <strong>Verificador</strong>. Quem escreve não é quem aprova, e é isso que torna a conferência independente de verdade.</p>
+            <p>O orquestrador não tem regra jurídica própria. Ele sequencia, limita a duas tentativas, aplica o fallback seguro e grava o trace. Quando o verificador reprova duas vezes, o fluxo termina em abstenção — não existe caminho em que um rascunho reprovado chegue à usuária.</p>
+          </div>
+
+          <div class="tabela tabela--responsiva mt-6">
+            <table>
+              <caption>Agentes, responsabilidade e entrega</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Agente</th>
+                  <th scope="col">Responsabilidade única</th>
+                  <th scope="col">O que entrega adiante</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Segurança<br><code>seguranca</code></th>
+                  <td>Reconhecer risco imediato e interromper o fluxo. Não toca banco, índice nem modelo.</td>
+                  <td><code>emergencia</code>, com a resposta de 190 e 180, ou <code>risco</code>, liberando a recuperação.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Recuperação<br><code>recuperacao</code></th>
+                  <td>Entender a pergunta, buscar por duas vias, ranquear, deduplicar por artigo e hidratar o texto oficial da versão vigente.</td>
+                  <td><code>evidencia</code> com os dispositivos hidratados ou <code>sem_evidencia</code>, com o motivo da abstenção.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Resposta<br><code>resposta</code></th>
+                  <td>Redigir em linguagem simples usando somente os dispositivos recuperados, e refazer quando recebe feedback.</td>
+                  <td><code>rascunho</code> com citações por <code>device_id</code>, ou um motivo tipado de falha.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Verificador<br><code>verificador</code></th>
+                  <td>Conferir se cada citação existe no contexto, se a versão é a vigente e se cada afirmação é sustentada.</td>
+                  <td><code>veredito</code>: aceitar, pedir nova tentativa com os problemas encontrados, ou abster.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Orquestrador</th>
+                  <td>Sequenciar os agentes, aplicar o limite de duas tentativas, escolher o fallback seguro e registrar o trace.</td>
+                  <td>A resposta final e o trace. Nenhuma regra jurídica própria.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="prosa mt-8">
+            <h3>O que o trace mostra</h3>
+            <p>Cada linha do trace é uma passagem: quem mandou, para quem, que tipo de mensagem, a decisão em texto curto e o tempo decorrido. O trace nunca contém o relato da pessoa — só a decisão — e há teste garantindo isso. Abaixo, uma execução real do orquestrador com o provedor fora do ar no meio do caminho:</p>
+          </div>
+
+          <div class="codigo">
+            <div class="codigo__topo"><span>Trace de uma execução real · 18 de novembro de 2026</span></div>
+segurança    → recuperação   risco               sem risco imediato: segue para recuperação       0,08 ms
+recuperação  → resposta      evidência           9 dispositivos por busca                     4.370,69 ms
+resposta     → orquestrador  rascunho_rejeitado  tentativa 1: llm_indisponivel               39.496,36 ms
+orquestrador → usuária       resposta_final      abstenção: llm_indisponivel                     46,14 ms
+          </div>
+
+          <div class="prosa mt-7">
+            <p>O dado relevante não é a falha. É o que o sistema faz com ela: a tentativa esgota as retentativas do cliente, o rascunho volta tipado como <code>llm_indisponivel</code> e o orquestrador entrega a resposta segura com os dispositivos que a recuperação já tinha em mãos. Nada é inventado para preencher a lacuna. Na mesma rodada, a pergunta de risco respondeu em <strong>0,19 ms</strong>, porque não consulta nada.</p>
+          </div>
+
+          <div class="prosa mt-8">
+            <h3>A resposta não depende da aba aberta</h3>
+            <p>O mesmo fluxo roda também como execução durável. A API aceita o pedido e devolve um <code>run_id</code> na hora; um worker reivindica a execução no banco com <code>FOR UPDATE SKIP LOCKED</code>, executa fora de transação e publica o resultado de forma idempotente. Se o worker perde o lease no meio, ele não publica por cima do vigente.</p>
+            <ol>
+              <li>Aceitar: a mensagem entra na fila e a resposta HTTP não espera o modelo.</li>
+              <li>Reivindicar: o worker toma a execução com lease e um número de tentativa.</li>
+              <li>Executar: o grafo roda risco, recuperação e síntese, com o estado serializável em checkpoint.</li>
+              <li>Publicar: a transação de conclusão confere a tentativa antes de gravar o resultado.</li>
+              <li>Acompanhar e recuperar: o cliente consulta por revisão e busca o resultado depois, inclusive em outra sessão.</li>
+            </ol>
+          </div>
+
+          <div class="nota nota--verde mt-6">
+            <p class="nota__titulo">
+              <svg class="icone" aria-hidden="true"><use href="#i-check-circulo"></use></svg>
+              A camada de agentes não mudou a resposta.
+            </p>
+            <p>Um teste de equivalência compara o caminho com agentes e o pipeline anterior em <strong>9 cenários</strong> — aceite, abstenção do modelo, saída inválida uma e duas vezes, citação fora do contexto, modelo fora do ar, verificador reprovando duas vezes, ausência de recuperação e emergência. A saída é idêntica campo a campo. A colaboração acrescenta transparência, não outro comportamento.</p>
+          </div>
+
+          <div class="prosa mt-6">
+            <p>O detalhe de implementação está no <a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/12-arquitetura-multiagente.md">documento de arquitetura multiagente</a>; o relatório da entrega, com os traces completos, está no <a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/13-relatorio-prototipo-multiagente.md">documento 13</a>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEÇÃO 08 · AVALIAÇÃO -->
+    <section class="secao secao--faixa secao--larga" id="avaliacao" aria-labelledby="titulo-avaliacao">
+      <div class="wrap grade-secao">
+        <div class="margem" aria-hidden="true">
+          <span class="margem__numero">08</span>
           <span class="margem__rotulo">Avaliação</span>
         </div>
         <div class="conteudo conteudo--largo">
@@ -1602,11 +1720,11 @@
       </div>
     </section>
 
-    <!-- SEÇÃO 08 · LIMITES -->
+    <!-- SEÇÃO 09 · LIMITES -->
     <section class="secao" id="limites" aria-labelledby="titulo-limites">
       <div class="wrap grade-secao">
         <div class="margem" aria-hidden="true">
-          <span class="margem__numero">08</span>
+          <span class="margem__numero">09</span>
           <span class="margem__rotulo">Limites</span>
         </div>
         <div class="conteudo">
@@ -1615,7 +1733,7 @@
             <p class="linha-fina">O protótipo demonstra o fluxo e mede o que consegue medir. Os itens abaixo são bloqueios reais, não uma lista de melhorias desejáveis.</p>
           </header>
           <div class="prosa">
-  <p>Seis bloqueios separam o protótipo de um sistema que uma pessoa possa usar sem supervisão. Eles não são melhorias desejáveis. Cada um muda o que o sistema pode afirmar, medir ou prometer, e todos seguem abertos em 9 de novembro de 2026. A lista abaixo é o que impede a palavra "pronto". Ela não é um roteiro de melhorias; é uma lista de condições para o protótipo poder ser usado.</p>
+  <p>Oito bloqueios separam o protótipo de um sistema que uma pessoa possa usar sem supervisão. Eles não são melhorias desejáveis. Cada um muda o que o sistema pode afirmar, medir ou prometer, e todos seguem abertos em 18 de novembro de 2026. Os dois últimos vieram da medição sobre a base real e não eram visíveis no corpus anterior. A lista abaixo é o que impede a palavra "pronto": não é um roteiro de melhorias, é uma lista de condições.</p>
 </div>
 
 <ul class="lista-estado lista-estado--atencao mt-6">
@@ -1655,10 +1773,24 @@
     </div>
   </li>
   <li>
+    <svg class="icone" aria-hidden="true"><use href="#i-busca"></use></svg>
+    <div>
+      <h3>Uma súmula explica todas as falhas em top-10.</h3>
+      <p class="mt-2">Na medição sobre a base real, 40 perguntas com gabarito deram hit@1 0,45, hit@5 0,70 e hit@10 0,88. As <strong>cinco falhas em top-10</strong> eram todas a Súmula 542, que aparece em 11 das 40 perguntas. Separando a amostra, as outras 29 acertam hit@10 igual a <strong>1,00</strong> e hit@5 0,90. A súmula está ingerida e indexada: o problema é de ranqueamento, porque a paráfrase de relato não compartilha vocabulário com o enunciado curto e abstrato. Um item responde por 12 pontos do número agregado.</p>
+    </div>
+  </li>
+  <li>
+    <svg class="icone" aria-hidden="true"><use href="#i-relogio"></use></svg>
+    <div>
+      <h3>A taxa de abstenção não foi medida.</h3>
+      <p class="mt-2">A mesma pergunta, executada três vezes, devolveu <strong>resposta, abstenção e resposta</strong>. O comportamento é o previsto — o verificador recusou publicar o que não conseguiu sustentar —, mas a frequência não é conhecida. Um assistente que às vezes se cala precisa que esse número seja medido, não intuído: sem ele não é possível prometer que a pergunta tem resposta, nem explicar por que num dia tem e no outro não.</p>
+    </div>
+  </li>
+  <li>
     <svg class="icone" aria-hidden="true"><use href="#i-documento"></use></svg>
     <div>
       <h3>Desvios conhecidos.</h3>
-      <p class="mt-2">O filtro de versão pode abster numa citação explícita de artigo revogado. O esperado seria devolver a versão vigente na data do fato. Payloads versionados do Qdrant não são atualizados quando uma versão fecha. Cerca de 13% das folhas não têm a linha do artigo no mesmo <code>norm_version_id</code>; a expansão degrada para a folha e registra <code>incomplete_context</code>, e o contexto fica menor. Os três desvios estão auditados e registrados; nenhum foi corrigido nesta rodada.</p>
+      <p class="mt-2">O filtro de versão pode abster numa citação explícita de artigo revogado; o esperado seria devolver a versão vigente na data do fato. A expansão para o artigo falha em <strong>14,4%</strong> dos dispositivos não-artigo (1.145 de 7.928), porque cada folha aponta para a versão da própria vigência e o caput pode estar em outra: o guarda recusa misturar e o contexto fica menor. Payloads versionados do Qdrant não são atualizados quando uma versão fecha. Um quarto desvio — a citação fantasma, que lia a palavra <code>mim</code> como inciso 1999 e fazia o sistema se abster de uma pergunta que sabia responder — foi encontrado pela avaliação e <strong>corrigido</strong>. Os três restantes seguem auditados e abertos.</p>
     </div>
   </li>
 </ul>
@@ -1668,11 +1800,11 @@
 
   <h3>Próximos passos, na ordem</h3>
   <ol>
-    <li>Criar um sink de retenção de logs e validar o <code>X-Request-ID</code> em execução ao vivo.</li>
-    <li>Rodar um smoke de ingestão real, do download ao índice, com Postgres vivo.</li>
-    <li>Conseguir checkpoints safetensors e executar o smoke 9B/0.6B (G5).</li>
-    <li>Rodar as 150 perguntas com <code>build_eval_pipeline</code> contra Postgres e Qdrant.</li>
+    <li>Medir a taxa de abstenção em N execuções da mesma pergunta e publicar a distribuição.</li>
+    <li>Corrigir a expansão para o artigo usando a versão vigente na data do início do dispositivo.</li>
+    <li>Ampliar o conjunto de perguntas com gabarito, hoje concentrado em 16 dispositivos.</li>
     <li>Submeter prompt, textos e respostas à revisão jurídica humana (G4/G6).</li>
+    <li>Reduzir a latência interativa, que segue na casa das dezenas de segundos.</li>
   </ol>
 
   <p>A ordem segue o README: primeiro o que protege dados e prova a operação, depois o que valida o modelo e a resposta.</p>
@@ -1691,11 +1823,11 @@
       </div>
     </section>
 
-    <!-- SEÇÃO 09 · RODAR -->
+    <!-- SEÇÃO 10 · RODAR -->
     <section class="secao" id="rodar" aria-labelledby="titulo-rodar">
       <div class="wrap grade-secao">
         <div class="margem" aria-hidden="true">
-          <span class="margem__numero">09</span>
+          <span class="margem__numero">10</span>
           <span class="margem__rotulo">Rodar</span>
         </div>
         <div class="conteudo">
@@ -1791,19 +1923,32 @@ uv run python scripts/apply_migrations.py</code></pre>
 </div>
 
 <div class="prosa">
-  <p>Para reproduzir o índice medido, use o backend Qdrant e o embedding remoto no <code>.env</code>:</p>
+  <p>Para reproduzir a entrega atual, use o pgvector com o embedding remoto no <code>.env</code>:</p>
 </div>
 
 <div class="codigo">
-  <div class="codigo__topo"><span>Configuração do índice medido</span></div>
-  <pre><code>DENSE_BACKEND=qdrant
+  <div class="codigo__topo"><span>Configuração do índice atual</span></div>
+  <pre><code>DENSE_BACKEND=pgvector
 EMBEDDING_PROVIDER=openrouter
 OPENROUTER_EMBEDDING_MODEL=qwen/qwen3-embedding-8b
-OPENROUTER_EMBEDDING_DIMENSIONS=4096</code></pre>
+OPENROUTER_EMBEDDING_DIMENSIONS=1024</code></pre>
+</div>
+
+<div class="nota nota--atencao mt-6">
+  <p class="nota__titulo">
+    <svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>
+    A dimensão precisa casar com a coluna.
+  </p>
+  <p>A migração <code>001</code> cria <code>embedding vector(1024)</code>. Um <code>.env</code> com 4.096 dimensões faz a gravação falhar, e o <code>src.index.run</code> confere a dimensão da coluna antes de começar. A rodada de 9 de novembro usou 4.096 dimensões porque indexou no Qdrant, que não herda o tipo da coluna.</p>
 </div>
 
 <div class="codigo">
-  <div class="codigo__topo"><span>Índice Qdrant</span></div>
+  <div class="codigo__topo"><span>Índice pgvector</span></div>
+  <pre><code>uv run python -m src.index.run --path fallback</code></pre>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Índice Qdrant (caminho-alvo)</span></div>
   <pre><code>uv run python -m src.index.run --path qdrant-dense `
   --database-url $env:DATABASE_URL --qdrant-url $env:QDRANT_URL</code></pre>
 </div>
@@ -1868,11 +2013,11 @@ uv run mypy src</code></pre>
       </div>
     </section>
 
-    <!-- SEÇÃO 10 · REFERÊNCIAS -->
+    <!-- SEÇÃO 11 · REFERÊNCIAS -->
     <section class="secao secao--final" id="referencias" aria-labelledby="titulo-referencias">
       <div class="wrap grade-secao">
         <div class="margem" aria-hidden="true">
-          <span class="margem__numero">10</span>
+          <span class="margem__numero">11</span>
           <span class="margem__rotulo">Referências</span>
         </div>
         <div class="conteudo">
@@ -1967,6 +2112,8 @@ uv run mypy src</code></pre>
           <h2>Documentação</h2>
           <ul>
             <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/README.md">Índice da documentação</a></li>
+            <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/13-relatorio-prototipo-multiagente.md">Relatório do protótipo multiagente</a></li>
+            <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/12-arquitetura-multiagente.md">Arquitetura multiagente</a></li>
             <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/benchmark-consolidado.md">Benchmark consolidado</a></li>
             <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/reviews/estrategia-recomendada.md">Estratégia recomendada</a></li>
             <li><a href="https://github.com/thiago-cg/res-ia-challenge-2/blob/main/docs/design-system.md">Sistema de design ZELIA</a></li>
@@ -1982,7 +2129,7 @@ uv run mypy src</code></pre>
       </div>
 
       <div class="rodape__base">
-        <p>Documentação técnica · novembro de 2026 · protótipo sem revisão jurídica humana. Números da rodada de 9 de novembro de 2026.</p>
+        <p>Documentação técnica · novembro de 2026 · protótipo sem revisão jurídica humana. Estado da entrega em 18 de novembro de 2026; números de avaliação da rodada de 9 de novembro de 2026, com a procedência indicada em cada seção.</p>
         <p>Textos oficiais: Planalto, STJ e CNJ. Sem Jusbrasil. Fontes Afacad Flux e Newsreader sob SIL OFL 1.1.</p>
       </div>
     </div>
