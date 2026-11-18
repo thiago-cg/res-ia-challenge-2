@@ -191,11 +191,11 @@ def test_city_without_nearby_service_shows_the_closest_with_a_warning() -> None:
 
 
 def test_unknown_municipality_falls_back_to_the_state_with_a_warning() -> None:
-    # "Gama" é região administrativa do DF, não município: não pode virar beco sem saída.
+    # Lugar que nenhuma lista conhece: não pode virar beco sem saída.
     de_outro_estado = replace(SAO_PAULO_DP, uf="SP")
     source = FakeServices([DP_6, DEAM_I, de_outro_estado])
 
-    result = find_nearby(source, uf="DF", municipio="Gama")
+    result = find_nearby(source, uf="DF", municipio="Rua Inventada 123")
 
     assert [p.nome for p, _ in result.servicos] == ["DEAM I", "6ª DP"]
     assert result.aviso is not None and "Não encontramos essa cidade" in result.aviso

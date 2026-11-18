@@ -140,8 +140,10 @@ def main(argv: list[str] | None = None) -> int:
     for nome, motivo in report.skipped:
         print(f"  ignorada: {nome} -> {motivo}")
     unverified = [r["nome"] for r in report.valid if not r["coordenada_verificada"]]
-    for nome in unverified:
+    for nome in unverified[:10]:
         print(f"  atenção: coordenada ainda não verificada: {nome}")
+    if len(unverified) > 10:
+        print(f"  atenção: ... e mais {len(unverified) - 10} com coordenada aproximada")
 
     if args.dry_run:
         return 0

@@ -52,6 +52,13 @@ export function formatarDistancia(km) {
   return `${n.toLocaleString("pt-BR", { maximumFractionDigits: n < 10 ? 1 : 0 })} km`;
 }
 
+/** Coordenada aproximada (centro da região) não sustenta distância em metros. */
+export function rotuloDistancia(servico) {
+  const km = Number(servico.distancia_km);
+  if (!servico.coordenada_verificada && km < 1) return "na região";
+  return formatarDistancia(servico.distancia_km);
+}
+
 /** Deslocamento aproximado em km (leste, norte) entre dois pontos próximos. */
 export function deslocamentoKm(origem, destino) {
   const rad = Math.PI / 180;
@@ -182,7 +189,7 @@ function htmlCartao(servico, indice, { mostrarDistancia, direcao, numerado }) {
   const rotulo = ROTULOS_TIPO[servico.tipo] || "Delegacia";
   const especializada = servico.tipo !== "delegacia_comum";
   const distancia = mostrarDistancia && servico.distancia_km != null
-    ? `<span class="deleg__distancia">${escapar(formatarDistancia(servico.distancia_km))}${direcao ? ` · ${escapar(direcao)}` : ""}</span>`
+    ? `<span class="deleg__distancia">${escapar(rotuloDistancia(servico))}${direcao ? ` · ${escapar(direcao)}` : ""}</span>`
     : "";
   const tel = telefoneParaLink(servico.telefone);
   const telefone = tel

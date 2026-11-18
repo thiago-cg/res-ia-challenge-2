@@ -69,6 +69,7 @@ from src.retrieve.query import default_facts
 from src.retrieve.rerank import MultiVectorEncoder, Rescore
 from src.safety.risk import classify_risk, emergency_answer
 from src.services.geo import ServicePoint, ServicesSource, find_nearby
+from src.services.geocode import Geocodificador, criar_nominatim
 from src.services.repo import PostgresServicesRepo
 from src.services.retrieval import (
     DepsRecuperacao,
@@ -899,6 +900,7 @@ def create_app(
     health_probe: HealthProbe | None = None,
     data_atualizacao_base: str | None = None,
     services_repo: ServicesSource | None = None,
+    geocodificador: Geocodificador | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(level=settings.log_level)
@@ -921,6 +923,9 @@ def create_app(
     app.state.pipeline = resolved_pipeline
     app.state.source_repo = repo
     app.state.services_repo = services_repo or PostgresServicesRepo(settings.database_url)
+    app.state.geocodificador = geocodificador or (
+        criar_nominatim() if settings.geocoder == "nominatim" else None
+    )
     app.state.health_probe = probe
     app.state.data_atualizacao_base = data_atualizacao_base
 
@@ -1009,6 +1014,7 @@ def create_app(
                 municipio=payload.municipio,
                 tipo=payload.tipo,
                 limit=payload.limit,
+                geocodificar=http_request.app.state.geocodificador,
             )
         except Exception as exc:
             logger.error("services_failure request_id=%s error=%s", request_id, type(exc).__name__)

@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     query_rewrite: Literal["none", "llm"] = "none"
     #: Serve ``/chat`` through the multi-agent layer (same answers, plus a trace).
     multiagent: bool = True
+    #: "Qualquer lugar" no mapa de delegacias. "off" (padrão): só municípios e a lista local de
+    #: regiões. "nominatim": o SERVIDOR envia o texto digitado ao OpenStreetMap (terceiro).
+    geocoder: Literal["off", "nominatim"] = "off"
     query_rewrite_model: str = ""
     query_rewrite_timeout: float = Field(default=30.0, gt=0)
 
