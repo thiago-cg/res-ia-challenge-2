@@ -19,7 +19,7 @@ from src.config import get_settings
 from src.contracts import DeviceVersion, IndexReport, ModelFormatError
 from src.index.chunk import Chunk
 from src.index.embed import embed_chunks, get_encoder
-from src.index.pgvector import update_embedding
+from src.index.pgvector import embedding_dimension, update_embedding
 from src.index.qdrant import (
     ALIAS_NAME,
     COLLECTION_PHYSICAL_NAME,
@@ -115,29 +115,52 @@ def index_fallback(
         owned = False
 
     try:
+        # Cheap guard before the expensive call: a vector that does not match
+        # the declared column width fails at INSERT, one batch at a time.
         try:
-            embedded = embed_chunks(chunks, encoder, batch_size=batch_size)
-        except Exception as exc:
-            report.errors.append(f"embedding failed: {exc}")
+            declared = embedding_dimension(conn)
+        except Exception:
+            # An unreadable catalog must not hide the embedding errors that
+            # follow; the INSERT is what decides whether the write works.
+            declared = None
+        if declared is not None and declared != int(encoder.dimension):
+            report.errors.append(
+                "embedding dimension mismatch: device_versions.embedding is "
+                f"vector({declared}) but {encoder.model_name} produces "
+                f"{int(encoder.dimension)}-dim vectors; configure the encoder for "
+                f"{declared} dimensions (OPENROUTER_EMBEDDING_DIMENSIONS={declared})"
+            )
             report.skipped += len(chunks)
             return report
 
-        for item in embedded:
+        # Embed and write one batch at a time.  Holding every vector first cost
+        # ~10k x 1024 floats (~400 MB) for the real corpus and threw all of it
+        # away when a later batch failed.
+        for start in range(0, len(chunks), batch_size):
+            batch = chunks[start : start + batch_size]
             try:
-                update_embedding(
-                    conn,
-                    item.chunk.device_id,
-                    item.chunk.norm_version_id,
-                    item.embedding,
-                    item.model,
-                    item.revision,
-                    item.text_hash,
-                )
+                embedded = embed_chunks(batch, encoder, batch_size=len(batch))
             except Exception as exc:
-                report.errors.append(_error(item.chunk, exc))
-                report.skipped += 1
-            else:
-                report.indexed += 1
+                report.errors.append(f"embedding failed at device {start}: {exc}")
+                report.skipped += len(chunks) - start
+                break
+
+            for item in embedded:
+                try:
+                    update_embedding(
+                        conn,
+                        item.chunk.device_id,
+                        item.chunk.norm_version_id,
+                        item.embedding,
+                        item.model,
+                        item.revision,
+                        item.text_hash,
+                    )
+                except Exception as exc:
+                    report.errors.append(_error(item.chunk, exc))
+                    report.skipped += 1
+                else:
+                    report.indexed += 1
 
         if commit or owned:
             try:

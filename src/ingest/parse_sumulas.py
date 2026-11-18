@@ -18,12 +18,40 @@ from src.ingest.models import (
     qdrant_point_id,
 )
 
+# The STJ PDF prefixes each heading with a link glyph on its own baseline, so
+# the line reads "G SÚMULA 542".  Requiring the line to *start* with SÚMULA
+# found 6 enunciados out of 676; allowing that single-letter prefix finds all
+# 641 headings plus the 35 marked as cancelled.
+# A heading is the whole line: the glyph, the word, the number and at most a
+# parenthetical.  Without that anchor, a wrapped sentence that happens to
+# start with "Súmula 142 do STJ (...)" is read as a new enunciado and the
+# parse produces duplicate ids (142, 408, 418, 469, 560).
 _SUMULA_RE = re.compile(
-    r"^\s*S[ÚU]MULA\s+(?:N[.º°]*\s*)?(\d+)\b\s*(?:[-–—:]\s*)?(.*)$",
+    r"^\s*(?:[A-Z]\s+)?S[ÚU]MULA\s+(?:N[.º°]*\s*)?(\d+)\b\s*(\([^)]*\))?\s*$",
     re.IGNORECASE,
 )
+#: Detects a cancelled enunciado in any of the shapes the source uses:
+#: "(Cancelada)", "(SÚMULA CANCELADA)" in the heading and the inline
+#: "SÚMULA CANCELADA: ..." paragraph that explains the cancellation.
 _CANCEL_RE = re.compile(
-    r"(?:\(\s*cancelad[ao][^)]*\)|\bcancelad[ao]\b\.?)",
+    r"(?:"
+    r"\(\s*cancelad[ao][^)]*\)"
+    r"|\(\s*S[ÚU]MULA\s+cancelad[ao][^)]*\)"
+    r"|\bS[ÚU]MULA\s+cancelad[ao]\b"
+    r"|\bcancelad[ao]\b\.?"
+    r")",
+    re.IGNORECASE,
+)
+#: Only the parenthetical annotations are removed from the literal; the
+#: inline rationale is kept, because deleting the words would leave the
+#: sentence starting with ": A Segunda Seção ...".
+_CANCEL_ANNOTATION_RE = re.compile(
+    r"\(\s*(?:S[ÚU]MULA\s+)?cancelad[ao][^)]*\)",
+    re.IGNORECASE,
+)
+#: Extraction noise of the PDF, never part of an enunciado.
+_NOISE_RE = re.compile(
+    r"^(?:veja\s+mais|\d{1,3}|scon\.stj\.jus\.br.*|www\.stj\.jus\.br.*)$",
     re.IGNORECASE,
 )
 _SUMULA_EPOCH = date(1989, 1, 1)
@@ -48,17 +76,17 @@ def _parse_sumulas_text(source_id: str, text: str, document: Path) -> ParseResul
 
     for raw_line in text.splitlines():
         line = collapse_whitespace(raw_line)
-        if not line or line.startswith("#"):
+        if not line or line.startswith("#") or _NOISE_RE.match(line):
             continue
 
         header = _SUMULA_RE.match(line)
         if header is not None:
             flush()
             current_number = int(header.group(1))
-            rest = collapse_whitespace(header.group(2))
+            rest = collapse_whitespace(header.group(2) or "")
             if _CANCEL_RE.search(rest):
                 current_cancelled = True
-                rest = collapse_whitespace(_CANCEL_RE.sub("", rest))
+                rest = collapse_whitespace(_CANCEL_ANNOTATION_RE.sub("", rest))
             if rest:
                 current_lines.append(rest)
             continue
@@ -68,7 +96,7 @@ def _parse_sumulas_text(source_id: str, text: str, document: Path) -> ParseResul
 
         if _CANCEL_RE.search(line):
             current_cancelled = True
-            line = collapse_whitespace(_CANCEL_RE.sub("", line))
+            line = collapse_whitespace(_CANCEL_ANNOTATION_RE.sub("", line))
         if line:
             current_lines.append(line)
 

@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -47,7 +47,6 @@ from src.config import Settings, get_settings
 from src.contracts import (
     Answer,
     Citation,
-    CitationResolution,
     InvalidCitation,
     QueryFacts,
     RetrievedDevice,
@@ -62,15 +61,22 @@ from src.index.embed import Encoder, get_encoder
 from src.index.pgvector import dense_search, fts_search
 from src.index.qdrant import QdrantDenseSearcher
 from src.obs.logging import configure_logging
-from src.retrieve.citations import CitationCatalog, resolve_explicit_citation
-from src.retrieve.expand import artigo_id, dedupe_by_artigo, expand_to_article
-from src.retrieve.hybrid import DenseSearcher, FtsSearcher, QdrantSearcher, hybrid_search
-from src.retrieve.hydrate import hydrate, resolve_citation
-from src.retrieve.query import default_facts, extract_data_fato, understand_query
-from src.retrieve.rerank import MultiVectorEncoder, Rescore, rerank
+from src.retrieve.citations import CitationCatalog
+from src.retrieve.expand import artigo_id
+from src.retrieve.hybrid import DenseSearcher, FtsSearcher, QdrantSearcher
+from src.retrieve.hydrate import resolve_citation
+from src.retrieve.rerank import MultiVectorEncoder, Rescore
 from src.safety.risk import classify_risk, emergency_answer
 from src.services.geo import ServicePoint, ServicesSource, find_nearby
 from src.services.repo import PostgresServicesRepo
+from src.services.retrieval import (
+    DepsRecuperacao,
+    as_rerank_encoder,
+    recuperar,
+)
+from src.services.retrieval import (
+    expand_devices as expandir_dispositivos,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -459,11 +465,14 @@ class LegalRAGPipeline:
             return Evidence(abstain_reason="citacao_explicita_nao_encontrada")
 
         plan = understand_query(
+        recuperacao = recuperar(message, facts, self.deps_recuperacao())
+        if recuperacao.abstencao is not None:
+            return self._abstain(recuperacao.abstencao, retrieved_ids=recuperacao.retrieved_ids)
+        return self._generate(
             message,
-            facts,
-            max_subquestions=self.settings.max_subquestions,
-            expand=self.settings.query_expansion,
-            llm_call=(self._rewrite_query if self.settings.query_rewrite == "llm" else None),
+            recuperacao.facts,
+            recuperacao.subperguntas,
+            list(recuperacao.devices),
         )
         try:
             candidates = hybrid_search(
@@ -522,55 +531,32 @@ class LegalRAGPipeline:
     def _with_extracted_data_fato(message: str, facts: QueryFacts | None) -> QueryFacts | None:
         """Fill a missing fact date from the question; never override the client."""
 
-        if facts is not None and facts.data_fato is not None:
-            return facts
-        extracted = extract_data_fato(message)
-        if extracted is None:
-            return facts
-        base = facts if facts is not None else default_facts()
-        return base.model_copy(update={"data_fato": extracted})
+    def expand_devices(self, devices: Sequence[RetrievedDevice]) -> list[RetrievedDevice]:
+        """Expande remissões para o artigo inteiro (API pública usada pelo avaliador)."""
+
+        return expandir_dispositivos(devices, self.deps_recuperacao())
+
+    def deps_recuperacao(self) -> DepsRecuperacao:
+        """Dependências do serviço de recuperação, montadas a partir do estado do pipeline."""
+
+        return DepsRecuperacao(
+            repo=self.repo,
+            settings=self.settings,
+            dense=self.dense,
+            fts=self.fts,
+            qdrant=self.qdrant,
+            encoder=self.encoder,
+            rescore=self.rescore,
+            catalog=self.catalog,
+            rewrite=self._rewrite_query,
+            rerank_encoder=as_rerank_encoder(self.encoder),
+        )
 
     @property
     def llm(self) -> LLMClient:
         if self._llm is None:
             self._llm = get_llm(self.settings)
         return self._llm
-
-    def _explicit_devices(
-        self, resolution: CitationResolution, facts: QueryFacts | None
-    ) -> list[RetrievedDevice]:
-        device_id = resolution.device_id
-        if device_id is None:
-            return []
-        getter = getattr(self.repo, "get_current_version_id", None)
-        if getter is None:
-            return []
-        version = getter(device_id, facts.data_fato if facts else None)
-        if version is None:
-            return []
-        hydrated = hydrate([(device_id, int(version))], repo=self.repo).devices
-        explicit = [item.model_copy(update={"source": "explicit"}) for item in hydrated]
-        return self._expand(explicit)
-
-    def _expand(self, devices: list[RetrievedDevice]) -> list[RetrievedDevice]:
-        if not hasattr(self.repo, "lookup"):
-            return devices
-        try:
-            return expand_to_article(devices, article_lookup=self.repo).devices
-        except Exception as exc:
-            logger.warning("article_expansion_skipped error=%s", type(exc).__name__)
-            return devices
-
-    @staticmethod
-    def _is_explicit_miss(resolution: CitationResolution) -> bool:
-        if resolution.ambiguous:
-            return True
-        return resolution.reason in {
-            "not_found",
-            "no_catalog",
-            "article_missing",
-            "norm_ambiguous",
-        }
 
     def _generate(
         self,
@@ -727,7 +713,7 @@ class LegalRAGPipeline:
         setter = getattr(llm, "set_context_ids", None)
         if callable(setter):
             setter([item.device_id for item in retrieved])
-        return llm.complete(SYSTEM_PROMPT, prompt)
+        return llm.complete(SYSTEM_PROMPT, prompt, timeout=self.settings.llm_timeout)
 
     @staticmethod
     def _feedback_prompt(prompt: str, feedback: str) -> str:
@@ -824,18 +810,6 @@ def _emergency_trace(message: str) -> list[dict[str, Any]]:
     trace.start()
     trace.record(SafetyAgent().assess(message, trace_id=trace.trace_id))
     return trace.to_list()
-
-
-def _as_rerank_encoder(
-    encoder: Encoder | MultiVectorEncoder | None,
-) -> MultiVectorEncoder | None:
-    """Rerank needs token multivectors; dense encoders keep the RRF order."""
-
-    if encoder is None:
-        return None
-    if callable(getattr(encoder, "encode_document", None)):
-        return cast(MultiVectorEncoder, encoder)
-    return None
 
 
 def build_default_pipeline(
@@ -1162,6 +1136,12 @@ def create_app(
                 qdrant="unavailable",
                 data_atualizacao_base=http_request.app.state.data_atualizacao_base,
             )
+        # A interface escolhe o caminho por aqui, em vez de adivinhar por 404.
+        snapshot["capabilities"] = {
+            "durable": bool(settings.multiagent_enabled),
+            "resumable": bool(settings.resumable_conversations_enabled),
+            "web_search": bool(settings.web_search_enabled),
+        }
         return HealthResponse(**snapshot)
 
     @app.get("/sources/{device_id:path}", response_model=SourceResponse)
@@ -1197,8 +1177,42 @@ def create_app(
             )
         return _source_response(row)
 
+    _mount_v1(app, settings)
     _mount_interface(app)
     return app
+
+
+def _conectar_settings(settings: Settings):
+    """Fábrica de conexão usada pelas rotas v1 (uma conexão por request)."""
+
+    def _conectar():
+        return _open_connection(settings.database_url)
+
+    return _conectar
+
+
+def _mount_v1(app: FastAPI, settings: Settings) -> None:
+    """Monta /api/v1 no servidor real.
+
+    Antes desta função o fluxo durável existia apenas nos testes: o app publicado não tinha rota
+    nenhuma de v1, então a interface caía no caminho legado sem avisar. As rotas exigem o cookie de
+    capacidade, então montar sempre é seguro; a flag controla se a interface as usa.
+    """
+
+    from src.api.conversations import criar_router
+    from src.api.runs import criar_router_runs
+
+    conectar = _conectar_settings(settings)
+    app.state.conectar = conectar
+    app.include_router(
+        criar_router(
+            conectar=conectar,
+            retencao_dias=settings.conversation_retention_days,
+            deadline_segundos=settings.run_deadline_seconds,
+        ),
+        prefix="/api/v1",
+    )
+    app.include_router(criar_router_runs(conectar=conectar), prefix="/api/v1")
 
 
 def _mount_interface(app: FastAPI) -> None:

@@ -199,3 +199,4 @@ class NearbyResponse(BaseModel):
     aviso_legal: str = (
         "Confirme o endereço e o horário por telefone antes de ir. Em perigo imediato, ligue 190."
     )
+    capabilities: dict[str, bool] = Field(default_factory=dict)

@@ -73,7 +73,9 @@ sources:
 
   - id: stj-sumulas
     title: "Súmulas do STJ"
-    url: "https://scon.stj.jus.br/SCON/getFile?url=/docs_internet/jurisprudencia/tematica/download/SU/Verbetes/VerbetesSTJ_asc.pdf"
+    # scon.stj.jus.br answers 403 to this machine (WAF block page, 2026-11-16);
+    # the same PDF is served directly by www.stj.jus.br.
+    url: "https://www.stj.jus.br/docs_internet/jurisprudencia/tematica/download/SU/Verbetes/VerbetesSTJ_asc.pdf"
     parser: sumulas_pdf
     priority: P0
     tipo: sumula

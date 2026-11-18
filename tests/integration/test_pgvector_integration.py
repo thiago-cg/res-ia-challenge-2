@@ -179,7 +179,7 @@ def test_dense_and_fts_pick_the_version_that_was_in_force_on_the_fact_date() -> 
 @pytest.mark.integration
 def test_current_search_and_current_version_exclude_rows_closed_by_diff() -> None:
     from src.api.main import PostgresRepo
-    from src.index.load_db import load_current_versions, load_parse_result
+    from src.index.load_db import load_known_versions, load_parse_result
     from src.ingest.diff import apply_diff, diff_parse_result
     from tests.integration.test_diff_integration import _result as diff_result
 
@@ -193,7 +193,7 @@ def test_current_search_and_current_version_exclude_rows_closed_by_diff() -> Non
         old = diff_result(norm_id, {device_id: "texto antigo"})
         new = diff_result(norm_id, {device_id: "texto novo"}, start=date(2024, 1, 1))
         load_parse_result(conn, old)
-        diff = diff_parse_result(load_current_versions(conn, norm_id), new)
+        diff = diff_parse_result(load_known_versions(conn, norm_id), new)
         apply_diff(conn, diff, data_fato=date(2024, 1, 1))
         conn.commit()
 

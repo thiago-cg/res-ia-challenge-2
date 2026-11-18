@@ -29,6 +29,11 @@ class FakeCursor:
     def fetchall(self) -> list[tuple]:
         return self.conn.rows
 
+    def fetchone(self) -> tuple | None:
+        if self.conn.fail:
+            raise RuntimeError("db unavailable")
+        return self.conn.typmod_row
+
 
 class FakeConnection:
     def __init__(
@@ -37,10 +42,13 @@ class FakeConnection:
         *,
         fail: bool = False,
         commit_fail: bool = False,
+        typmod_row: tuple | None = None,
     ) -> None:
         self.rows = rows or []
         self.fail = fail
         self.commit_fail = commit_fail
+        # Row returned by the embedding-dimension preflight (pg_attribute).
+        self.typmod_row = typmod_row
         self.executions: list[tuple[str, object]] = []
         self.committed = False
         self.closed = False
@@ -61,8 +69,9 @@ class FakeEncoder:
     model_name = "fake-encoder"
     revision = "rev-1"
 
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(self, *, fail: bool = False, dimension: int = 1024) -> None:
         self.fail = fail
+        self.dimension = dimension
         self.calls: list[list[str]] = []
 
     def encode_documents(self, texts):
@@ -148,10 +157,35 @@ def test_index_fallback_embeds_and_updates_each_version() -> None:
     assert report.errors == []
     assert report.model == "fake-encoder"
     assert report.model_revision == "rev-1"
-    assert len(conn.executions) == len(chunks())
-    assert all("UPDATE device_versions" in sql for sql, _ in conn.executions)
-    assert conn.executions[0][1][4] == chunks()[0].device_id
+    updates = [entry for entry in conn.executions if "UPDATE device_versions" in entry[0]]
+    assert len(updates) == len(chunks())
+    assert updates[0][1][4] == chunks()[0].device_id
     assert conn.committed is False
+
+
+def test_index_fallback_refuses_a_dimension_mismatch_before_embedding() -> None:
+    # device_versions.embedding is vector(1024) and the HNSW index is built on
+    # it.  A 4096-dim encoder used to fail at INSERT, one batch at a time,
+    # after every embedding had already been paid for.
+    conn = FakeConnection(typmod_row=(1024,))
+    encoder = FakeEncoder(dimension=4096)
+
+    report = run.index_fallback(chunks(), conn=conn, encoder=encoder)
+
+    assert report.indexed == 0
+    assert encoder.calls == []
+    assert not any("UPDATE device_versions" in sql for sql, _ in conn.executions)
+    assert any("dimension mismatch" in error for error in report.errors)
+    assert "vector(1024)" in report.errors[0]
+
+
+def test_index_fallback_accepts_a_matching_dimension() -> None:
+    conn = FakeConnection(typmod_row=(1024,))
+
+    report = run.index_fallback(chunks(), conn=conn, encoder=FakeEncoder(dimension=1024))
+
+    assert report.errors == []
+    assert report.indexed == len(chunks())
 
 
 def test_index_fallback_commits_once_when_requested() -> None:

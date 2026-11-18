@@ -161,7 +161,7 @@ def _patch_load(monkeypatch: pytest.MonkeyPatch, events: list[str]) -> None:
         return LoadReport(norm_id=result.norm.id, devices_loaded=1, versions_loaded=1)
 
     monkeypatch.setattr(run_module, "load_parse_result", fake_load)
-    monkeypatch.setattr(run_module, "load_current_versions", lambda conn, norm_id: [])
+    monkeypatch.setattr(run_module, "load_known_versions", lambda conn, norm_id: [])
 
 
 def _patch_record(monkeypatch: pytest.MonkeyPatch, events: list[str]) -> None:
@@ -266,7 +266,7 @@ def test_load_failure_exits_one(
         raise RuntimeError("database exploded")
 
     monkeypatch.setattr(run_module, "load_parse_result", failing_load)
-    monkeypatch.setattr(run_module, "load_current_versions", lambda conn, norm_id: [])
+    monkeypatch.setattr(run_module, "load_known_versions", lambda conn, norm_id: [])
     monkeypatch.setattr(run_module, "_connect", lambda url: conn)
 
     code = run_module.main(
@@ -317,7 +317,7 @@ def test_load_failure_records_error_after_rollback(
 
     monkeypatch.setattr(run_module, "record_ingest_run", fake_record)
     monkeypatch.setattr(run_module, "load_parse_result", failing_load)
-    monkeypatch.setattr(run_module, "load_current_versions", lambda conn, norm_id: [])
+    monkeypatch.setattr(run_module, "load_known_versions", lambda conn, norm_id: [])
     monkeypatch.setattr(run_module, "_connect", lambda url: conn)
 
     code = run_module.main(
@@ -483,7 +483,7 @@ def _run_load(
     _patch_parse(monkeypatch, events, parse_result)
     _patch_validate(monkeypatch, events)
     _patch_record(monkeypatch, events)
-    monkeypatch.setattr(run_module, "load_current_versions", lambda connection, norm_id: current)
+    monkeypatch.setattr(run_module, "load_known_versions", lambda connection, norm_id: current)
     monkeypatch.setattr(run_module, "_connect", lambda url: conn)
 
     code = run_module.main(

@@ -53,6 +53,16 @@ def test_migration_applies_to_empty_database() -> None:
 
 
 @pytest.mark.integration
+def test_reapply_is_a_noop() -> None:
+    """D10: reexecutar não pode falhar nem reaplicar (controle em schema_migrations)."""
+    from scripts.apply_migrations import apply_migrations
+
+    apply_migrations(os.environ["TEST_DATABASE_URL"], ROOT / "migrations")
+    segunda = apply_migrations(os.environ["TEST_DATABASE_URL"], ROOT / "migrations")
+    assert segunda == []
+
+
+@pytest.mark.integration
 def test_overlapping_vigencia_is_rejected() -> None:
     with _connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT to_regclass('public.device_versions')")

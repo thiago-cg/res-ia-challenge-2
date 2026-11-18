@@ -52,7 +52,8 @@ web/ui/
 │   ├── demo.js           respostas de exemplo do contrato
 │   └── markdown.js       markdown mínimo e seguro (escapa antes de formatar)
 └── assets/
-    ├── brand/            símbolo, wordmark, ícone e favicon (SVG)
+    ├── brand/            kit v1.0: símbolo, wordmark, ícone, favicon (SVG),
+    │                     PNGs do ícone (48–1024) e LEIA-ME com as regras de uso
     └── fonts/            Afacad Flux e Newsreader Italic (woff2, SIL OFL 1.1)
 ```
 

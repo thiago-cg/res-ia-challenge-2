@@ -159,8 +159,18 @@ uv run python scripts/apply_migrations.py --database-url "postgresql://app:app@l
 ```
 
 Dentro de um virtualenv ativado, `python scripts/apply_migrations.py` também
-funciona. O script aplica todos os `migrations/*.sql` em ordem e faz commit por
-arquivo.
+funciona. O script aplica os `migrations/*.sql` pendentes em ordem e faz commit por
+arquivo, registrando cada um na tabela de controle `schema_migrations` (reexecutar é
+seguro: o que já foi aplicado é pulado).
+
+Banco migrado antes da tabela de controle existir precisa de um baseline explícito,
+senão a reexecução falha com `relation "norms" already exists`:
+
+```powershell
+uv run python scripts/apply_migrations.py --mark-applied 001_init.sql --mark-applied 002_norms_nullable.sql
+```
+
+Para aplicar um arquivo específico: `--only 003` (casa pelo início do nome).
 
 ### 5. Ingestão (download, parsing, validação e carga)
 
@@ -328,6 +338,7 @@ código quando a variável não existe.
 | `PPX_9B_MODEL_PATH` | vazio | Diretório **safetensors** do pplx 9B (indexação alvo). Valor terminado em `.gguf` é rejeitado. |
 | `PPX_06B_MODEL_PATH` | vazio | Diretório **safetensors** do pplx 0.6B (consulta alvo/rerank). Valor terminado em `.gguf` é rejeitado. |
 | `HARRIER_MODEL_PATH` | vazio | Diretório **safetensors** do Harrier; vazio usa `microsoft/harrier-oss-v1-0.6b`. Valor terminado em `.gguf` é rejeitado. |
+| `LLM_TIMEOUT` | `90` | Timeout da geração. Modelos com raciocínio explícito levam mais que os 30 s do default. |
 | `LLM_MODEL` | vazio | Nome do modelo do provedor LLM; com `mock`, vira `mock`. Com `openrouter`, é o fallback quando `OPENROUTER_MODEL` está vazio. |
 | `LLM_BASE_URL` | vazio | Base URL de um servidor OpenAI-compatible/Ollama para `LLM_PROVIDER=local` ou `api`. |
 | `LLM_API_KEY` | vazio | Chave do provedor local/API. Para OpenRouter, use `OPENROUTER_API_KEY`. |
@@ -343,6 +354,26 @@ código quando a variável não existe.
 | `OPENROUTER_ZDR` | `true` | Preferência `provider.zdr` (zero data retention). |
 | `OPENROUTER_SITE_URL` | vazio | Cabeçalho opcional `HTTP-Referer`. |
 | `OPENROUTER_APP_NAME` | vazio | Cabeçalho opcional `X-Title`. |
+| `MULTIAGENT_ENABLED` | `false` | Liga a UI ao fluxo durável (`/api/v1`). `/chat` continua atendendo. |
+| `RESUMABLE_CONVERSATIONS_ENABLED` | `false` | Permite retomar conversa em nova abertura. |
+| `WEB_SEARCH_ENABLED` | `false` | Pesquisa web opcional. Desligada, `buscar()` levanta erro. |
+| `WEB_SEARCH_PROVIDER` | `perplexity` | `perplexity` (Decisions API nativa, devolve evidência) ou `openrouter` (mesmo modelo, sem grounding). |
+| `SERPAPI_API_KEY` | vazio | Chave do SerpApi, provedor de pesquisa web padrão. |
+| `SERPAPI_BASE_URL` | `https://serpapi.com` | Base do SerpApi. |
+| `SERPAPI_ENGINE` | `google_light` | Engine usado (`google_light` é a variante enxuta). |
+| `SERPAPI_GL` / `SERPAPI_HL` | `br` / `pt` | País e idioma da busca. |
+| `PERPLEXITY_API_KEY` | vazio | Chave da Decisions API. O modelo `pplx-decider-*` não é servido como chat. |
+| `PERPLEXITY_BASE_URL` | `https://api.perplexity.ai` | Base da Decisions API. |
+| `WEB_SEARCH_MODEL` | `pplx-decider-v1.2` | Modelo decisor usado no grounding. |
+| `WEB_SEARCH_MAX_RESULTS` | `5` | Máximo de evidências web por consulta. |
+| `WEB_SEARCH_MAX_STALENESS` | `86400` | Idade máxima (s) da página considerada. |
+| `WEB_SEARCH_TIMEOUT` | `30` | Timeout da chamada. |
+| `WEB_SEARCH_MAX_CARACTERES_PERGUNTA` | `500` | Acima disso a consulta é recusada em vez de truncada. |
+| `CONVERSATION_RETENTION_DAYS` | `30` | Retenção da conversa. |
+| `TOMBSTONE_RETENTION_DAYS` | `90` | Janela de exclusão antes da purga física. |
+| `RUN_LEASE_SECONDS` | `60` | Lease do worker; vencido, a execução volta à fila. |
+| `RUN_DEADLINE_SECONDS` | `90` | Prazo máximo de uma execução. |
+| `WORKER_POLL_SECONDS` | `2` | Intervalo entre passadas do worker. |
 | `LOG_LEVEL` | `INFO` | Nível do logger. |
 | `LOG_QUESTION_TEXT` | `false` | Se `true`, permite logar texto de pergunta **com PII redigida**. Padrão: descartar. |
 | `LOG_RETENTION_DAYS` | `7` | Retenção de logs; `0` significa sem persistência. Lido do ambiente do processo, não do `.env` por `src.obs.logging`. |
@@ -755,3 +786,38 @@ writing a report.
 - `expand_to_article` needs the article row at the *same* `norm_version_id`;
   about 13% of leaf rows have no such row, so their context expansion
   degrades to the leaf and logs `incomplete_context`.
+
+## Fluxo durável (multiagente)
+
+A partir das migrações `003`–`005`, o sistema aceita trabalho, executa no servidor e permite
+retomar a conversa sem reenviar nada.
+
+### Executar o worker
+
+```powershell
+uv run python -m src.worker --once     # uma passada (cron, teste, demonstração)
+uv run python -m src.worker            # laço contínuo
+```
+
+O worker reivindica a execução em transação curta, executa fora dela e publica com `attempt`
+(*fencing*): um worker que perdeu o lease não sobrescreve o vigente.
+
+### API v1
+
+| Rota | Uso |
+|---|---|
+| `POST /api/v1/conversations` | cria a conversa e emite o cookie de capacidade |
+| `POST /api/v1/conversations/{id}/messages` | 202 com `run_id`; 200 se repetir o `client_message_id`; 409 se já há execução |
+| `GET /api/v1/conversations/{id}/runs/{run_id}` | estado por revisão; `304` quando nada mudou |
+| `GET .../runs/{run_id}/result` | resultado publicado; `409` enquanto não conclui |
+| `POST .../runs/{run_id}/cancel` | cancelamento idempotente |
+| `DELETE /api/v1/conversations/{id}` | tombstone + cancelamento + revogação do cookie |
+
+O acesso exige o cookie emitido na criação. O `conversation_id` sozinho não autoriza nada.
+Conversa apagada responde `401`: excluir revoga a credencial.
+
+### Migrações
+
+`003` cria conversas, mensagens e execuções; `004` adiciona a chave de idempotência; `005` indexa o
+hash da credencial. `schema_migrations` registra o aplicado, então reexecutar é seguro — em banco
+legado, faça o baseline com `--mark-applied` (ver §4).

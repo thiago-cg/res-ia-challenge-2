@@ -15,6 +15,9 @@ OFFICIAL_HOSTS = {
     "www.planalto.gov.br",
     "atos.cnj.jus.br",
     "scon.stj.jus.br",
+    # O PDF de verbetes é servido por www.stj.jus.br; scon responde 403 com um
+    # desafio JavaScript para esta origem (medido em 2026-11-16).
+    "www.stj.jus.br",
 }
 # Texto compilado já incorpora estas leis alteradoras; ficam desligadas até o
 # benchmark mostrar que ajudam (docs/03-dados-e-fontes.md, seção 2.1).

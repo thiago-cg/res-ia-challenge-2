@@ -10,6 +10,7 @@ import { criarCliente } from "./api.js";
 import { escapar, markdown } from "./markdown.js";
 import { criarPainelDelegacias } from "./delegacias.js";
 import { EXEMPLOS, EXEMPLO_EMERGENCIA, RESPOSTAS_DEMO, respostaDemo } from "./demo.js";
+import { criarClienteDuravel, novoIdMensagem } from "./durable.js";
 
 const CHAVE_HISTORICO = "zelia.historico.v1";
 const CHAVE_PREFERENCIAS = "zelia.preferencias.v1";
@@ -17,7 +18,7 @@ const CHAVE_SESSAO = "zelia.sessao";
 const LIMITE_MENSAGENS = 40;
 const LIMITE_CARACTERES = 8000;
 
-const SIMBOLO = `<svg viewBox="177.379 170.097 237.238 214.644" aria-hidden="true" focusable="false"><path pathLength="1" d="M 199.166 207.216 C 252.424 194.305 305.681 191.884 358.939 199.953 C 384.761 203.181 391.216 214.478 378.305 233.844 L 213.691 320.993 C 200.78 340.36 207.235 351.657 233.057 354.884 C 286.315 362.954 339.572 360.533 392.83 347.622"/></svg>`;
+const SIMBOLO = `<svg viewBox="0 0 128 128" aria-hidden="true" focusable="false"><path pathLength="1" d="M22 36Q55 28 88 33Q104 35 96 47L28 83Q20 95 36 97Q69 102 102 94"/></svg>`;
 
 const ICONES_ENCAMINHAMENTO = {
   policia: { nome: "Polícia", icone: "escudo", telefone: "190" },
@@ -53,7 +54,11 @@ const MOTIVOS_ABSTENCAO = {
   fora_do_corpus: "A pergunta está fora do que a base cobre.",
 };
 
+let duravel = null;
+
 const estado = {
+  conversaId: "",
+  duravelAtivo: false,
   mensagens: [],
   sessao: "",
   dataFato: "",
@@ -531,11 +536,13 @@ async function enviar(texto) {
     const resposta =
       estado.modo === "demo"
         ? await respostaComAtraso(limpo)
-        : await estado.api.conversar({
-            sessao: estado.sessao,
-            mensagem: limpo,
-            fatos: fatosAtuais(),
-          });
+        : estado.duravelAtivo
+          ? await enviarDuravel(limpo)
+          : await estado.api.conversar({
+              sessao: estado.sessao,
+              mensagem: limpo,
+              fatos: fatosAtuais(),
+            });
 
     digitando.remove();
     estado.mensagens.push({ papel: "assistente", resposta });
@@ -563,6 +570,19 @@ async function enviar(texto) {
     estado.ocupado = false;
     atualizarEnviar();
   }
+}
+
+/**
+ * Envia pelo fluxo durável: aceita o trabalho, acompanha por revisão e devolve o mesmo
+ * ChatResponse que a interface já sabe renderizar. Se a aba fechar no meio, a próxima abertura
+ * retoma — nada é reenviado.
+ */
+async function enviarDuravel(texto) {
+  const envio = await duravel.enviar(estado.conversaId, {
+    mensagem: texto,
+    clientMessageId: novoIdMensagem(),
+  });
+  return duravel.aguardar(estado.conversaId, envio.runId, { intervalo: 1500 });
 }
 
 /* --- composer ------------------------------------------------------------ */
@@ -650,8 +670,8 @@ function carregarHistorico() {
 function sincronizarPrivacidade() {
   el.switchHistorico.setAttribute("aria-checked", String(estado.historico));
   el.resumoPrivacidade.textContent = estado.historico
-    ? "Histórico ligado · salvo só neste aparelho"
-    : "Histórico desligado · conversa só nesta aba";
+    ? "Histórico ligado · salvo neste aparelho"
+    : "Histórico desligado · a conversa fica protegida no servidor";
 }
 
 function alternarHistorico() {
@@ -786,14 +806,53 @@ async function conectar() {
     const saude = await estado.api.saude(10000);
     estado.modo = "api";
     aplicarSaude(saude);
+    const restaurou = await ativarFluxoDuravel();
+    if (restaurou) {
+      renderThread();
+      rolarParaFim(true);
+      anunciar("Conversa retomada.");
+    }
   } catch (erro) {
     if (erro?.tipo === "rede") {
-      aplicarModoDemo();
+      // INV16: indisponibilidade real não vira demonstração. O selo muda, a conversa não finge.
+      estado.modo = "api";
+      aplicarSaudeDesconhecida();
       return;
     }
     // A API respondeu (ou demorou): segue no modo real, com status incerto.
     estado.modo = "api";
     aplicarSaudeDesconhecida();
+  }
+}
+
+/**
+ * Detecta se o servidor oferece o fluxo durável e, se sim, retoma a conversa existente.
+ * A ausência do recurso é normal: cai no caminho legado sem alarde.
+ */
+async function ativarFluxoDuravel() {
+  try {
+    if (!duravel) duravel = criarClienteDuravel(estado.api?.base || "", {});
+    const atual = await duravel.conversaAtual();
+    let restaurou = false;
+
+    if (atual?.id) {
+      estado.conversaId = atual.id;
+      // Retomada: a resposta já publicada aparece ao reabrir, sem reenviar nada.
+      if (atual.last_result && estado.mensagens.length === 0) {
+        const ultima = (atual.messages || []).filter((m) => m.role === "user").pop();
+        if (ultima) estado.mensagens.push({ papel: "usuario", texto: ultima.content });
+        estado.mensagens.push({ papel: "assistente", resposta: atual.last_result });
+        restaurou = estado.mensagens.length > 0;
+      }
+    } else {
+      const criada = await duravel.criarConversa();
+      estado.conversaId = criada?.conversation_id || "";
+    }
+    estado.duravelAtivo = Boolean(estado.conversaId);
+    return restaurou;
+  } catch {
+    estado.duravelAtivo = false;
+    return false;
   }
 }
 

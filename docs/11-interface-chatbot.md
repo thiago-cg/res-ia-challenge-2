@@ -182,7 +182,7 @@ Em < 640 px, margens de 16 px, bolhas até 88%, título display em 36 px.
 
 ### 8.1 Cabeçalho
 
-- Esquerda: tile de 36 px (azul pulso, raio 11, símbolo branco) + wordmark de 22 px de altura.
+- Esquerda: tile de 36 px (azul pulso, raio 11, símbolo branco em caixa de 26 px) + wordmark de 21 px de altura.
   O símbolo desenha o traço em 1200 ms na primeira carga e assenta (sem bounce).
 - Direita: selo de status ("Base atualizada em 05/11"), botão "Privacidade" (cadeado),
   botão "Fontes" (documento), botão "Contexto" (só < 960 px).
