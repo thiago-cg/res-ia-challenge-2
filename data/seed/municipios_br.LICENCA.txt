@@ -1,0 +1,3 @@
+municipios_br.csv: municípios brasileiros (IBGE) com latitude/longitude do ponto de referência.
+Fonte: https://github.com/kelvins/municipios-brasileiros (csv/municipios.csv e estados.csv), licença MIT,
+Copyright (c) 2016 Kelvin S. do Prado. Dados de origem: IBGE. Reduzido às colunas uf, nome, latitude, longitude.

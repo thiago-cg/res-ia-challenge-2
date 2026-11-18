@@ -6,7 +6,7 @@ tempo de execução: HTML, CSS e JavaScript servidos como arquivos estáticos.
 
 - **Design system:** [`docs/design-system.md`](../../docs/design-system.md)
 - **Plano da interface:** [`docs/11-interface-chatbot.md`](../../docs/11-interface-chatbot.md)
-- **API:** `POST /chat`, `GET /health`
+- **API:** `POST /chat`, `GET /health`, `POST /services/nearby`
 
 ## Rodar
 
@@ -47,6 +47,7 @@ web/ui/
 │   └── app.css           layout e componentes
 ├── scripts/
 │   ├── app.js            estado, eventos e renderização
+│   ├── delegacias.js     painel "Delegacias perto de você" (esquema SVG + cartões)
 │   ├── api.js            cliente /chat e /health com timeout
 │   ├── demo.js           respostas de exemplo do contrato
 │   └── markdown.js       markdown mínimo e seguro (escapa antes de formatar)
@@ -74,6 +75,31 @@ web/ui/
   assunto da conversa.
 - **Acessibilidade:** `role="log"` com `aria-live="polite"`, foco visível, alvos
   ≥ 44 px, contraste AA/AAA, `prefers-reduced-motion` respeitado.
+
+## Delegacias perto de você
+
+Botão **Delegacias** no topo (e cartão no painel lateral). A usuária escolhe
+"Usar minha localização" ou informa UF e cidade; a interface chama
+`POST /services/nearby` e mostra a DEAM mais próxima, as delegacias por
+distância, telefone, horário e "Como chegar".
+
+- **Sem mapa de terceiros.** O resultado é um esquema de distância e direção
+  desenhado em SVG no navegador (norte para cima), e não um mapa de ruas: tiles
+  do OpenStreetMap ou do Google revelariam a região e o IP a terceiros. O único
+  link que sai do app é o "Como chegar", aberto por toque, só com o destino.
+- **Localização:** pedida só ao toque, arredondada a 3 casas (~110 m), enviada
+  por POST, nunca gravada (storage, URL, histórico) e apagada ao fechar o painel.
+- **Busca por cidade:** a API tem os 5.570 municípios do IBGE com coordenada
+  (`data/seed/municipios_br.csv`) e mede a distância a partir do centro da cidade
+  escolhida (`referencia` na resposta). Cidade fora da lista, como regiões
+  administrativas do DF, mostra o estado com aviso.
+- **Dados de delegacias:** `scripts/import_osm_police.py` importa do OpenStreetMap
+  (ODbL; a tela atribui a fonte quando exibe esses dados) e nunca sobrescreve as
+  linhas curadas à mão.
+- **Aproximada:** quando `coordenada_verificada` é falso, o cartão avisa para
+  confirmar o endereço por telefone.
+- **Modo demonstração:** não inventa delegacias; pede a API conectada.
+- **Sair rápido:** apaga o resultado e troca a aba por um site neutro.
 
 ## Notas de implementação
 

@@ -68,6 +68,7 @@ class Recuperacao:
     devices: tuple[RetrievedDevice, ...] = ()
     retrieved_ids: tuple[str, ...] = ()
     abstencao: str | None = None
+    explicita: bool = False
 
 
 def recuperar(
@@ -101,6 +102,7 @@ def recuperar(
             (message,),
             devices=tuple(explicit),
             retrieved_ids=tuple(item.device_id for item in explicit),
+            explicita=True,
         )
 
     if is_explicit_miss(resolution):

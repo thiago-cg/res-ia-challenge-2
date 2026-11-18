@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    actor U as Usuária
+    participant O as Orquestrador
+    participant S as Segurança
+    participant R as Recuperação
+    participant A as Resposta
+    participant V as Verificador
+
+    U->>O: mensagem
+    O->>S: avaliar risco
+    alt risco imediato
+        S-->>O: emergência (190/180)
+        O-->>U: resposta de emergência (fim)
+    else sem risco
+        S-->>R: liberado
+        R->>R: busca híbrida, ranqueia, hidrata texto oficial
+        alt sem base suficiente
+            R-->>O: sem evidência
+            O-->>U: abstenção com encaminhamento
+        else com evidência
+            R-->>A: dispositivos legais
+            loop até 2 tentativas
+                A->>V: rascunho com citações
+                alt aprovado
+                    V-->>O: aprovado
+                else reprovado na 1ª tentativa
+                    V-->>A: feedback (problemas encontrados)
+                else reprovado na 2ª tentativa
+                    V-->>O: abstenção segura
+                end
+            end
+            O-->>U: resposta final com citações + trace
+        end
+    end

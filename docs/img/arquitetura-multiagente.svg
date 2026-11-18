@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="800" viewBox="0 0 1480 800" font-family="Arial, Helvetica, sans-serif">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker><marker id="ard" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b07d00"/></marker></defs>
+<rect width="1480" height="800" fill="white"/>
+<text x="740.0" y="34" text-anchor="middle" font-size="22" font-weight="bold" fill="#222">ZELIA — arquitetura multiagente</text>
+<rect x="50" y="70" width="170" height="56" rx="10" fill="#e8f4ea" stroke="#2e7d32" stroke-width="2"/>
+<text x="135.0" y="103.0" text-anchor="middle" font-size="16" font-weight="bold" fill="#222">Usuária</text>
+<rect x="330" y="70" width="300" height="56" rx="10" fill="#eef2f7" stroke="#456" stroke-width="2"/>
+<text x="480.0" y="95.0" text-anchor="middle" font-size="16" font-weight="bold" fill="#222">API FastAPI</text>
+<text x="480.0" y="115.0" text-anchor="middle" font-size="13" fill="#444">POST /chat</text>
+<line x1="220" y1="98" x2="328" y2="98" stroke="#444" stroke-width="2" marker-end="url(#ar)"/>
+<text x="274" y="90" text-anchor="middle" font-size="12" fill="#444">mensagem</text>
+<line x1="480" y1="126" x2="480" y2="168" stroke="#444" stroke-width="2" marker-end="url(#ar)"/>
+<path d="M 1330 168 L 1330 98 L 222 98" fill="none" stroke="#2e7d32" stroke-width="0"/>
+<path d="M 135 200 L 135 128" fill="none" stroke="#2e7d32" stroke-width="3" marker-end="url(#ar)"/>
+<text x="145" y="160" font-size="12" fill="#2e7d32">resposta final + trace</text>
+<rect x="50" y="168" width="1380" height="96" rx="12" fill="#fff3d6" stroke="#b07d00" stroke-width="3"/>
+<text x="740" y="206" text-anchor="middle" font-size="20" font-weight="bold" fill="#222">ORQUESTRADOR · MultiAgentPipeline</text>
+<text x="740" y="232" text-anchor="middle" font-size="14" fill="#444">sequencia os agentes · aplica o laço de revisão (no máximo 2 tentativas) · registra o trace de cada passagem · devolve a resposta final</text>
+<rect x="50" y="380" width="240" height="130" rx="12" fill="#efe6fb" stroke="#6b3fa0" stroke-width="2.5"/>
+<text x="170" y="412" text-anchor="middle" font-size="18" font-weight="bold" fill="#3b1f66">SEGURANÇA</text>
+<text x="170" y="434" text-anchor="middle" font-size="13" font-weight="bold" fill="#444">detecta risco imediato</text>
+<text x="170" y="462" text-anchor="middle" font-size="12" fill="#555">Interrompe o fluxo e entrega</text>
+<text x="170" y="480" text-anchor="middle" font-size="12" fill="#555">190 / 180 se houver emergência</text>
+<rect x="430" y="380" width="240" height="130" rx="12" fill="#efe6fb" stroke="#6b3fa0" stroke-width="2.5"/>
+<text x="550" y="412" text-anchor="middle" font-size="18" font-weight="bold" fill="#3b1f66">RECUPERAÇÃO</text>
+<text x="550" y="434" text-anchor="middle" font-size="13" font-weight="bold" fill="#444">busca os dispositivos legais</text>
+<text x="550" y="462" text-anchor="middle" font-size="12" fill="#555">Entende a pergunta, busca (híbrida),</text>
+<text x="550" y="480" text-anchor="middle" font-size="12" fill="#555">ranqueia e hidrata o texto oficial</text>
+<rect x="810" y="380" width="240" height="130" rx="12" fill="#efe6fb" stroke="#6b3fa0" stroke-width="2.5"/>
+<text x="930" y="412" text-anchor="middle" font-size="18" font-weight="bold" fill="#3b1f66">RESPOSTA</text>
+<text x="930" y="434" text-anchor="middle" font-size="13" font-weight="bold" fill="#444">redige em linguagem simples</text>
+<text x="930" y="462" text-anchor="middle" font-size="12" fill="#555">Usa SOMENTE os dispositivos</text>
+<text x="930" y="480" text-anchor="middle" font-size="12" fill="#555">recuperados, com citações</text>
+<rect x="1190" y="380" width="240" height="130" rx="12" fill="#efe6fb" stroke="#6b3fa0" stroke-width="2.5"/>
+<text x="1310" y="412" text-anchor="middle" font-size="18" font-weight="bold" fill="#3b1f66">VERIFICADOR</text>
+<text x="1310" y="434" text-anchor="middle" font-size="13" font-weight="bold" fill="#444">confere citações e afirmações</text>
+<text x="1310" y="462" text-anchor="middle" font-size="12" fill="#555">Aceita, pede nova tentativa</text>
+<text x="1310" y="480" text-anchor="middle" font-size="12" fill="#555">ou força a abstenção</text>
+<line x1="110" y1="264" x2="110" y2="378" stroke="#444" stroke-width="2" marker-end="url(#ar)"/>
+<text x="118" y="292" font-size="12" fill="#444">1 · avaliar risco</text>
+<line x1="290" y1="445" x2="428" y2="445" stroke="#444" stroke-width="2" marker-end="url(#ar)"/>
+<text x="359" y="436" text-anchor="middle" font-size="12" fill="#444">2 · liberado</text>
+<line x1="670" y1="445" x2="808" y2="445" stroke="#444" stroke-width="2" marker-end="url(#ar)"/>
+<text x="739" y="436" text-anchor="middle" font-size="12" fill="#444">3 · evidência</text>
+<line x1="1050" y1="425" x2="1188" y2="425" stroke="#444" stroke-width="2" marker-end="url(#ar)"/>
+<text x="1119" y="416" text-anchor="middle" font-size="12" fill="#444">4 · rascunho</text>
+<line x1="1188" y1="480" x2="1052" y2="480" stroke="#c0392b" stroke-width="2" marker-end="url(#ar)"/>
+<text x="1119" y="500" text-anchor="middle" font-size="12" fill="#c0392b">feedback (reprovado)</text>
+<line x1="230" y1="378" x2="230" y2="266" stroke="#b07d00" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ard)"/>
+<text x="222" y="350" text-anchor="end" font-size="12" fill="#8a6200">emergência → fim</text>
+<line x1="610" y1="378" x2="610" y2="266" stroke="#b07d00" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ard)"/>
+<text x="602" y="318" text-anchor="end" font-size="12" fill="#8a6200">sem base → abstém</text>
+<line x1="990" y1="378" x2="990" y2="266" stroke="#b07d00" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ard)"/>
+<text x="982" y="318" text-anchor="end" font-size="12" fill="#8a6200">abstenção do modelo /</text>
+<text x="982" y="333" text-anchor="end" font-size="12" fill="#8a6200">LLM fora do ar</text>
+<line x1="1370" y1="378" x2="1370" y2="266" stroke="#b07d00" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ard)"/>
+<text x="1362" y="318" text-anchor="end" font-size="12" fill="#8a6200">5 · aprovado ou</text>
+<text x="1362" y="333" text-anchor="end" font-size="12" fill="#8a6200">abstenção segura</text>
+<rect x="400" y="620" width="200" height="62" rx="10" fill="#f3f3f3" stroke="#888" stroke-width="1.5"/>
+<text x="500" y="648" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">Postgres</text>
+<text x="500" y="667" text-anchor="middle" font-size="12" fill="#555">texto oficial + busca textual</text>
+<rect x="630" y="620" width="200" height="62" rx="10" fill="#f3f3f3" stroke="#888" stroke-width="1.5"/>
+<text x="730" y="648" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">Qdrant</text>
+<text x="730" y="667" text-anchor="middle" font-size="12" fill="#555">busca vetorial</text>
+<rect x="850" y="620" width="200" height="62" rx="10" fill="#f3f3f3" stroke="#888" stroke-width="1.5"/>
+<text x="950" y="648" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">LLM (OpenRouter)</text>
+<text x="950" y="667" text-anchor="middle" font-size="12" fill="#555">gera o rascunho</text>
+<line x1="500" y1="512" x2="500" y2="618" stroke="#888" stroke-width="1.5" stroke-dasharray="4 4"/>
+<line x1="550" y1="512" x2="730" y2="618" stroke="#888" stroke-width="1.5" stroke-dasharray="4 4"/>
+<line x1="930" y1="512" x2="950" y2="618" stroke="#888" stroke-width="1.5" stroke-dasharray="4 4"/>
+<g font-size="12" fill="#444"><line x1="50" y1="740" x2="90" y2="740" stroke="#444" stroke-width="2" marker-end="url(#ar)"/><text x="98" y="744">passagem de mensagem entre agentes</text>
+<line x1="380" y1="740" x2="420" y2="740" stroke="#b07d00" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ard)"/><text x="428" y="744">saída antecipada para o orquestrador (fim do fluxo)</text>
+<line x1="800" y1="740" x2="840" y2="740" stroke="#c0392b" stroke-width="2" marker-end="url(#ar)"/><text x="848" y="744">laço de revisão (máx. 2 tentativas)</text></g>
+</svg>

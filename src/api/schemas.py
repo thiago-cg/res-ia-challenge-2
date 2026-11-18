@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.contracts import Answer, Citation, QueryFacts, VigenciaStatus
 
@@ -46,6 +46,8 @@ class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=128)
     message: str = Field(min_length=1, max_length=8000)
     facts: ChatFacts | None = None
+    #: Ask for the multi-agent execution trail in the response (no user text in it).
+    trace: bool = False
 
     def query_facts(self) -> QueryFacts | None:
         return self.facts.to_query_facts() if self.facts is not None else None
@@ -82,6 +84,7 @@ class ChatResponse(BaseModel):
     emergencia: bool
     data_atualizacao_base: str | None
     aviso_legal: str
+    trace: list[dict] | None = None
 
     @classmethod
     def from_answer(
@@ -132,3 +135,68 @@ class HealthResponse(BaseModel):
     last_ingest: str | None = None
     data_atualizacao_base: str | None = None
     capabilities: dict[str, bool] = Field(default_factory=dict)
+
+
+ServiceTipo = Literal["deam", "nucleo_atendimento_mulher", "delegacia_comum"]
+
+
+class NearbyRequest(BaseModel):
+    """Where to look: coordinates (nearest first) or, without them, a municipality.
+
+    Sent as a POST body, never as a query string, so coordinates stay out of access logs.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
+    uf: str | None = Field(default=None, min_length=2, max_length=2)
+    municipio: str | None = Field(default=None, min_length=1, max_length=120)
+    tipo: ServiceTipo | None = None
+    limit: int = Field(default=5, ge=1, le=20)
+
+    @model_validator(mode="after")
+    def _needs_a_place(self) -> NearbyRequest:
+        has_point = self.lat is not None and self.lon is not None
+        half_point = (self.lat is None) != (self.lon is None)
+        has_city = bool(self.uf and self.municipio)
+        if half_point or not (has_point or has_city):
+            raise ValueError("informe lat e lon, ou uf e municipio")
+        return self
+
+
+class ServiceOut(BaseModel):
+    nome: str
+    tipo: ServiceTipo
+    uf: str
+    municipio: str
+    endereco: str | None
+    telefone: str | None
+    horario: str | None
+    latitude: float
+    longitude: float
+    #: Distance in km from the given point; null when searching by municipality.
+    distancia_km: float | None
+    fonte_url: str
+    atualizado_em: date
+    #: false = the point on the map is approximate and still has to be conferred.
+    coordenada_verificada: bool
+
+
+class ReferenciaOut(BaseModel):
+    """Ponto de partida das distâncias quando a busca foi por cidade (centro da cidade)."""
+
+    latitude: float
+    longitude: float
+    rotulo: str
+
+
+class NearbyResponse(BaseModel):
+    servicos: list[ServiceOut]
+    referencia: ReferenciaOut | None = None
+    deam_mais_proxima: ServiceOut | None
+    aviso: str | None
+    emergencia: dict[str, str] = {"policia_militar": "190", "central_mulher": "180"}
+    aviso_legal: str = (
+        "Confirme o endereço e o horário por telefone antes de ir. Em perigo imediato, ligue 190."
+    )
