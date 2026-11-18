@@ -1,0 +1,12 @@
+08ª DP – SCIA: endereço e telefone vieram do CNJ (2023), confirmar
+09ª DP – Lago Norte: endereço e telefone vieram do CNJ (2023), confirmar
+11ª DP – Núcleo Bandeirante: telefone vinculado por região/unidade (endereço difere), confirmar
+13ª DP – Sobradinho: telefone vinculado por região/unidade (endereço difere), confirmar
+14ª DP – Gama: telefone vinculado por região/unidade (endereço difere), confirmar
+15ª DP – Ceilândia Centro: sem telefone (não consta na lista do CNJ)
+16ª DP – Planaltina: sem telefone (não consta na lista do CNJ)
+18ª DP – Brazlândia: telefone vinculado por região/unidade (endereço difere), confirmar
+32ª DP – Samambaia Sul: endereço e telefone vieram do CNJ (2023), confirmar
+35ª DP – Sobradinho II: telefone vinculado por região/unidade (endereço difere), confirmar
+DEAM I: fora do seed (DEAM já curada em services_df.csv)
+DEAM II: fora do seed (DEAM já curada em services_df.csv)

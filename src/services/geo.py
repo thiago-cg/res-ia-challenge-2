@@ -12,7 +12,10 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from src.services.geocode import Geocodificador
 
 EARTH_RADIUS_KM = 6371.0088
 
@@ -169,27 +172,47 @@ def find_nearby(
     municipio: str | None = None,
     tipo: str | None = None,
     limit: int = 5,
+    geocodificar: Geocodificador | None = None,
 ) -> NearbyResult:
-    """Services by coordinates (nearest first) or, without a location, by municipality."""
+    """Services by coordinates (nearest first) or, without a location, by place name.
+
+    The place is looked up in this order: known localities (e.g. DF regions such as Gama),
+    IBGE municipalities, then the optional geocoder (any place). If none knows it, the state's
+    services are shown with a warning.
+    """
 
     if lat is not None and lon is not None:
         return _por_ponto(source, lat, lon, tipo, limit)
 
     if uf and municipio:
+        from src.services import lugares
         from src.services.municipios import buscar
 
-        cidade = buscar(uf, municipio)
-        if cidade is not None:
-            # Cidade conhecida: mede a partir do centro dela, como se fosse um ponto.
-            resultado = _por_ponto(source, cidade.latitude, cidade.longitude, tipo, limit)
+        ponto: tuple[float, float, str] | None = None
+        local = lugares.buscar(uf, municipio)
+        if local is not None:
+            ponto = (
+                local.latitude,
+                local.longitude,
+                f"centro aproximado de {local.nome}/{local.uf}",
+            )
+        else:
+            cidade = buscar(uf, municipio)
+            if cidade is not None:
+                ponto = (cidade.latitude, cidade.longitude, f"centro de {cidade.nome}/{cidade.uf}")
+            elif geocodificar is not None:
+                achado = geocodificar(uf, municipio)
+                if achado is not None:
+                    ponto = (achado.latitude, achado.longitude, f"local informado em {uf.upper()}")
+        if ponto is not None:
+            # Lugar conhecido: mede a partir do centro dele, como se fosse um ponto.
+            resultado = _por_ponto(source, ponto[0], ponto[1], tipo, limit)
             return NearbyResult(
                 servicos=resultado.servicos,
                 deam_mais_proxima=resultado.deam_mais_proxima,
                 aviso=resultado.aviso,
                 referencia=Referencia(
-                    latitude=round(cidade.latitude, 4),
-                    longitude=round(cidade.longitude, 4),
-                    rotulo=f"centro de {cidade.nome}/{cidade.uf}",
+                    latitude=round(ponto[0], 4), longitude=round(ponto[1], 4), rotulo=ponto[2]
                 ),
             )
         rows = [p for p in source.by_municipio(uf.upper(), municipio) if tipo in (None, p.tipo)]
