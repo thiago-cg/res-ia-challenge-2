@@ -297,7 +297,7 @@
               <svg class="icone" aria-hidden="true"><use href="#i-info"></use></svg>
               Onde não houve medição, está escrito.
             </p>
-            <p>Os números desta página vêm dos relatórios de 7 e 9 de novembro de 2026. Eles comparam estratégias no mesmo corpus e no mesmo conjunto de perguntas. Não são uma medida de cobertura da lei e não substituem avaliação humana.</p>
+            <p>Os números desta página vêm de duas medições datadas: a rodada de 7 e 9 de novembro de 2026, que compara estratégias no mesmo corpus e no mesmo conjunto de perguntas, e a medição de 18 de novembro sobre a base real. Cada seção diz de qual delas veio. Nenhuma das duas é medida de cobertura da lei, e nenhuma substitui avaliação humana.</p>
           </div>
         </div>
       </div>
@@ -649,7 +649,7 @@
           </div>
           <div class="fluxo__ficha-linha">
             <dt>Faz</dt>
-            <dd>Postgres FTS sobre <code>search_text</code> sem acentos; Qdrant denso 4096d; RRF k=60 com peso lexical 0,2; filtro de versão.</dd>
+            <dd>Postgres FTS sobre <code>search_text</code> sem acentos; índice vetorial 1.024d; RRF k=60 com peso lexical 0,2; filtro de versão.</dd>
           </div>
           <div class="fluxo__ficha-linha">
             <dt>Sai</dt>
@@ -854,8 +854,8 @@
                   <svg class="icone trilha__icone" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-banco"></use></svg>
                 </div>
                 <h4>Dois índices</h4>
-                <p>Postgres guarda o texto; Qdrant, o vetor denso de 4096 dimensões.</p>
-                <span class="trilha__carga">4096d</span>
+                <p>Postgres guarda o texto e o vetor denso; o Qdrant é o índice alternativo do caminho-alvo.</p>
+                <span class="trilha__carga">1024d</span>
               </li>
             </ol>
             <p class="trilha__nota">
@@ -880,9 +880,9 @@
         <p class="dados__subtitulo">Lei Maria da Penha</p>
       </div>
       <dl class="dados__numeros">
-        <div><dt>Normas</dt><dd>5</dd></div>
-        <div><dt>Artigos</dt><dd>1.312</dd></div>
-        <div><dt>Versões de dispositivo</dt><dd>4.959</dd></div>
+        <div><dt>Normas</dt><dd>25</dd></div>
+        <div><dt>Artigos</dt><dd>2.620</dd></div>
+        <div><dt>Versões de dispositivo</dt><dd>10.797</dd></div>
       </dl>
     </div>
 
@@ -922,14 +922,14 @@
             <p class="dados__id"><code>lmp/art7/cpt/inc3</code></p>
             <p class="dados__citacao">Lei nº 11.340/2006, art. 7, caput, inciso III</p>
             <p class="dados__literal">“a violência sexual, entendida como qualquer conduta que a constranja a presenciar, a manter ou a participar de relação sexual não desejada...”</p>
-            <p class="dados__meta">texto literal · contexto do artigo · vetor de 4096 dimensões</p>
+            <p class="dados__meta">texto literal · contexto do artigo · vetor de 1.024 dimensões</p>
           </div>
           <div class="dados__folha">
             <p class="dados__tag">Dispositivo</p>
             <p class="dados__id"><code>lmp/art7/cpt/inc4</code></p>
             <p class="dados__citacao">Lei nº 11.340/2006, art. 7, caput, inciso IV</p>
             <p class="dados__literal">“a violência patrimonial, entendida como qualquer conduta que configure retenção, subtração, destruição parcial ou total de seus objetos...”</p>
-            <p class="dados__meta">texto literal · contexto do artigo · vetor de 4096 dimensões</p>
+            <p class="dados__meta">texto literal · contexto do artigo · vetor de 1.024 dimensões</p>
           </div>
         </div>
       </div>
@@ -967,7 +967,7 @@
             <p class="linha-fina">Duas pernas, uma fusão e três decisões medidas. O que parecia sofisticado perdeu para regras determinísticas e um dedupe corrigido.</p>
           </header>
           <div class="prosa">
-  <p>A configuração atual é híbrida. A perna lexical usa o Postgres FTS com <code>to_tsvector('portuguese', search_text)</code>, <code>websearch_to_tsquery</code> e escore IDF. A perna densa usa o Qdrant com Qwen3 Embedding 8B em 4096 dimensões. As duas listas se fundem por RRF, que combina as posições e não os escores, com <code>k</code>=60 e peso lexical 0,2. A expansão de consulta é determinística, feita por regras, e o teto é de 3 dispositivos por artigo, preservando a ordem global. O Postgres é a fonte da verdade e o Qdrant é o índice; a hidratação é por <code>(device_id, norm_version_id)</code>, o que amarra cada resultado à versão da lei.</p>
+  <p>A configuração atual é híbrida. A perna lexical usa o Postgres FTS com <code>to_tsvector('portuguese', search_text)</code>, <code>websearch_to_tsquery</code> e escore IDF. A perna densa usa o índice vetorial — pgvector no caminho padrão, Qdrant no caminho-alvo — com Qwen3 Embedding 8B em 1.024 dimensões. As duas listas se fundem por RRF, que combina as posições e não os escores, com <code>k</code>=60 e peso lexical 0,2. A expansão de consulta é determinística, feita por regras, e o teto é de 3 dispositivos por artigo, preservando a ordem global. O Postgres é a fonte da verdade e o índice vetorial é derivado dele; a hidratação é por <code>(device_id, norm_version_id)</code>, o que amarra cada resultado à versão da lei.</p>
 
   <p>Essa não é a configuração mais precisa no papel. O denso sem teto marca 0,776, o híbrido sem teto 0,771 e o híbrido com teto 3 fica em 0,762. A escolha não vem do topo da tabela. É a configuração que combina precisão suficiente com degradação graciosa e auditabilidade: se o provedor de embedding falha, a perna lexical sustenta a resposta; o teto de 3 mostra artigos diferentes; e o caminho sem LLM na consulta pode ser repetido e auditado.</p>
 </div>
@@ -1064,9 +1064,10 @@
 
       <div class="busca__perna busca__perna--densa">
         <p class="dados__tag">Perna densa</p>
-        <h4>Qdrant</h4>
+        <h4>Índice vetorial</h4>
         <ul>
-          <li><code>qwen3-embedding-8b</code>, 4096 dimensões</li>
+          <li><code>qwen3-embedding-8b</code>, 1.024 dimensões</li>
+          <li>pgvector no caminho padrão; Qdrant no caminho-alvo</li>
           <li>cosseno, vetores em float16</li>
           <li>busca aproximada no mesmo espaço da consulta</li>
         </ul>
@@ -1922,19 +1923,32 @@ uv run python scripts/apply_migrations.py</code></pre>
 </div>
 
 <div class="prosa">
-  <p>Para reproduzir o índice medido, use o backend Qdrant e o embedding remoto no <code>.env</code>:</p>
+  <p>Para reproduzir a entrega atual, use o pgvector com o embedding remoto no <code>.env</code>:</p>
 </div>
 
 <div class="codigo">
-  <div class="codigo__topo"><span>Configuração do índice medido</span></div>
-  <pre><code>DENSE_BACKEND=qdrant
+  <div class="codigo__topo"><span>Configuração do índice atual</span></div>
+  <pre><code>DENSE_BACKEND=pgvector
 EMBEDDING_PROVIDER=openrouter
 OPENROUTER_EMBEDDING_MODEL=qwen/qwen3-embedding-8b
-OPENROUTER_EMBEDDING_DIMENSIONS=4096</code></pre>
+OPENROUTER_EMBEDDING_DIMENSIONS=1024</code></pre>
+</div>
+
+<div class="nota nota--atencao mt-6">
+  <p class="nota__titulo">
+    <svg class="icone" aria-hidden="true"><use href="#i-alerta"></use></svg>
+    A dimensão precisa casar com a coluna.
+  </p>
+  <p>A migração <code>001</code> cria <code>embedding vector(1024)</code>. Um <code>.env</code> com 4.096 dimensões faz a gravação falhar, e o <code>src.index.run</code> confere a dimensão da coluna antes de começar. A rodada de 9 de novembro usou 4.096 dimensões porque indexou no Qdrant, que não herda o tipo da coluna.</p>
 </div>
 
 <div class="codigo">
-  <div class="codigo__topo"><span>Índice Qdrant</span></div>
+  <div class="codigo__topo"><span>Índice pgvector</span></div>
+  <pre><code>uv run python -m src.index.run --path fallback</code></pre>
+</div>
+
+<div class="codigo">
+  <div class="codigo__topo"><span>Índice Qdrant (caminho-alvo)</span></div>
   <pre><code>uv run python -m src.index.run --path qdrant-dense `
   --database-url $env:DATABASE_URL --qdrant-url $env:QDRANT_URL</code></pre>
 </div>
