@@ -6,7 +6,7 @@ from datetime import date
 from typing import Any, Protocol
 
 from src.contracts import CitationResolution
-from src.textnorm import normalize_citation_forms, roman_to_int
+from src.textnorm import canonical_roman_to_int, normalize_citation_forms
 
 _NORM_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bcpp\b|\bcodigo de processo penal\b"), "cpp"),
@@ -27,6 +27,15 @@ _LEADING_QUALIFIERS_RE = re.compile(
     rf"{_QUALIFIER_PATTERN}\s*(?:{_QUALIFIER_CONNECTOR}\s*)?$"
 )
 _PUNCTUATION = "\"'“”().,"
+
+#: Structural words never taken as a bare qualifier value.
+_CITATION_WORDS = frozenset({"artigo", "paragrafo", "inciso", "alinea", "item"})
+
+#: Single letters that are ordinary Portuguese words, so never a bare alinea.
+_PROSE_SINGLE_LETTERS = frozenset({"a", "e", "o"})
+
+#: Words that give a bare Roman numeral or letter a citation meaning.
+_CITATION_MARKER_RE = re.compile(r"\b(?:artigo|paragrafo|inciso|alinea|item|caput|sumula)\b")
 
 
 @dataclass(frozen=True)
@@ -67,21 +76,31 @@ def _extract_letter(text: str, keyword: str) -> str | None:
 def _extract_bare_tokens(
     text: str, inciso: int | None, alinea: str | None
 ) -> tuple[int | None, str | None]:
+    """Read qualifiers written next to the article without a keyword.
+
+    ``art. 22, III, "b"`` carries the inciso and the alinea as bare tokens, so this
+    path has to exist.  It only accepts canonical Roman numerals and letters that
+    are not Portuguese words: ``mim``, ``mil``, ``vim`` and ``vivi`` are valid runs
+    of Roman letters, and reading them as an inciso made the pipeline abstain on
+    questions such as "a acao depende de mim".
+    """
     if inciso is not None and alinea is not None:
         return inciso, alinea
 
     for raw_token in text.split():
         token = raw_token.strip(_PUNCTUATION)
-        if not token or token in {"artigo", "paragrafo", "inciso", "alinea", "item"}:
+        if not token or token in _CITATION_WORDS:
             continue
         if inciso is None:
-            number = roman_to_int(token)
+            number = canonical_roman_to_int(token)
             if number is not None:
                 inciso = number
                 continue
-        if alinea is None and len(token) == 1 and token.isalpha():
-            if inciso is not None or _is_quoted(raw_token):
-                alinea = token
+        if alinea is not None or len(token) != 1 or not token.isalpha():
+            continue
+        quoted = _is_quoted(raw_token)
+        if quoted or (inciso is not None and token not in _PROSE_SINGLE_LETTERS):
+            alinea = token
     return inciso, alinea
 
 
@@ -99,6 +118,18 @@ def _leading_qualifiers(text: str) -> str:
 
     match = _LEADING_QUALIFIERS_RE.search(text)
     return match.group(0).strip() if match else ""
+
+
+def _allows_bare_tokens(normalized: str, artigo: int | None) -> bool:
+    """Bare qualifiers only carry meaning inside a citation.
+
+    ``art. 22, III, "b"`` spells the inciso and the alinea with no keyword, so the
+    bare tokens still have to be read next to an article reference.  On their own
+    they are ordinary prose, and reading them turned "depende de mim" into inciso
+    1999 -- an explicit citation miss, so the pipeline abstained on a question it
+    could answer.
+    """
+    return artigo is not None or _CITATION_MARKER_RE.search(normalized) is not None
 
 
 def parse_citation(text: str) -> ParsedCitation:
@@ -121,7 +152,8 @@ def parse_citation(text: str) -> ParsedCitation:
     inciso = _extract_number(remainder, "inciso")
     alinea = _extract_letter(remainder, "alinea")
     item = _extract_number(remainder, "item")
-    inciso, alinea = _extract_bare_tokens(remainder, inciso, alinea)
+    if _allows_bare_tokens(normalized, artigo):
+        inciso, alinea = _extract_bare_tokens(remainder, inciso, alinea)
 
     return ParsedCitation(
         raw=text,

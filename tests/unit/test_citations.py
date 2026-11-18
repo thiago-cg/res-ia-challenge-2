@@ -278,3 +278,61 @@ def test_dict_catalog_result_is_supported() -> None:
 )
 def test_norm_hint_detection(text: str, expected_norm: str) -> None:
     assert parse_citation(text).norm_hint == expected_norm
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "quero entender se a ação é pública ou depende de mim.",
+        "ele ganha três mil por mês e não me deixa sair",
+        "vim aqui porque não sei o que fazer",
+        "a situação que eu vivi foi ruim",
+        "eu vivi com ele por dez anos",
+    ],
+)
+def test_common_words_are_not_read_as_a_citation(text: str) -> None:
+    """``mim``, ``mil``, ``vim`` and ``vivi`` are runs of Roman letters, not incisos."""
+
+    parsed = parse_citation(text)
+
+    assert parsed.inciso is None
+    assert parsed.alinea is None
+
+    result = resolve_explicit_citation(text, norm_hint="lmp", catalog=LMP_CATALOG)
+    assert result.resolved is False
+    assert result.ambiguous is False
+    assert result.reason == "no_citation"
+
+
+def test_phantom_inciso_does_not_hide_a_real_article() -> None:
+    """A word beside a real article must not turn it into an inexistent device."""
+
+    text = "o que diz o art. 22 da Lei Maria da Penha? para mim é confuso"
+    result = resolve_explicit_citation(text, catalog=LMP_CATALOG)
+
+    assert parse_citation(text).inciso is None
+    assert result.resolved is True
+    assert result.device_id == "lmp/art22"
+    assert LMP_CATALOG.calls[-1] == ("lmp", "lmp/art22")
+
+
+def test_prose_after_an_article_does_not_become_an_alinea() -> None:
+    parsed = parse_citation("o art. 22, III e não sei o que fazer")
+
+    assert parsed.artigo == 22
+    assert parsed.inciso == 3
+    assert parsed.alinea is None
+
+
+def test_quoted_single_letter_is_still_an_alinea() -> None:
+    parsed = parse_citation('art. 22, III, "a"')
+
+    assert parsed.inciso == 3
+    assert parsed.alinea == "a"
+
+
+def test_bare_roman_without_citation_context_is_not_a_citation() -> None:
+    parsed = parse_citation("III")
+
+    assert parsed.inciso is None
+    assert parsed.artigo is None

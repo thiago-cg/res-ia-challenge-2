@@ -2321,3 +2321,75 @@ Os 948 testes verdes locais não provavam nada sobre o ambiente de CI: `.env` pr
 disponível **mascararam** duas dependências implícitas. O experimento que teria pegado isso antes do
 push é barato — mover `.env` para longe e rodar a suíte. Fiz isso depois, e ele sozinho não bastava
 porque o Postgres continuava de pé; o CI provou o que a simulação não provou.
+
+### 22.31 Citação fantasma: quando "para mim" virava inciso 1999 (2026-11-18)
+
+A avaliação de recuperação sobre a base real devolveu **uma abstenção em 40 perguntas**. A pergunta
+era `q040` — "quero entender se a ação é pública ou depende de mim" — e a abstenção era
+`citacao_explicita_nao_encontrada`. A mensagem não cita dispositivo nenhum.
+
+**OBSERVADO — a causa.** `_extract_bare_tokens` recebia a mensagem inteira quando não havia artigo
+e aceitava qualquer palavra que fosse numeral romano válido:
+
+```text
+roman_to_int("mim") == 1999        # M 999 M -> M + (M - I)
+parse_citation("... depende de mim.").inciso == 1999
+```
+
+Inciso sem artigo ⇒ `norm_ambiguous` ⇒ `is_explicit_miss` ⇒ **abstenção**. O defeito não era de
+métrica: era o sistema se recusando a responder uma pergunta que sabia responder.
+
+A varredura das 150 perguntas do conjunto de avaliação e de frases reais de relato mostrou que o
+problema é mais largo que a palavra que o revelou — e que ele arrasta uma segunda invenção:
+
+| Entrada | Antes | Depois |
+| --- | --- | --- |
+| "…depende de **mim**." | inciso 1999 | sem citação |
+| "ele ganha três **mil** por mês…" | inciso 1049 + alínea `e` | sem citação |
+| "**vim** aqui porque não sei…" | inciso 994 + alínea `o` | sem citação |
+| "a situação que eu **vivi** foi ruim" | inciso 10 | sem citação |
+| "o art. 22… para **mim** é confuso" | `lmp/art22/cpt/inc1999` → `not_found` | `lmp/art22` |
+
+A alínea fantasma vem do mesmo passo: depois de fixar um inciso, qualquer letra solta seguinte era
+aceita como alínea — e `e` e `o` são letras e são palavras. A última linha é a variante pior: uma
+citação **legítima** era destruída por uma palavra comum ao lado, e o artigo 22, que existe, virava
+`not_found` ⇒ abstenção.
+
+**Decisão de conserto — dois guardas no parser, nenhum no chamador.**
+
+1. `canonical_roman_to_int` (`src/textnorm.py`) só aceita a grafia canônica do numeral. 1999 é
+   `MCMXCIX`, nunca `MIM`; converter o número de volta para letras rejeita `mim`, `mil`, `vim`, `vivi`
+   e `civil` sem perder nenhum inciso que exista numa lei. Aplicado também em `_convert_inciso_romans`,
+   para que a normalização de busca não reescrevesse "inciso mim" como "inciso 1999" — o mesmo defeito
+   entrando pelo outro lado.
+2. `_allows_bare_tokens` só lê qualificador solto quando a mensagem tem artigo ou marcador de citação
+   (`artigo`, `paragrafo`, `inciso`, `alinea`, `item`, `caput`, `sumula`). Só existem tokens soltos
+   porque `art. 22, III, "b"` não traz palavra-chave: longe de uma citação, eles são prosa.
+
+Somado a isso, `_PROSE_SINGLE_LETTERS = {a, e, o}` impede que uma palavra de uma letra vire alínea
+solta; letra entre aspas (`"a"`) continua valendo, porque ali a intenção é explícita.
+
+**VALIDADO — o teste vermelho antes do verde.** Os 30 casos novos foram rodados contra o `HEAD`
+anterior: 8 falharam (os cinco da tabela, mais "art. 22, III e não sei…", "III" sozinho e a frase com
+artigo legítimo). Depois do conserto, `993 passed`, `ruff` e `mypy` limpos.
+
+**VALIDADO — o alcance real da mudança, medido.** Varrendo as 150 perguntas do conjunto contra o
+parser antigo e o novo, **1 pergunta muda de comportamento** (`q040`, a que motivou o conserto) e os
+disparos de "citação explícita não encontrada" caem de 3 para 2 — os outros dois continuam sendo
+citações explícitas de verdade que não existem no corpus.
+
+Na base real, com a mesma pilha de produção (pgvector + FTS + expansão + hidratação):
+
+```text
+q040                    abstencao=None  n=10  (antes: citacao_explicita_nao_encontrada)
+"o que diz o art. 22"   abstencao=None  n=1   [lmp/art22]   <- caminho explícito intacto
+```
+
+**PENDENTE — o que isso não conserta.** A recuperação de `q040` continua sem trazer `stj-sum-542` no
+top-10. O conserto devolve o **comportamento** (responder em vez de abster), não o **ranqueamento**:
+a dificuldade da Súmula 542 — paráfrase coloquial contra enunciado curto e abstrato — segue aberta e
+é o item seguinte do plano.
+
+**Lição.** O número agregado escondeu a natureza da falha: `q040` entrava nas estatísticas como
+"recuperação perdida", quando era abstenção indevida. Uma métrica de recall não distingue "não achei"
+de "me recusei a procurar", e só a leitura pergunta por pergunta separou as duas coisas.
