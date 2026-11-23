@@ -145,6 +145,11 @@ class Settings(BaseSettings):
     #: tempo antes de emitir o JSON; 30 s (o default do Protocol) é pouco e vira "llm_indisponivel".
     llm_timeout: float = Field(default=90.0, gt=0)
 
+    #: Espacamento minimo entre duas chamadas de geracao, em segundos; 0 desliga. Existe para
+    #: rodar contra camada gratuita com cota por minuto (3 RPM = 20 s): a espera acontece antes
+    #: do pedido, entao o cliente fica dentro da cota em vez de brigar com o 429.
+    llm_min_interval_seconds: float = Field(default=0.0, ge=0.0)
+
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "openai/gpt-4o-mini"
