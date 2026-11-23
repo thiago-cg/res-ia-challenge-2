@@ -89,6 +89,12 @@ class Settings(BaseSettings):
     query_rewrite_timeout: float = Field(default=30.0, gt=0)
 
     database_url: str = "postgresql://app:app@localhost:5432/violencia"
+
+    # Acesso independente ao painel policial. Configurar via variáveis de ambiente.
+    police_panel_username: str = ""
+    police_panel_password: str = ""
+    police_panel_secret: str = ""
+    cookie_secure: bool = True
     qdrant_url: str = "http://localhost:6333"
 
     ppx_9b_model_path: str = ""

@@ -1121,6 +1121,7 @@ def _mount_v1(app: FastAPI, settings: Settings) -> None:
 
     from src.api.conversations import criar_router
     from src.api.runs import criar_router_runs
+    from src.api.contact_requests import criar_router as criar_router_contact_requests
 
     conectar = _conectar_settings(settings)
     app.state.conectar = conectar
@@ -1129,10 +1130,21 @@ def _mount_v1(app: FastAPI, settings: Settings) -> None:
             conectar=conectar,
             retencao_dias=settings.conversation_retention_days,
             deadline_segundos=settings.run_deadline_seconds,
+            cookie_seguro=settings.cookie_secure,
         ),
         prefix="/api/v1",
     )
     app.include_router(criar_router_runs(conectar=conectar), prefix="/api/v1")
+    app.include_router(
+        criar_router_contact_requests(
+            conectar=conectar,
+            police_username=settings.police_panel_username,
+            police_password=settings.police_panel_password,
+            police_secret=settings.police_panel_secret,
+            cookie_seguro=settings.cookie_secure,
+        ),
+        prefix="/api/v1",
+    )
 
 
 def _mount_interface(app: FastAPI) -> None:

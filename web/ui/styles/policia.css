@@ -1,0 +1,139 @@
+.policia {
+  min-height: 100vh;
+  background: var(--cor-fundo);
+}
+
+.policia__container {
+  width: min(920px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.policia__topo,
+.policia__resumo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.policia__marca {
+  color: var(--cor-acao);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 3px;
+}
+
+.policia__topo h1 {
+  margin: 10px 0 4px;
+}
+
+.policia__topo p,
+.policia__resumo p,
+.policia__cartao > p {
+  color: var(--cor-texto-suave);
+}
+
+.policia__cartao,
+.policia__solicitacao {
+  margin-top: 28px;
+  padding: 28px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-grande);
+  background: var(--cor-superficie);
+}
+
+.policia__cartao {
+  max-width: 480px;
+}
+
+.policia__cartao form {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.policia input,
+.policia select,
+.policia textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: 10px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  font: inherit;
+}
+
+.policia__filtros {
+  display: grid;
+  gap: 8px;
+  max-width: 260px;
+  margin: 28px 0;
+}
+
+.policia__lista {
+  display: grid;
+  gap: 16px;
+}
+
+.policia__solicitacao {
+  margin: 0;
+}
+
+.policia__solicitacao h3 {
+  margin-top: 0;
+}
+
+.policia__solicitacao p {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.policia__solicitacao textarea {
+  margin: 12px 0;
+  min-height: 100px;
+  resize: vertical;
+}
+
+.policia__status {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: var(--cor-fundo);
+  font-size: 12px;
+}
+
+.policia__mensagem {
+  margin-top: 20px;
+  color: var(--cor-texto);
+}
+
+.policia__mensagem:empty {
+  display: none;
+}
+
+.policia__rodape {
+  margin-top: 48px;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .policia__container {
+    padding: 28px 0;
+  }
+
+  .policia__topo,
+  .policia__resumo {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .policia__cartao,
+  .policia__solicitacao {
+    padding: 20px;
+  }
+}

@@ -2537,6 +2537,11 @@ ml = [
     { name = "transformers" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "fastapi" },
@@ -2562,6 +2567,9 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"] },
 ]
 provides-extras = ["dev", "ml"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.2.0" }]
 
 [[package]]
 name = "rich"

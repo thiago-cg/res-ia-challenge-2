@@ -217,7 +217,7 @@ def criar_router(
             conn.commit()
 
         resposta = Response(status_code=204)
-        limpar_cookie(resposta)
+        limpar_cookie(resposta, seguro=cookie_seguro)
         return resposta
 
     return router

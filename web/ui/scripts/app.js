@@ -875,6 +875,51 @@ function fecharDialogo(dialogo) {
 }
 
 function ligarEventos() {
+  el.abrirContato.addEventListener("click", () => {
+    el.statusContato.textContent = "";
+    abrirDialogo(el.dialogoContato);
+  });
+
+  el.formContato.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+
+    const mensagem = el.mensagemContato.value.trim();
+    if (!mensagem) {
+      el.statusContato.textContent = "Escreva uma mensagem antes de continuar.";
+      return;
+    }
+
+    if (estado.modo === "demo") {
+      el.statusContato.textContent =
+        "O envio não está disponível no modo de demonstração.";
+      return;
+    }
+
+    el.enviarContato.disabled = true;
+    el.statusContato.textContent = "Preparando sua solicitação...";
+
+    try {
+      // Recupera ou cria a conversa autenticada antes de enviar.
+      if (!estado.duravelAtivo) {
+        await ativarFluxoDuravel();
+      }
+
+      if (!estado.duravelAtivo || !estado.conversaId) {
+        throw new Error("Não foi possível autenticar a conversa.");
+      }
+
+      await estado.api.solicitarContato(mensagem);
+
+      el.formContato.reset();
+      el.statusContato.textContent =
+        "Solicitação registrada no ambiente demonstrativo. Nenhuma unidade policial real foi notificada.";
+    } catch {
+      el.statusContato.textContent =
+        "Não foi possível registrar a solicitação. Verifique sua conexão e tente novamente.";
+    } finally {
+      el.enviarContato.disabled = false;
+    }
+  });
   el.form.addEventListener("submit", (evento) => {
     evento.preventDefault();
     enviar(el.campo.value);
@@ -1115,6 +1160,12 @@ function iniciar() {
   el.dataAplicar = document.getElementById("data-aplicar");
   el.dataLimpar = document.getElementById("data-limpar");
   el.dialogoData = document.getElementById("dialogo-data");
+  el.dialogoContato = document.getElementById("dialogo-contato");
+  el.abrirContato = document.getElementById("abrir-contato");
+  el.formContato = document.getElementById("form-contato");
+  el.mensagemContato = document.getElementById("mensagem-contato");
+  el.statusContato = document.getElementById("status-contato");
+  el.enviarContato = document.getElementById("enviar-contato");
   el.dialogoPrivacidade = document.getElementById("dialogo-privacidade");
   el.dialogoFontes = document.getElementById("dialogo-fontes");
   el.abrirPrivacidade = document.getElementById("abrir-privacidade");

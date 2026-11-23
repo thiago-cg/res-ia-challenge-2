@@ -213,6 +213,16 @@
       </section>
 
       <section class="contexto__cartao">
+        <h2 class="contexto__titulo">Canal Mulher–Polícia</h2>
+        <p class="contexto__texto contexto__texto--fraco">
+          Envie uma solicitação de contato no ambiente demonstrativo.
+        </p>
+        <button class="botao botao--secundario botao--largo" type="button" id="abrir-contato">
+          Solicitar contato
+        </button>
+      </section>
+
+      <section class="contexto__cartao">
         <h2 class="contexto__titulo">Privacidade</h2>
         <div class="linha-privacidade">
           <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
@@ -343,6 +353,33 @@
         Sair rápido
       </button>
     </div>
+  </dialog>
+
+  <dialog class="dialogo dialogo--estreito" id="dialogo-contato" tabindex="-1" aria-labelledby="titulo-contato">
+    <div class="dialogo__cabecalho">
+      <h2 class="dialogo__titulo" id="titulo-contato">Solicitar contato</h2>
+      <button class="botao botao--icone" type="button" data-fechar aria-label="Fechar">
+        <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+      </button>
+    </div>
+
+    <p class="dialogo__texto">
+      Este é um canal demonstrativo. Sua mensagem será registrada em um painel
+      de teste com dados fictícios, sem envio para uma unidade policial real.
+    </p>
+
+    <form id="form-contato">
+      <label class="rotulo-campo" for="mensagem-contato">Como podemos ajudar?</label>
+      <textarea class="campo" id="mensagem-contato" maxlength="4000"
+        rows="5" required placeholder="Escreva sua mensagem no seu tempo..."></textarea>
+      <p class="dialogo__nota" id="status-contato" role="status" aria-live="polite"></p>
+      <div class="dialogo__acoes">
+        <button class="botao botao--secundario" type="button" data-fechar>Cancelar</button>
+        <button class="botao botao--primario" id="enviar-contato" type="submit">
+          Confirmar solicitação
+        </button>
+      </div>
+    </form>
   </dialog>
 
   <dialog class="dialogo dialogo--estreito" id="dialogo-data" tabindex="-1" aria-labelledby="titulo-data">

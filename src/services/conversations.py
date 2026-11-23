@@ -64,7 +64,7 @@ def autenticar(conn: Any, token: str | None) -> uuid.UUID | None:
             (_hash(token),),
         )
         row = cur.fetchone()
-    return row[0] if row else None
+    return (row["id"] if isinstance(row, dict) else row[0]) if row else None
 
 
 COLUNAS_PUBLICAS = "id, created_at, last_seen_at, expires_at, deleted_at, purged_at"
