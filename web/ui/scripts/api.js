@@ -30,6 +30,30 @@ async function comTempoLimite(url, opcoes, tempoLimite) {
 export function criarCliente(base) {
   const raiz = String(base || "").replace(/\/+$/, "");
 
+  async function requisicao(caminho, opcoes = {}, tempoLimite = 15000) {
+    const resposta = await comTempoLimite(
+      `${raiz}/api/v1${caminho}`,
+      {
+        ...opcoes,
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          ...(opcoes.headers || {}),
+        },
+      },
+      tempoLimite,
+    );
+
+    if (!resposta.ok) {
+      throw new ErroApi("Não foi possível concluir a operação.", {
+        status: resposta.status,
+        tipo: "http",
+      });
+    }
+
+    return resposta.json();
+  }
+
   return {
     base: raiz,
 
@@ -97,5 +121,52 @@ export function criarCliente(base) {
 
       return resposta.json();
     },
+
+    async solicitarContato(message) {
+      return requisicao("/contact-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+    },
+
+    async consultarSolicitacao(id) {
+      return requisicao(`/contact-requests/${encodeURIComponent(id)}`);
+    },
+
+    async loginPolicia(username, password) {
+      return requisicao("/police/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+    },
+
+    async logoutPolicia() {
+      return requisicao("/police/logout", { method: "POST" });
+    },
+
+    async listarSolicitacoes(status) {
+      const filtro = status
+        ? `?status=${encodeURIComponent(status)}`
+        : "";
+      return requisicao(`/police/contact-requests${filtro}`);
+    },
+
+    async responderSolicitacao(id, response) {
+      return requisicao(
+        `/police/contact-requests/${encodeURIComponent(id)}/response`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ response }),
+        },
+      );
+    },
   };
 }
+
+/**
+ * Métodos do Canal Mulher–Polícia.
+ * O cookie de autenticação policial é enviado pelo navegador.
+ */

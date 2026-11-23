@@ -51,13 +51,13 @@ def emitir_cookie(
     )
 
 
-def limpar_cookie(resposta: Response) -> None:
+def limpar_cookie(resposta: Response, *, seguro: bool = True) -> None:
     resposta.delete_cookie(
         COOKIE_NOME,
         path="/",
         httponly=True,
         samesite="lax",
-        secure=True,
+        secure=seguro,
     )
 
 

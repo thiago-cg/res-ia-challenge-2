@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel policial · Zelia</title>
+  <meta name="theme-color" content="#F5F0E7">
+  <link rel="stylesheet" href="styles/fonts.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/app.css">
+  <link rel="stylesheet" href="styles/policia.css">
+</head>
+<body class="policia">
+  <main class="policia__container">
+    <header class="policia__topo">
+      <div>
+        <span class="policia__marca">ZELIA</span>
+        <h1>Painel de atendimento</h1>
+        <p>Canal Mulher–Polícia · Ambiente de demonstração</p>
+      </div>
+      <button id="botao-sair" class="botao botao--secundario" hidden>
+        Sair
+      </button>
+    </header>
+
+    <div id="mensagem" class="policia__mensagem" role="status" aria-live="polite"></div>
+
+    <section id="tela-login" class="policia__cartao">
+      <h2>Acesso policial</h2>
+      <p>Entre com suas credenciais para visualizar as solicitações.</p>
+
+      <form id="form-login">
+        <label for="usuario">Usuário</label>
+        <input id="usuario" name="username" autocomplete="username" required>
+
+        <label for="senha">Senha</label>
+        <input id="senha" name="password" type="password"
+          autocomplete="current-password" required>
+
+        <button class="botao botao--primario" type="submit">
+          Entrar no painel
+        </button>
+      </form>
+    </section>
+
+    <section id="tela-painel" hidden>
+      <div class="policia__resumo">
+        <div>
+          <h2>Solicitações de contato</h2>
+          <p>Visualize e responda às solicitações recebidas.</p>
+        </div>
+        <button id="botao-atualizar" class="botao botao--secundario">
+          Atualizar
+        </button>
+      </div>
+
+      <div class="policia__filtros">
+        <label for="filtro-status">Filtrar solicitações</label>
+        <select id="filtro-status">
+          <option value="">Todas</option>
+          <option value="pending">Pendentes</option>
+          <option value="responded">Respondidas</option>
+        </select>
+      </div>
+
+      <div id="lista-solicitacoes" class="policia__lista">
+        <p>Carregando solicitações...</p>
+      </div>
+    </section>
+
+    <footer class="policia__rodape">
+      Ambiente demonstrativo com dados fictícios. Não representa um canal
+      oficial de atendimento policial.
+    </footer>
+  </main>
+
+  <script type="module" src="scripts/policia.js"></script>
+</body>
+</html>
