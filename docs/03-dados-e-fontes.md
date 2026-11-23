@@ -150,24 +150,60 @@ A API pública entrega **metadados** de processos (capa e movimentações), não
 
 ### Serviços locais (base estruturada)
 
-Perguntas sobre DEAM, Defensoria, Casa da Mulher Brasileira e abrigos **não** devem ir para o vetor. Use uma tabela estruturada:
+Perguntas sobre DEAM, Defensoria, Casa da Mulher Brasileira e abrigos **não** devem ir para o vetor. Os serviços ficam numa tabela estruturada, consultada por `POST /services/nearby` (mapa das delegacias, issues #22, #23 e #27).
 
 ```sql
-CREATE TABLE services (
-    id           bigserial PRIMARY KEY,
-    uf           char(2) NOT NULL,
-    municipio    text NOT NULL,
-    nome         text NOT NULL,
-    tipo         text NOT NULL,  -- delegacia, defensoria, abrigo, cras, creas
-    endereco     text,
-    telefone     text,
-    horario      text,
-    fonte_url    text NOT NULL,
-    atualizado_em date NOT NULL
-);
+-- migrations/001 (base) + 006_services_geo.sql + 007_services_tipo_index.sql
+services (
+    id, uf, municipio, nome,
+    tipo                   text,    -- deam | nucleo_atendimento_mulher | delegacia_comum
+    endereco, telefone, horario,
+    latitude, longitude    double precision,   -- NULL ou dentro do Brasil (constraint)
+    coordenada_verificada  boolean,  -- false = ponto aproximado, a conferir
+    origem                 text,     -- cnj_2023 | pcdf | curado | osm
+    fonte_url, atualizado_em
+)
+-- índices: identidade única (uf, municipio, nome, endereço), geo (lat, lon),
+--          município (uf, municipio) e tipo (uf, tipo)
 ```
 
-Fontes possíveis: portais das Defensorias estaduais, delegacias especializadas, Ministério das Mulheres, CNJ e prefeituras. Cada telefone e endereço deve ser validado antes de publicar; esses dados mudam com frequência. No MVP, uma lista curada de um município já demonstra o fluxo.
+#### Fontes carregadas
+
+| Fonte | URL | Cobre | Licença / uso | Consulta |
+| --- | --- | --- | --- | --- |
+| CNJ, lista de delegacias especializadas de atendimento à mulher (PDF) | https://www.cnj.jus.br/wp-content/uploads/2023/09/delegacia-especializada-de-atendimento-a-mulher-2023.pdf | 442 DEAMs fora do DF (`origem=cnj_2023`) | Publicação institucional do CNJ; o PDF não declara licença | 2023-09-01 (data do documento) |
+| PCDF, lista telefônica das delegacias | https://www.pcdf.df.gov.br/informacoes/lista-telefonica/ | 31 delegacias comuns do DF (`origem=pcdf`) | Publicação institucional; sem licença declarada | 2026-11-16 |
+| Agência Brasília, "onde buscar ajuda" | https://www.agenciabrasilia.df.gov.br/w/saiba-onde-buscar-ajuda-em-casos-de-violencia-contra-a-mulher-no-df | DEAM I e II e 4 Núcleos Integrados do DF (`origem=curado`) | Publicação institucional; sem licença declarada | 2026-09-08 |
+| IBGE via kelvins/municipios-brasileiros | https://github.com/kelvins/municipios-brasileiros | Coordenada do centro de cada município (`municipios_br.csv`) | MIT (ver `municipios_br.LICENCA.txt`) | 2026-11 |
+| `localidades_br.csv` | curado à mão | Regiões administrativas do DF (Gama, Planaltina, Samambaia etc.) | Dado do projeto | 2026-11 |
+
+Cada seed tem fonte e data por linha (`fonte_url`, `atualizado_em`). Os arquivos `*.revisao.txt` listam o que foi descartado ou precisa de conferência.
+
+#### Qualidade das coordenadas (limite que a interface assume)
+
+- **Fora do DF (CNJ):** a coordenada é a do **centro do município**, não a da delegacia. Serve para dizer qual DEAM é a mais próxima da cidade, não para traçar rota de porta a porta.
+- **DF (PCDF e Núcleos):** parte foi refinada pelo endereço (`scripts/geocode_services.py`, Nominatim, rodado offline sob demanda); o resto usa o centro da região administrativa. Nada ainda está marcado `coordenada_verificada=true`.
+- A interface avisa "Localização aproximada. Confirme o endereço por telefone" e, para ponto aproximado a menos de 1 km, mostra "na região" em vez de metros.
+- Para marcar uma linha como verificada: conferir no mapa (ou por telefone) e mudar `coordenada_verificada` para `true` no CSV; o carregador atualiza só linhas de mesma `origem`.
+
+#### Carga e atualização
+
+```bash
+uv run python scripts/apply_migrations.py                     # cria colunas e índices
+uv run python scripts/load_services.py --csv data/seed/services_deam_cnj.csv
+uv run python scripts/load_services.py --csv data/seed/services_df.csv
+uv run python scripts/load_services.py --csv data/seed/services_df_pcdf.geocodificado.csv
+```
+
+O carregador é idempotente (upsert por UF + município + nome + endereço), não duplica ao rodar de novo e lista no final as linhas sem coordenada. Reconstruir os seeds: `scripts/build_deam_seed.py` (PDF do CNJ) e `scripts/build_pcdf_seed.py` (CSV da PCDF). Testes de qualidade: `tests/unit/test_seed_quality.py` (sem duplicatas, coordenadas dentro do Brasil, fonte e data presentes, telefone, DF com pelo menos 90% de linhas completas, todas as UFs cobertas).
+
+#### Lacunas conhecidas
+
+- 15ª DP (Ceilândia Centro) e 16ª DP (Planaltina) sem telefone.
+- 29ª DP / Núcleo de Riacho Fundo II sem endereço confirmado (o nome do Núcleo cita Riacho Fundo II, e a lista da PCDF traz a 29ª DP em Riacho Fundo I).
+- Telefones de Núcleo preenchidos com o número da delegacia onde ele funciona (Paranoá, Núcleo Bandeirante e Vicente Pires); confirmar.
+- DEAM I com dois telefones divergentes (curado x CNJ). Mantido o curado.
+- Os dados mudam com frequência: reconferir telefone e endereço antes de divulgar o app.
 
 ## 5. Doutrina e Jusbrasil (P2 — restrição)
 
