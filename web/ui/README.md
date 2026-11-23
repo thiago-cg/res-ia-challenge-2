@@ -47,7 +47,7 @@ web/ui/
 │   └── app.css           layout e componentes
 ├── scripts/
 │   ├── app.js            estado, eventos e renderização
-│   ├── delegacias.js     painel "Delegacias perto de você" (esquema SVG + cartões)
+│   ├── delegacias.js     painel "Delegacias perto de você" (cartões + mapa de ruas opcional)
 │   ├── api.js            cliente /chat e /health com timeout
 │   ├── demo.js           respostas de exemplo do contrato
 │   └── markdown.js       markdown mínimo e seguro (escapa antes de formatar)
@@ -83,10 +83,13 @@ Botão **Delegacias** no topo (e cartão no painel lateral). A usuária escolhe
 `POST /services/nearby` e mostra a DEAM mais próxima, as delegacias por
 distância, telefone, horário e "Como chegar".
 
-- **Sem mapa de terceiros.** O resultado é um esquema de distância e direção
-  desenhado em SVG no navegador (norte para cima), e não um mapa de ruas: tiles
-  do OpenStreetMap ou do Google revelariam a região e o IP a terceiros. O único
-  link que sai do app é o "Como chegar", aberto por toque, só com o destino.
+- **Mapa de ruas opcional.** A lista de cartões funciona sem terceiros. O mapa
+  (Leaflet, servido por `web/ui/vendor/leaflet/`) só é carregado depois que a
+  usuária toca em "Abrir o mapa", com aviso na tela: os blocos de imagem vêm do
+  OpenStreetMap, que vê a região mostrada e o IP do aparelho. A posição exata
+  nunca é enviada. Pino "Você" com GPS; na busca por cidade, o centro da cidade
+  e o botão "Marcar onde estou" (localização usada só no navegador). O outro link
+  que sai do app é o "Como chegar", só com o destino.
 - **Localização:** pedida só ao toque, arredondada a 3 casas (~110 m), enviada
   por POST, nunca gravada (storage, URL, histórico) e apagada ao fechar o painel.
 - **Busca por cidade:** a API tem os 5.570 municípios do IBGE com coordenada

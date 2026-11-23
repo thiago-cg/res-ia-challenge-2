@@ -1,0 +1,21 @@
+nome,latitude,longitude,coordenada_verificada,fontes
+04ª DP – Guará II,-15.83179,-47.98059,true,nominatim_cep+osm_mapeada
+05ª DP – Setor de Grandes Áreas Norte,-15.78690,-47.89219,true,nominatim_cep+osm_mapeada
+08ª DP – SCIA,-15.80347,-47.96501,false,osm_mapeada
+11ª DP – Núcleo Bandeirante,-15.87016,-47.96713,false,osm_mapeada
+12ª DP – Taguatinga Norte,-15.83154,-48.05440,false,osm_mapeada
+15ª DP – Ceilândia Centro,-15.81643,-48.10628,true,nominatim_cep+osm_mapeada
+16ª DP – Planaltina,-15.62366,-47.65469,false,osm_mapeada
+18ª DP – Brazlândia,-15.68050,-48.19059,false,osm_mapeada
+19ª DP – Setor P Norte,-15.80830,-48.13400,true,nominatim_cep+nominatim_endereco+osm_mapeada
+21ª DP – Taguatinga Sul,-15.83300,-48.05700,false,provisorio_centro_da_regiao
+23ª DP – Setor P Sul,-15.84891,-48.11693,true,nominatim_cep+osm_mapeada
+24ª DP – Setor O,-15.79465,-48.13233,false,osm_mapeada
+27ª DP – Recanto das Emas,-15.91374,-48.09634,false,osm_mapeada
+29ª DP – Riacho Fundo,-15.88663,-48.01888,false,osm_mapeada
+30ª DP – São Sebastião,-15.89534,-47.77755,false,osm_mapeada
+31ª DP – Planaltina,-15.61639,-47.63528,false,osm_mapeada
+32ª DP – Samambaia Sul,-15.87527,-48.07645,false,osm_mapeada
+33ª DP – Santa Maria,-16.00657,-48.00227,false,osm_mapeada
+35ª DP – Sobradinho II,-15.64122,-47.82657,false,osm_mapeada
+38ª DP – Vicente Pires,-15.81577,-48.01821,false,osm_mapeada

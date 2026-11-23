@@ -62,7 +62,9 @@ def test_mapa_de_ruas_so_carrega_sob_demanda():
     codigo = re.sub(r"/\*.*?\*/", "", JS, flags=re.S)
     assert not re.search(r"^import .*mapa\.js", codigo, flags=re.M)
     assert 'import("./mapa.js")' in codigo
-    assert "data-abrir-mapa" in codigo and "OpenStreetMap" in codigo  # aviso antes do toque
+    assert "data-abrir-mapa" in codigo and "não sai do seu aparelho" in codigo
+    assert "OpenStreetMap" in HTML  # a divulgação do terceiro fica na tela de Privacidade
+    assert "radar" not in codigo.lower()
     assert "mapa.js" not in HTML and "leaflet" not in HTML.lower().replace("mapa de ruas", "")
 
 
@@ -81,3 +83,15 @@ def test_mapa_usa_leaflet_local_e_nao_grava_nem_envia_posicao():
         assert armazenamento not in codigo
     assert "https://tile.openstreetmap.org/{z}/{x}/{y}.png" in codigo
     assert "no-referrer" in codigo
+
+
+def test_permissao_de_localizacao_e_respeitada():
+    codigo = re.sub(r"/\*.*?\*/", "", JS, flags=re.S)
+    assert 'permissions.query({ name: "geolocation" })' in codigo
+    assert '"denied"' in codigo and '"granted"' in codigo
+
+
+def test_lista_unica_por_proximidade_sem_destaque_separado():
+    codigo = re.sub(r"/\*.*?\*/", "", JS, flags=re.S)
+    assert "servicosOrdenados" in codigo
+    assert "deleg__destaque" not in codigo
