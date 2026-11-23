@@ -235,6 +235,18 @@ function temDadoDoOsm(resposta) {
   return todos.some((s) => String(s.fonte_url || "").includes("openstreetmap.org"));
 }
 
+/** Botão que só carrega o mapa de ruas (e o OpenStreetMap) quando a usuária pede. */
+export function htmlBlocoMapa() {
+  return `
+    <section class="deleg__mapa" aria-label="Mapa de ruas">
+      <button class="botao botao--secundario botao--largo" type="button" data-abrir-mapa>
+        ${icone("mapa")}Ver no mapa de ruas
+      </button>
+      <p class="dialogo__nota" data-aviso-mapa>Ao abrir o mapa, as imagens das ruas são baixadas do OpenStreetMap (serviço externo), que pode ver a região mostrada e o endereço de rede do aparelho. Sua posição exata não é enviada.</p>
+      <div class="deleg__mapa-caixa" data-mapa-caixa role="region" aria-label="Mapa com as delegacias" hidden></div>
+    </section>`;
+}
+
 export function htmlResultado(resposta, origemBruta) {
   const servicos = resposta.servicos || [];
   const separada = deamSeparada(resposta);
@@ -257,6 +269,7 @@ export function htmlResultado(resposta, origemBruta) {
     }
   } else {
     if (comPonto && servicos.length) partes.push(htmlEsquema(calcularEsquema(origem, servicos), origem.rotulo));
+    if (servicos.length) partes.push(htmlBlocoMapa());
 
     if (separada) {
       partes.push(`
@@ -339,8 +352,46 @@ export function criarPainelDelegacias(contexto) {
     if (texto) contexto.anunciar?.(texto);
   }
 
+  let ultima = null; // só na memória da tela; some ao limpar ou fechar
+  let destruirMapa = null;
+
+  function fecharMapa() {
+    destruirMapa?.();
+    destruirMapa = null;
+  }
+
+  async function abrirMapa(botao) {
+    const secao = botao.closest(".deleg__mapa");
+    const caixa = secao?.querySelector("[data-mapa-caixa]");
+    if (!caixa || !ultima) return;
+    botao.disabled = true;
+    botao.lastChild.textContent = "Carregando o mapa…";
+    try {
+      const { mostrarMapa } = await import("./mapa.js");
+      caixa.hidden = false;
+      fecharMapa();
+      destruirMapa = await mostrarMapa(caixa, {
+        servicos: ultima.resposta.servicos || [],
+        origem: origemDaResposta(ultima.resposta, ultima.origem),
+      });
+      secao.querySelector("[data-aviso-mapa]")?.setAttribute("hidden", "");
+      botao.hidden = true;
+    } catch {
+      caixa.hidden = true;
+      botao.disabled = false;
+      botao.lastChild.textContent = "Não foi possível abrir o mapa. Tentar de novo";
+    }
+  }
+
+  resultado.addEventListener("click", (evento) => {
+    const botao = evento.target.closest?.("[data-abrir-mapa]");
+    if (botao) abrirMapa(botao);
+  });
+
   function limparTudo() {
     busca += 1; // invalida buscas em andamento
+    fecharMapa();
+    ultima = null;
     resultado.innerHTML = "";
     resultado.hidden = true;
     limpar.hidden = true;
@@ -369,6 +420,8 @@ export function criarPainelDelegacias(contexto) {
     try {
       const resposta = await contexto.api.servicosProximos({ ...corpo, limit: LIMITE_RESULTADOS });
       if (minha !== busca) return;
+      fecharMapa();
+      ultima = { resposta, origem };
       resultado.innerHTML = htmlResultado(resposta, origem);
       resultado.hidden = false;
       limpar.hidden = false;

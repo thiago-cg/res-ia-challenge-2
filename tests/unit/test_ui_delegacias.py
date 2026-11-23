@@ -1,7 +1,8 @@
 """Guarda a promessa de privacidade do painel de delegacias (web/ui).
 
-O painel precisa continuar sem tiles/mapas de terceiros, usar POST (nunca query
-string) para a localização e não persistir a posição no navegador.
+O painel só pode falar com mapas de terceiros depois de um toque explícito (mapa.js,
+carregado sob demanda), usar POST (nunca query string) para a localização e não
+persistir a posição no navegador.
 """
 
 from __future__ import annotations
@@ -52,3 +53,31 @@ def test_como_chegar_leva_so_o_destino():
     corpo = JS.split("export function linkComoChegar", 1)[1].split("}\n", 1)[0]
     assert "servico." in corpo
     assert "origem" not in corpo and "lat" not in corpo.replace("latitude", "")
+
+
+MAPA = (UI / "scripts" / "mapa.js").read_text(encoding="utf-8")
+
+
+def test_mapa_de_ruas_so_carrega_sob_demanda():
+    codigo = re.sub(r"/\*.*?\*/", "", JS, flags=re.S)
+    assert not re.search(r"^import .*mapa\.js", codigo, flags=re.M)
+    assert 'import("./mapa.js")' in codigo
+    assert "data-abrir-mapa" in codigo and "OpenStreetMap" in codigo  # aviso antes do toque
+    assert "mapa.js" not in HTML and "leaflet" not in HTML.lower().replace("mapa de ruas", "")
+
+
+def test_mapa_usa_leaflet_local_e_nao_grava_nem_envia_posicao():
+    assert (UI / "vendor" / "leaflet" / "leaflet.js").is_file()
+    assert (UI / "vendor" / "leaflet" / "LICENSE").is_file()
+    codigo = re.sub(r"/\*.*?\*/", "", MAPA, flags=re.S)
+    assert "unpkg" not in codigo and "cdn" not in codigo.lower()
+    for armazenamento in (
+        "localStorage",
+        "sessionStorage",
+        "indexedDB",
+        "document.cookie",
+        "fetch(",
+    ):
+        assert armazenamento not in codigo
+    assert "https://tile.openstreetmap.org/{z}/{x}/{y}.png" in codigo
+    assert "no-referrer" in codigo

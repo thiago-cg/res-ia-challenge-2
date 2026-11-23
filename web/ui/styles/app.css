@@ -2592,3 +2592,21 @@ a {
 .deleg__emergencia .telefone--principal .telefone__nome {
   opacity: 1;
 }
+
+/* --- mapa de ruas opcional (Leaflet carregado só sob demanda) --- */
+.deleg__mapa { display: grid; gap: 0.5rem; margin-block: 1rem; }
+.deleg__mapa-caixa {
+  height: min(60vh, 24rem);
+  border: 1px solid var(--cor-borda, #d9d4c7);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.deleg__mapa-caixa[hidden] { display: none; }
+.mapa__pino span, .mapa__voce span {
+  display: grid; place-items: center; width: 100%; height: 100%;
+  border-radius: 50%; border: 2px solid #fff; color: #fff;
+  font: 700 0.85rem/1 system-ui, sans-serif; background: #1f6f5a;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
+}
+.mapa__pino--deam span { background: #2150d6; }
+.mapa__voce span { display: block; background: #1b2233; }
