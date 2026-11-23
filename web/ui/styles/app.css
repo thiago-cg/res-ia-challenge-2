@@ -2286,10 +2286,7 @@ a {
   gap: var(--esp-2);
   align-items: flex-start;
   margin: var(--esp-3) 0 var(--esp-4);
-  padding: var(--esp-3);
-  border-radius: var(--raio-sm);
-  background: var(--zelia-azul-claro);
-  color: var(--cor-texto);
+  color: var(--cor-texto-suave);
   font-size: var(--texto-pequeno);
   line-height: var(--altura-pequeno);
 }
@@ -2402,27 +2399,26 @@ a {
   line-height: var(--altura-corpo);
 }
 
+.deleg__lista {
+  gap: 0;
+}
 .deleg__cartao {
-  padding: var(--esp-4);
-  border: var(--borda-fina);
-  border-radius: var(--raio-md);
-  background: var(--cor-superficie);
-}
-.deleg__cartao--deam {
-  border-color: var(--zelia-azul);
-  box-shadow: inset 4px 0 0 var(--zelia-azul);
-}
-.deleg__topo {
   display: flex;
   gap: var(--esp-3);
-  align-items: flex-start;
+  padding: var(--esp-4) 0;
+  border-top: var(--borda-fina);
+}
+.deleg__cartao:first-child {
+  border-top: 0;
+  padding-top: var(--esp-1);
 }
 .deleg__numero {
   flex: none;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
   border-radius: var(--raio-pill);
   background: var(--zelia-verde-escuro);
   color: var(--zelia-branco);
@@ -2432,54 +2428,53 @@ a {
 .deleg__cartao--deam .deleg__numero {
   background: var(--zelia-azul);
 }
-.deleg__titulos {
+.deleg__corpo {
   flex: 1;
   min-width: 0;
 }
-.deleg__rotulo {
-  margin: 0;
-  color: var(--cor-texto-suave);
-  font-size: var(--texto-rotulo);
-  font-weight: var(--peso-semi);
-  letter-spacing: var(--tracking-rotulo);
-  text-transform: uppercase;
+.deleg__topo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1) var(--esp-3);
+  align-items: baseline;
+  justify-content: space-between;
 }
 .deleg__nome {
-  margin: 2px 0 0;
-  font-size: var(--texto-corpo);
+  margin: 0;
+  font-size: var(--texto-corpo-g);
   font-weight: var(--peso-semi);
   line-height: 1.25;
 }
 .deleg__distancia {
-  flex: none;
   color: var(--zelia-azul);
   font-size: var(--texto-pequeno);
   font-weight: var(--peso-semi);
-  text-align: right;
 }
-.deleg__dados {
-  display: grid;
-  gap: var(--esp-1);
-  margin: var(--esp-3) 0 0;
+.deleg__rotulo {
+  margin: 2px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: var(--texto-pequeno);
+}
+.deleg__cartao--deam .deleg__rotulo {
+  color: var(--zelia-azul-escuro);
+  font-weight: var(--peso-medio);
+}
+.deleg__endereco {
+  margin: var(--esp-2) 0 0;
+  font-size: var(--texto-corpo);
+  line-height: var(--altura-corpo);
+}
+.deleg__nota {
+  margin: var(--esp-1) 0 0;
+  color: var(--cor-texto-suave);
   font-size: var(--texto-pequeno);
   line-height: var(--altura-pequeno);
-}
-.deleg__dados > div {
-  display: grid;
-  grid-template-columns: 76px 1fr;
-  gap: var(--esp-2);
-}
-.deleg__dados dt {
-  color: var(--cor-texto-suave);
-}
-.deleg__dados dd {
-  margin: 0;
 }
 .deleg__acoes {
   display: flex;
   flex-wrap: wrap;
   gap: var(--esp-2);
-  margin-top: var(--esp-4);
+  margin-top: var(--esp-3);
 }
 .deleg__acoes .botao {
   min-height: 44px;
@@ -2508,79 +2503,6 @@ a {
   margin-left: auto;
 }
 
-/* Esquema (radar) */
-.radar {
-  margin: 0;
-  padding: var(--esp-3);
-  border-radius: var(--raio-md);
-  background: var(--cor-superficie-2);
-}
-.radar svg {
-  display: block;
-  width: min(100%, 320px);
-  margin: 0 auto;
-}
-.radar figcaption {
-  margin-top: var(--esp-2);
-  color: var(--cor-texto-suave);
-  font-size: var(--texto-rotulo);
-  line-height: var(--altura-pequeno);
-  text-align: center;
-}
-.radar__anel {
-  fill: none;
-  stroke: var(--cor-borda-forte);
-  stroke-dasharray: 3 4;
-}
-.radar__eixo {
-  stroke: var(--cor-borda);
-  stroke-width: 1;
-}
-.radar__rotulo,
-.radar__norte {
-  fill: var(--cor-texto-suave);
-  font-family: var(--fonte-texto);
-  font-size: 9px;
-}
-.radar__norte {
-  font-weight: var(--peso-semi);
-}
-.radar__voce circle {
-  fill: var(--zelia-tinta);
-  stroke: var(--zelia-branco);
-  stroke-width: 2;
-}
-.radar__ponto circle {
-  fill: var(--zelia-verde-escuro);
-  stroke: var(--zelia-branco);
-  stroke-width: 2;
-}
-.radar__ponto--deam circle {
-  fill: var(--zelia-azul);
-}
-.radar__ponto text {
-  fill: var(--zelia-branco);
-  font-family: var(--fonte-texto);
-  font-size: 11px;
-  font-weight: var(--peso-semi);
-}
-
-@media (max-width: 480px) {
-  .deleg__topo {
-    flex-wrap: wrap;
-  }
-  .deleg__titulos {
-    flex-basis: calc(100% - 44px);
-  }
-  .deleg__distancia {
-    flex-basis: 100%;
-    text-align: left;
-  }
-  .deleg__numero + .deleg__titulos + .deleg__distancia {
-    padding-left: 40px;
-  }
-}
-
 /* No painel claro, o 190 precisa de fundo próprio (o padrão é branco sobre azul). */
 .deleg__emergencia .telefone--principal {
   background: var(--zelia-azul);
@@ -2591,4 +2513,138 @@ a {
 }
 .deleg__emergencia .telefone--principal .telefone__nome {
   opacity: 1;
+}
+
+/* Mapa de ruas (Leaflet só é carregado depois do toque) */
+.deleg__mapa {
+  display: grid;
+  gap: var(--esp-2);
+  justify-items: start;
+}
+.deleg__mapa-caixa {
+  width: 100%;
+  height: min(58vh, 26rem);
+  border: var(--borda-fina);
+  border-radius: var(--raio-md);
+  overflow: hidden;
+  background: var(--cor-superficie-2);
+}
+.deleg__mapa-caixa[hidden] {
+  display: none;
+}
+.deleg__mapa-pedido {
+  display: grid;
+  gap: var(--esp-3);
+  justify-items: start;
+  width: 100%;
+  padding: var(--esp-4);
+  border-radius: var(--raio-md);
+  background: var(--cor-superficie-2);
+}
+.deleg__mapa-pedido[hidden] {
+  display: none;
+}
+.deleg__mapa-pedido p {
+  margin: 0;
+  color: var(--cor-texto-suave);
+  font-size: var(--texto-pequeno);
+  line-height: var(--altura-pequeno);
+}
+.mapa__pino span,
+.mapa__voce span,
+.mapa__centro span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--zelia-branco);
+  box-shadow: 0 1px 4px rgba(30, 42, 58, 0.35);
+}
+.mapa__pino span {
+  display: grid;
+  place-items: center;
+  background: var(--zelia-verde-escuro);
+  color: var(--zelia-branco);
+  font: var(--peso-semi) 0.875rem/1 var(--fonte-texto);
+}
+.mapa__pino--deam span {
+  background: var(--zelia-azul);
+}
+.mapa__voce span {
+  background: var(--zelia-tinta);
+  animation: mapa-pulso 2.4s ease-out infinite;
+}
+.mapa__centro span {
+  background: var(--zelia-branco);
+  border-color: var(--zelia-tinta);
+}
+.mapa__rotulo.leaflet-tooltip {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: var(--raio-xs);
+  background: var(--zelia-tinta);
+  color: var(--zelia-branco);
+  font: var(--peso-semi) var(--texto-rotulo)/1.4 var(--fonte-texto);
+  box-shadow: none;
+}
+.mapa__rotulo.leaflet-tooltip-top::before {
+  border-top-color: var(--zelia-tinta);
+}
+@keyframes mapa-pulso {
+  0% { box-shadow: 0 0 0 0 rgba(30, 42, 58, 0.45); }
+  100% { box-shadow: 0 0 0 16px rgba(30, 42, 58, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mapa__voce span { animation: none; }
+}
+.mapa__precisao {
+  fill: var(--zelia-azul);
+  fill-opacity: 0.12;
+  stroke: var(--zelia-azul);
+  stroke-opacity: 0.4;
+  stroke-width: 1;
+}
+
+/* Mapa: estado de carregamento, pinos agrupados, aviso sem rede e ligação com a lista */
+.deleg__mapa-caixa {
+  position: relative;
+}
+.deleg__mapa-caixa::before {
+  content: "Carregando o mapa…";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--cor-texto-suave);
+  font-size: var(--texto-pequeno);
+}
+.mapa__pino--grupo span {
+  border-radius: var(--raio-pill);
+  padding: 0 var(--esp-2);
+}
+.mapa__aviso {
+  position: absolute;
+  inset: auto var(--esp-3) var(--esp-6) var(--esp-3);
+  z-index: 500;
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--raio-sm);
+  background: var(--zelia-branco);
+  color: var(--cor-texto);
+  font-size: var(--texto-pequeno);
+  box-shadow: var(--sombra-1);
+}
+.deleg__numero--botao {
+  cursor: pointer;
+}
+.deleg__numero--botao:focus-visible {
+  outline: 2px solid var(--zelia-azul);
+  outline-offset: 2px;
+}
+.deleg__cartao--ativo .deleg__nome {
+  color: var(--zelia-azul);
+}
+.deleg__cartao--ativo {
+  box-shadow: inset 3px 0 0 var(--zelia-azul);
+  padding-left: var(--esp-3);
 }
