@@ -49,6 +49,7 @@ figure {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
   color: inherit;
@@ -56,6 +57,11 @@ textarea {
 
 button {
   cursor: pointer;
+}
+
+strong,
+b {
+  font-weight: var(--peso-semi);
 }
 
 a {
@@ -1659,9 +1665,6 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 14px;
-  padding-top: 13px;
-  border-top: 1px solid var(--cor-divisor);
   font-size: 12px;
   line-height: 1.4;
   color: var(--cor-texto-suave);
@@ -1720,48 +1723,6 @@ a {
   box-shadow: 0 0 0 4px rgba(36, 87, 214, 0.13);
 }
 
-.exemplos-lista {
-  display: grid;
-  gap: 2px;
-  margin-top: 8px;
-}
-
-.exemplo-lateral {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 0;
-  border: 0;
-  border-top: 1px solid var(--cor-divisor);
-  background: none;
-  color: var(--cor-texto);
-  font-size: 12.5px;
-  line-height: 1.45;
-  text-align: left;
-}
-
-.exemplo-lateral:first-child {
-  border-top: 0;
-}
-
-.exemplo-lateral:hover {
-  color: var(--cor-acao);
-}
-
-.exemplo-lateral .i {
-  width: 14px;
-  height: 14px;
-  margin-top: 2px;
-  margin-left: auto;
-  flex: none;
-  color: var(--cor-texto-fraco);
-}
-
-.exemplo-lateral:hover .i {
-  color: var(--cor-acao);
-}
-
 .linha-privacidade {
   display: flex;
   align-items: center;
@@ -1789,6 +1750,10 @@ a {
   font-size: 11px;
   line-height: 1.6;
   color: var(--cor-texto-fraco);
+}
+
+.contexto__rodape .contexto__nota {
+  margin: 2px 0 10px;
 }
 
 .contexto__rodape .link {
@@ -2354,11 +2319,9 @@ a {
 }
 .deleg__subtitulo {
   margin: 0 0 var(--esp-2);
-  font-family: var(--fonte-editorial);
-  font-style: italic;
-  font-size: var(--texto-subtitulo);
-  font-weight: var(--peso-regular);
-  letter-spacing: var(--tracking-titulo);
+  font-size: var(--texto-corpo-g);
+  font-weight: var(--peso-semi);
+  letter-spacing: 0;
 }
 .deleg__lista {
   display: grid;
