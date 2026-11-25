@@ -22,7 +22,7 @@ from typing import Any, Protocol, cast
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from src.agents import MultiAgentPipeline, Trace, TracedResult
@@ -1135,6 +1135,20 @@ def _mount_v1(app: FastAPI, settings: Settings) -> None:
     app.include_router(criar_router_runs(conectar=conectar), prefix="/api/v1")
 
 
+class _InterfaceFiles(StaticFiles):
+    """Arquivos da interface sempre revalidados.
+
+    Sem isso o navegador pode reaproveitar um ``app.js`` antigo com um ``index.html`` novo
+    (ou o contrário) depois de uma atualização, e a tela abre em branco. ``no-cache`` não
+    impede o cache: obriga a perguntar ao servidor, que responde 304 se nada mudou.
+    """
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        resposta = super().file_response(*args, **kwargs)
+        resposta.headers["Cache-Control"] = "no-cache"
+        return resposta
+
+
 def _mount_interface(app: FastAPI) -> None:
     """Serve the designed chatbot UI at ``/app`` and point ``/`` to it.
 
@@ -1146,7 +1160,7 @@ def _mount_interface(app: FastAPI) -> None:
     if not (ui_dir / "index.html").is_file():
         return
 
-    app.mount("/app", StaticFiles(directory=str(ui_dir), html=True), name="interface")
+    app.mount("/app", _InterfaceFiles(directory=str(ui_dir), html=True), name="interface")
 
     @app.get("/", include_in_schema=False)
     def raiz() -> RedirectResponse:
