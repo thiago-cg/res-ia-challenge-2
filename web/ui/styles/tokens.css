@@ -44,6 +44,9 @@
   --cor-atencao-fundo: var(--zelia-sol-claro);
   --cor-neutro: var(--cor-texto-suave);
   --cor-neutro-fundo: #ede9e0;
+  --cor-panico: #b3261e;           /* só no botão de pânico: precisa se destacar da marca */
+  --cor-panico-hover: #8f1d17;
+  --cor-panico-texto: var(--zelia-branco);
   --cor-emergencia: var(--zelia-azul);
   --cor-emergencia-texto: var(--zelia-branco);
 

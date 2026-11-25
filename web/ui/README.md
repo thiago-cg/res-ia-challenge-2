@@ -111,3 +111,16 @@ distância, telefone, horário e "Como chegar".
 - As fontes são locais (licença SIL Open Font License 1.1), então a interface não
   faz requisição a terceiros.
 - Não há dependências de build nem `node_modules`. Editar e recarregar.
+
+## Menu e botão de pânico
+
+- Barra do topo (ícones): **SOS**, Privacidade e Fontes. Delegacias fica só na tela principal
+  (cartão da lateral; no celular, também um atalho na abertura).
+- **SOS** abre `#dialogo-panico`: "Ligar 190" (`tel:190`), "Sair rápido" (fecha e vai para uma
+  página neutra) e o espaço `#panico-audios` para os áudios de apoio.
+- Os áudios são de outra equipe. Para plugar, escute dois eventos no `document`:
+  - `zelia:panico:abrir` (`detail.slot`): monte os controles dentro de `slot`;
+  - `zelia:panico:fechar`: pare o áudio e solte os recursos.
+  O `slot` fica escondido enquanto vazio e é esvaziado ao fechar. O módulo é `scripts/panico.js`.
+- Cor de alerta própria: `--cor-panico` (só no SOS).
+- Pasta segura: ainda não implementada (próximo patch); o lugar previsto é a barra do topo.

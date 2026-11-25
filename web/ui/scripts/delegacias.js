@@ -34,7 +34,7 @@ const PONTOS_CARDEAIS = [
 ];
 
 const LIMITE_RESULTADOS = 5;
-const SAIDA_RAPIDA_URL = "https://www.google.com.br/";
+export const SAIDA_RAPIDA_URL = "https://www.google.com.br/";
 
 /* --- funções puras (testáveis sem DOM) ------------------------------------ */
 

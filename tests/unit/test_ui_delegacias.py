@@ -19,7 +19,7 @@ HTML = (UI / "index.html").read_text(encoding="utf-8")
 def test_painel_esta_ligado_no_html():
     for ident in (
         "dialogo-delegacias",
-        "abrir-delegacias",
+        "abrir-delegacias-2",
         "deleg-usar-local",
         "deleg-form-cidade",
         "deleg-sair",

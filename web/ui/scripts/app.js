@@ -9,6 +9,7 @@
 import { criarCliente } from "./api.js";
 import { escapar, markdown } from "./markdown.js";
 import { criarPainelDelegacias } from "./delegacias.js";
+import { criarPainelPanico } from "./panico.js";
 import { EXEMPLOS, EXEMPLO_EMERGENCIA, RESPOSTAS_DEMO, respostaDemo } from "./demo.js";
 import { criarClienteDuravel, novoIdMensagem } from "./durable.js";
 
@@ -191,6 +192,7 @@ function htmlAbertura() {
       <h1 class="abertura__titulo">Entenda o que a lei diz, <em>no seu tempo.</em></h1>
       <p class="abertura__texto">Informação confiável, em linguagem simples, com a fonte na mão. Você decide o ritmo.</p>
       <span class="chip chip--privacidade">${icone("cadeado")} Conversa privada · nada aparece em notificações</span>
+      <button class="botao botao--secundario apenas-mobile abertura__delegacias" type="button" data-abrir-delegacias>${icone("mapa")} Delegacias perto de você</button>
 
       <div class="exemplos">
         <h2 class="exemplos__titulo">Comece por onde for mais fácil</h2>
@@ -669,9 +671,6 @@ function carregarHistorico() {
 
 function sincronizarPrivacidade() {
   el.switchHistorico.setAttribute("aria-checked", String(estado.historico));
-  el.resumoPrivacidade.textContent = estado.historico
-    ? "Histórico ligado · salvo neste aparelho"
-    : "Histórico desligado · a conversa fica protegida no servidor";
 }
 
 function alternarHistorico() {
@@ -975,9 +974,7 @@ function ligarEventos() {
   });
 
   el.abrirPrivacidade.addEventListener("click", () => abrirDialogo(el.dialogoPrivacidade));
-  el.abrirPrivacidade2.addEventListener("click", () => abrirDialogo(el.dialogoPrivacidade));
   el.abrirFontes.addEventListener("click", () => abrirDialogo(el.dialogoFontes));
-  el.abrirFontes2.addEventListener("click", () => abrirDialogo(el.dialogoFontes));
 
   el.switchHistorico.addEventListener("click", alternarHistorico);
 
@@ -1107,13 +1104,10 @@ function iniciar() {
   el.dialogoPrivacidade = document.getElementById("dialogo-privacidade");
   el.dialogoFontes = document.getElementById("dialogo-fontes");
   el.abrirPrivacidade = document.getElementById("abrir-privacidade");
-  el.abrirPrivacidade2 = document.getElementById("abrir-privacidade-2");
-  el.abrirDelegacias = document.getElementById("abrir-delegacias");
   el.abrirDelegacias2 = document.getElementById("abrir-delegacias-2");
+  el.abrirPanico = document.getElementById("abrir-panico");
   el.abrirFontes = document.getElementById("abrir-fontes");
-  el.abrirFontes2 = document.getElementById("abrir-fontes-2");
   el.switchHistorico = document.getElementById("switch-historico");
-  el.resumoPrivacidade = document.getElementById("resumo-privacidade");
   el.apagarConversa = document.getElementById("apagar-conversa");
   el.notaApagar = document.getElementById("nota-apagar");
   el.abrirContexto = document.getElementById("abrir-contexto");
@@ -1136,10 +1130,27 @@ function iniciar() {
     fecharDialogo,
     anunciar,
   });
-  el.abrirDelegacias.addEventListener("click", () => painelDelegacias.abrir());
   el.abrirDelegacias2.addEventListener("click", () => {
     if (document.body.classList.contains("contexto-aberto")) fecharContexto();
     painelDelegacias.abrir();
+  });
+  // Atalho da abertura (celular): a abertura é redesenhada, então o clique é delegado.
+  document.addEventListener("click", (evento) => {
+    if (evento.target.closest("[data-abrir-delegacias]")) painelDelegacias.abrir();
+  });
+
+  const painelPanico = criarPainelPanico({
+    dialogo: document.getElementById("dialogo-panico"),
+    slot: document.getElementById("panico-audios"),
+    sair: document.getElementById("panico-sair"),
+    abrirDialogo,
+    fecharDialogo,
+    anunciar,
+    emitir: (nome, detail) => document.dispatchEvent(new CustomEvent(nome, { detail })),
+  });
+  el.abrirPanico.addEventListener("click", () => {
+    if (document.body.classList.contains("contexto-aberto")) fecharContexto();
+    painelPanico.abrir();
   });
 
   sincronizarPrivacidade();

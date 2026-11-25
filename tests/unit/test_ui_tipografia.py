@@ -51,7 +51,6 @@ def test_lateral_tem_so_os_tres_cartoes_essenciais():
     assert [t.strip() for t in titulos] == [
         "Data do fato",
         "Delegacias perto de você",
-        "Privacidade",
     ]
 
 

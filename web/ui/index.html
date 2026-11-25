@@ -113,9 +113,9 @@
         <span class="selo__ponto" aria-hidden="true"></span>
         <span id="selo-texto">Verificando base…</span>
       </span>
-      <button class="botao botao--fantasma" type="button" id="abrir-delegacias">
-        <svg class="i" aria-hidden="true"><use href="#i-mapa"/></svg>
-        <span class="botao__texto">Delegacias</span>
+      <button class="botao botao--panico" type="button" id="abrir-panico" aria-haspopup="dialog" aria-label="Botão de pânico">
+        <svg class="i" aria-hidden="true"><use href="#i-alerta"/></svg>
+        <span>SOS</span>
       </button>
       <button class="botao botao--fantasma" type="button" id="abrir-privacidade">
         <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
@@ -197,15 +197,6 @@
         </button>
       </section>
 
-      <section class="contexto__cartao">
-        <h2 class="contexto__titulo">Privacidade</h2>
-        <div class="linha-privacidade">
-          <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
-          <span id="resumo-privacidade">Histórico desligado · a conversa fica protegida no servidor</span>
-        </div>
-        <button class="botao botao--secundario botao--largo" type="button" id="abrir-privacidade-2">Ajustar privacidade</button>
-      </section>
-
       <footer class="contexto__rodape">
         <div class="status" id="status-servico">
           <span class="status__ponto" aria-hidden="true"></span>
@@ -213,7 +204,6 @@
         </div>
         <p class="contexto__nota" id="nota-base">Base atualizada em —</p>
         <p>Zelia · Organização e informação</p>
-        <button class="link" type="button" id="abrir-fontes-2">Fontes e transparência</button>
       </footer>
     </aside>
   </main>
@@ -332,6 +322,31 @@
         <svg class="i" aria-hidden="true"><use href="#i-olho-oculto"/></svg>
         Sair rápido
       </button>
+    </div>
+  </dialog>
+
+  <dialog class="dialogo dialogo--panico" id="dialogo-panico" tabindex="-1" aria-labelledby="titulo-panico">
+    <div class="dialogo__cabecalho">
+      <h2 class="dialogo__titulo" id="titulo-panico">Botão de pânico</h2>
+      <button class="botao botao--icone" type="button" data-fechar aria-label="Fechar">
+        <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+      </button>
+    </div>
+    <p class="dialogo__texto">Se você corre perigo agora, ligue para a polícia.</p>
+
+    <a class="botao botao--panico botao--grande botao--largo" id="panico-ligar" href="tel:190" autofocus>
+      <svg class="i" aria-hidden="true"><use href="#i-telefone"/></svg>
+      Ligar 190
+    </a>
+
+    <section class="panico__audios" id="panico-audios" aria-label="Áudios de apoio" hidden></section>
+
+    <div class="panico__rodape">
+      <button class="botao botao--secundario botao--largo" type="button" id="panico-sair">
+        <svg class="i" aria-hidden="true"><use href="#i-olho-oculto"/></svg>
+        Sair rápido
+      </button>
+      <p class="panico__nota">Fecha esta tela e abre uma página neutra.</p>
     </div>
   </dialog>
 

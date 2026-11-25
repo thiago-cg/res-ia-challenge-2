@@ -2611,3 +2611,55 @@ a {
   box-shadow: inset 3px 0 0 var(--zelia-azul);
   padding-left: var(--esp-3);
 }
+
+/* --- botão de pânico (SOS) ------------------------------------------------ */
+.botao--panico {
+  background: var(--cor-panico);
+  color: var(--cor-panico-texto);
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 10px rgba(179, 38, 30, 0.35);
+}
+
+.botao--panico:hover {
+  background: var(--cor-panico-hover);
+}
+
+.botao--panico:focus-visible {
+  outline: 3px solid var(--cor-panico);
+  outline-offset: 3px;
+}
+
+.botao--grande {
+  min-height: 56px;
+  font-size: var(--texto-base, 1rem);
+}
+
+.dialogo--panico {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.dialogo--panico .botao--largo {
+  width: 100%;
+}
+
+.panico__audios {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cor-borda, rgba(30, 42, 58, 0.12));
+}
+
+.panico__rodape {
+  margin-top: 20px;
+}
+
+.panico__nota {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: var(--texto-pequeno);
+  color: var(--cor-texto-suave, inherit);
+}
+
+.abertura__delegacias {
+  margin-top: 12px;
+}
