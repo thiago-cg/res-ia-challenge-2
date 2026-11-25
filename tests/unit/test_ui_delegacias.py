@@ -19,12 +19,13 @@ HTML = (UI / "index.html").read_text(encoding="utf-8")
 def test_painel_esta_ligado_no_html():
     for ident in (
         "dialogo-delegacias",
-        "abrir-delegacias",
         "deleg-usar-local",
         "deleg-form-cidade",
         "deleg-sair",
     ):
         assert f'id="{ident}"' in HTML
+    # o botão fica no topo, ao lado do SOS, e não no menu
+    assert 'id="abrir-delegacias"' in HTML
 
 
 def test_sem_mapa_de_terceiros():

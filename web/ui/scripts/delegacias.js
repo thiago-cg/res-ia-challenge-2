@@ -34,7 +34,7 @@ const PONTOS_CARDEAIS = [
 ];
 
 const LIMITE_RESULTADOS = 5;
-const SAIDA_RAPIDA_URL = "https://www.google.com.br/";
+export const SAIDA_RAPIDA_URL = "https://www.google.com.br/";
 
 /* --- funções puras (testáveis sem DOM) ------------------------------------ */
 
@@ -198,6 +198,8 @@ export function htmlBlocoMapa(comPonto) {
   return `
     <section class="deleg__mapa" aria-label="Mapa de ruas">
       <div class="deleg__mapa-caixa" data-mapa-caixa role="region" aria-label="Mapa com as delegacias" hidden></div>
+      <button class="botao botao--secundario botao--compacto deleg__mapa-3d" type="button" data-alternar-3d aria-pressed="false" hidden>Ver em 3D</button>
+      <p class="deleg__mapa-nota" data-nota-3d hidden>O 3D pede os blocos do mapa à OpenFreeMap (dados do OpenStreetMap). Sua posição não é enviada.</p>
       <div class="deleg__mapa-pedido" data-mapa-pedido>
         <p>Sua localização exata não sai do seu aparelho. O mapa só pede as imagens da região.</p>
         <button class="botao botao--secundario" type="button" data-abrir-mapa>Abrir o mapa</button>
@@ -344,6 +346,53 @@ export function criarPainelDelegacias(contexto) {
     cartao.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
+  /** Monta o mapa 2D (Leaflet) ou 3D (MapLibre + deck.gl) e guarda como o mapa atual. */
+  async function montarMapa(caixa, modo) {
+    fecharMapa();
+    const argumentos = {
+      servicos: servicosOrdenados(ultima.resposta),
+      origem: origemDaResposta(ultima.resposta, ultima.origem),
+      aoSelecionar: destacarCartao,
+    };
+    const mapa =
+      modo === "3d"
+        ? await (await import("./mapa3d.js")).mostrarMapa3D(caixa, argumentos)
+        : await (await import("./mapa.js")).mostrarMapa(caixa, argumentos);
+    destruirMapa = mapa.destruir;
+    return mapa;
+  }
+
+  /** Botão "Ver em 3D" / "Voltar ao mapa 2D". Sem WebGL ou sem rede, o 2D continua valendo. */
+  async function ligarAlternador(secao, caixa, trocar) {
+    const botao = secao.querySelector("[data-alternar-3d]");
+    if (!botao) return;
+    const { temWebGL } = await import("./mapa3d.js");
+    if (!temWebGL()) return;
+    let modo = "2d";
+    botao.hidden = false;
+    botao.onclick = async () => {
+      const alvo = modo === "2d" ? "3d" : "2d";
+      botao.disabled = true;
+      botao.textContent = "Carregando…";
+      try {
+        await trocar(alvo);
+        modo = alvo;
+      } catch {
+        // volta ao mapa anterior se o outro não abrir
+        try {
+          await trocar(modo);
+        } catch {
+          /* a lista segue valendo */
+        }
+      }
+      botao.disabled = false;
+      botao.textContent = modo === "2d" ? "Ver em 3D" : "Voltar ao mapa 2D";
+      botao.setAttribute("aria-pressed", String(modo === "3d"));
+      const nota = secao.querySelector("[data-nota-3d]");
+      if (nota) nota.hidden = modo !== "3d";
+    };
+  }
+
   async function abrirMapa(botao) {
     const secao = botao.closest(".deleg__mapa");
     const caixa = secao?.querySelector("[data-mapa-caixa]");
@@ -352,16 +401,9 @@ export function criarPainelDelegacias(contexto) {
     botao.disabled = true;
     botao.textContent = "Carregando o mapa…";
     try {
-      const { mostrarMapa } = await import("./mapa.js");
       caixa.hidden = false;
-      fecharMapa();
-      const mapa = await mostrarMapa(caixa, {
-        servicos: servicosOrdenados(ultima.resposta),
-        origem: origemDaResposta(ultima.resposta, ultima.origem),
-        aoSelecionar: destacarCartao,
-      });
-      destruirMapa = mapa.destruir;
-      // Tocar no número do cartão leva ao pino correspondente.
+      let mapa = await montarMapa(caixa, "2d");
+      // Tocar no número do cartão leva ao pino correspondente (no mapa que estiver na tela).
       resultado.querySelectorAll(".deleg__numero").forEach((numero) => {
         const indice = Number(numero.closest(".deleg__cartao")?.dataset.indice);
         numero.setAttribute("role", "button");
@@ -379,6 +421,10 @@ export function criarPainelDelegacias(contexto) {
             ir();
           }
         });
+      });
+      ligarAlternador(secao, caixa, async (modo) => {
+        mapa = await montarMapa(caixa, modo);
+        return mapa;
       });
       pedido.hidden = true;
       const marcar = secao.querySelector("[data-marcar-voce]");

@@ -9,6 +9,9 @@
 import { criarCliente } from "./api.js";
 import { escapar, markdown } from "./markdown.js";
 import { criarPainelDelegacias } from "./delegacias.js";
+import { criarPainelPanico } from "./panico.js";
+import { criarPermissaoLocalizacao } from "./localizacao.js";
+import { criarPastaSegura } from "./pasta-segura.js";
 import { EXEMPLOS, EXEMPLO_EMERGENCIA, RESPOSTAS_DEMO, respostaDemo } from "./demo.js";
 import { criarClienteDuravel, novoIdMensagem } from "./durable.js";
 
@@ -73,8 +76,13 @@ const el = {};
 let sequencia = 0;
 let confirmandoExclusao = false;
 let timerConfirmacao = 0;
+let pastaSegura = null;
 
 /* --- utilidades ---------------------------------------------------------- */
+
+function agoraIso() {
+  return new Date().toISOString();
+}
 
 function icone(nome, classeExtra = "") {
   return `<svg class="i ${classeExtra}" aria-hidden="true" focusable="false"><use href="#i-${nome}"></use></svg>`;
@@ -176,20 +184,22 @@ function infoEncaminhamento(item) {
 
 /* --- abertura ------------------------------------------------------------ */
 
+const ICONES_EXEMPLOS = ["escudo", "balanca", "livro"];
+
 function htmlAbertura() {
   const exemplos = EXEMPLOS.map(
-    (pergunta) => `
-      <button class="exemplo" type="button" data-enviar="${escapar(pergunta)}">
+    (pergunta, i) => `
+      <button class="exemplo${i === 0 ? " exemplo--destaque" : ""}" type="button" data-enviar="${escapar(pergunta)}">
+        ${icone(ICONES_EXEMPLOS[i % ICONES_EXEMPLOS.length], "exemplo__icone")}
         <span>${escapar(pergunta)}</span>
-        ${icone("seta")}
       </button>`,
   ).join("");
 
   return `
     <section class="abertura">
       <p class="abertura__rotulo">Orientação jurídica</p>
-      <h1 class="abertura__titulo">Entenda o que a lei diz, <em>no seu tempo.</em></h1>
-      <p class="abertura__texto">Informação confiável, em linguagem simples, com a fonte na mão. Você decide o ritmo.</p>
+      <h1 class="abertura__titulo">Você não está sozinha. Vamos entender seus direitos <em>juntas.</em></h1>
+      <p class="abertura__texto">Sou a Zelia. Explico a lei em linguagem simples, mostro de onde vem cada resposta e te levo até a ajuda certa. Você decide o ritmo.</p>
       <span class="chip chip--privacidade">${icone("cadeado")} Conversa privada · nada aparece em notificações</span>
 
       <div class="exemplos">
@@ -197,7 +207,6 @@ function htmlAbertura() {
         <div class="exemplos__lista">${exemplos}</div>
       </div>
 
-      <p class="abertura__nota">Conteúdo informativo com base na Lei 11.340/2006 e atos do CNJ. Não substitui atendimento jurídico individual. Em perigo, ligue 190.</p>
     </section>`;
 }
 
@@ -523,7 +532,7 @@ async function enviar(texto) {
   estado.ocupado = true;
   atualizarEnviar();
 
-  estado.mensagens.push({ papel: "usuario", texto: limpo });
+  estado.mensagens.push({ papel: "usuario", texto: limpo, em: agoraIso() });
   el.thread.appendChild(renderUsuario(limpo));
   limparCampo();
   salvarHistorico();
@@ -545,7 +554,7 @@ async function enviar(texto) {
             });
 
     digitando.remove();
-    estado.mensagens.push({ papel: "assistente", resposta });
+    estado.mensagens.push({ papel: "assistente", resposta, em: agoraIso() });
     const acompanhando = estaNoFim();
     const no = renderResposta(resposta);
     el.thread.appendChild(no);
@@ -669,9 +678,6 @@ function carregarHistorico() {
 
 function sincronizarPrivacidade() {
   el.switchHistorico.setAttribute("aria-checked", String(estado.historico));
-  el.resumoPrivacidade.textContent = estado.historico
-    ? "Histórico ligado · salvo neste aparelho"
-    : "Histórico desligado · a conversa fica protegida no servidor";
 }
 
 function alternarHistorico() {
@@ -709,23 +715,66 @@ function resetarConfirmacao() {
   el.apagarConversa.dataset.confirmar = "false";
   el.apagarConversa.innerHTML = `${icone("lixeira")} Apagar conversa deste aparelho`;
   el.notaApagar.hidden = true;
+  el.apagarCriarPasta.hidden = true;
 }
 
-function pedirConfirmacao() {
+async function pedirConfirmacao() {
   confirmandoExclusao = true;
   el.apagarConversa.dataset.confirmar = "true";
   el.apagarConversa.innerHTML = `${icone("lixeira")} Toque de novo para confirmar`;
+  let situacao = "vazia";
+  if (estado.mensagens.length) {
+    try {
+      situacao = await pastaSegura.situacao();
+    } catch {
+      situacao = "indisponivel";
+    }
+  }
+  if (!confirmandoExclusao) return; // a confirmação expirou enquanto consultava
+  const textos = {
+    existe: "Toque novamente para confirmar. A conversa será guardada, trancada, na Pasta segura e apagada daqui.",
+    ausente:
+      "Toque novamente para apagar sem guardar. Ou crie a Pasta segura (protegida por PIN) para guardar uma cópia, com dia e hora.",
+  };
+  el.notaApagar.textContent =
+    textos[situacao] || "Toque novamente para confirmar. A conversa será apagada deste aparelho.";
   el.notaApagar.hidden = false;
-  timerConfirmacao = window.setTimeout(resetarConfirmacao, 7000);
+  el.apagarCriarPasta.hidden = situacao !== "ausente";
+  timerConfirmacao = window.setTimeout(resetarConfirmacao, situacao === "ausente" ? 15000 : 7000);
+}
+
+async function apagarGuardandoSePossivel() {
+  const conversa = { mensagens: estado.mensagens, fatos: fatosAtuais() };
+  let guardada = false;
+  if (conversa.mensagens.length) {
+    let situacao = "indisponivel";
+    try {
+      situacao = await pastaSegura.situacao();
+    } catch {
+      /* segue como indisponível */
+    }
+    if (situacao === "existe") {
+      try {
+        await pastaSegura.arquivarConversa(conversa, "apagar");
+        guardada = true;
+      } catch {
+        // Falhou ao guardar: não apaga, para a conversa não se perder.
+        el.notaApagar.textContent = "Não foi possível guardar na Pasta segura. A conversa NÃO foi apagada.";
+        el.notaApagar.hidden = false;
+        return false;
+      }
+    }
+  }
+  apagarConversa();
+  if (guardada) anunciar("Conversa guardada na Pasta segura e apagada deste aparelho.");
+  return true;
 }
 
 /* --- data do fato -------------------------------------------------------- */
 
 function definirData(iso) {
   estado.dataFato = iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : "";
-  el.dataInput.value = estado.dataFato;
   el.dataDialogo.value = estado.dataFato;
-  el.limparData.hidden = !estado.dataFato;
   el.chipData.dataset.definida = String(Boolean(estado.dataFato));
   el.chipDataTexto.textContent = estado.dataFato
     ? `Data do fato: ${formatarData(estado.dataFato)}`
@@ -840,8 +889,8 @@ async function ativarFluxoDuravel() {
       // Retomada: a resposta já publicada aparece ao reabrir, sem reenviar nada.
       if (atual.last_result && estado.mensagens.length === 0) {
         const ultima = (atual.messages || []).filter((m) => m.role === "user").pop();
-        if (ultima) estado.mensagens.push({ papel: "usuario", texto: ultima.content });
-        estado.mensagens.push({ papel: "assistente", resposta: atual.last_result });
+        if (ultima) estado.mensagens.push({ papel: "usuario", texto: ultima.content, em: null });
+        estado.mensagens.push({ papel: "assistente", resposta: atual.last_result, em: null });
         restaurou = estado.mensagens.length > 0;
       }
     } else {
@@ -974,25 +1023,31 @@ function ligarEventos() {
     });
   });
 
-  el.abrirPrivacidade.addEventListener("click", () => abrirDialogo(el.dialogoPrivacidade));
-  el.abrirPrivacidade2.addEventListener("click", () => abrirDialogo(el.dialogoPrivacidade));
-  el.abrirFontes.addEventListener("click", () => abrirDialogo(el.dialogoFontes));
-  el.abrirFontes2.addEventListener("click", () => abrirDialogo(el.dialogoFontes));
+  el.abrirPrivacidade.addEventListener("click", () => {
+    fecharContexto({ devolverFoco: false });
+    abrirDialogo(el.dialogoPrivacidade);
+  });
+  el.abrirFontes.addEventListener("click", () => {
+    fecharContexto({ devolverFoco: false });
+    abrirDialogo(el.dialogoFontes);
+  });
 
   el.switchHistorico.addEventListener("click", alternarHistorico);
 
-  el.apagarConversa.addEventListener("click", () => {
+  el.apagarConversa.addEventListener("click", async () => {
     if (!confirmandoExclusao) {
       pedirConfirmacao();
       return;
     }
     resetarConfirmacao();
-    apagarConversa();
+    if (await apagarGuardandoSePossivel()) fecharDialogo(el.dialogoPrivacidade);
+  });
+  el.apagarCriarPasta.addEventListener("click", () => {
+    resetarConfirmacao();
     fecharDialogo(el.dialogoPrivacidade);
+    pastaSegura.abrir();
   });
 
-  el.dataInput.addEventListener("change", () => definirData(el.dataInput.value));
-  el.limparData.addEventListener("click", () => definirData(""));
   el.chipData.addEventListener("click", () => {
     el.dataDialogo.value = estado.dataFato;
     abrirDialogo(el.dialogoData);
@@ -1025,11 +1080,11 @@ function abrirContexto() {
   if (foco) foco.focus();
 }
 
-function fecharContexto() {
+function fecharContexto({ devolverFoco = true } = {}) {
   document.body.classList.remove("contexto-aberto");
   el.veil.hidden = true;
   el.abrirContexto.setAttribute("aria-expanded", "false");
-  el.abrirContexto.focus();
+  if (devolverFoco) el.abrirContexto.focus();
 }
 
 /* --- inicialização ------------------------------------------------------- */
@@ -1064,16 +1119,6 @@ function resolverBaseApi() {
   return "http://localhost:8000";
 }
 
-function preencherExemplos() {
-  el.exemplosLista.innerHTML = EXEMPLOS.map(
-    (pergunta) => `
-      <button class="exemplo-lateral" type="button" data-enviar="${escapar(pergunta)}">
-        <span>${escapar(pergunta)}</span>
-        ${icone("seta")}
-      </button>`,
-  ).join("");
-}
-
 function semearExemplo(nome) {
   const fabrica = RESPOSTAS_DEMO[nome];
   if (!fabrica) return;
@@ -1106,11 +1151,8 @@ function iniciar() {
   el.statusTexto = document.getElementById("status-texto");
   el.notaBase = document.getElementById("nota-base");
   el.faixaDemo = document.getElementById("faixa-demo");
-  el.exemplosLista = document.getElementById("exemplos-lista");
   el.chipData = document.getElementById("chip-data");
   el.chipDataTexto = document.getElementById("chip-data-texto");
-  el.dataInput = document.getElementById("data-fato");
-  el.limparData = document.getElementById("limpar-data");
   el.dataDialogo = document.getElementById("data-dialogo");
   el.dataAplicar = document.getElementById("data-aplicar");
   el.dataLimpar = document.getElementById("data-limpar");
@@ -1118,15 +1160,13 @@ function iniciar() {
   el.dialogoPrivacidade = document.getElementById("dialogo-privacidade");
   el.dialogoFontes = document.getElementById("dialogo-fontes");
   el.abrirPrivacidade = document.getElementById("abrir-privacidade");
-  el.abrirPrivacidade2 = document.getElementById("abrir-privacidade-2");
-  el.abrirDelegacias = document.getElementById("abrir-delegacias");
-  el.abrirDelegacias2 = document.getElementById("abrir-delegacias-2");
+  el.abrirPanico = document.getElementById("abrir-panico");
   el.abrirFontes = document.getElementById("abrir-fontes");
-  el.abrirFontes2 = document.getElementById("abrir-fontes-2");
   el.switchHistorico = document.getElementById("switch-historico");
-  el.resumoPrivacidade = document.getElementById("resumo-privacidade");
   el.apagarConversa = document.getElementById("apagar-conversa");
   el.notaApagar = document.getElementById("nota-apagar");
+  el.apagarCriarPasta = document.getElementById("apagar-criar-pasta");
+  el.abrirCofre = document.getElementById("abrir-cofre");
   el.abrirContexto = document.getElementById("abrir-contexto");
   el.fecharContexto = document.getElementById("fechar-contexto");
   el.contexto = document.getElementById("contexto");
@@ -1147,13 +1187,47 @@ function iniciar() {
     fecharDialogo,
     anunciar,
   });
-  el.abrirDelegacias.addEventListener("click", () => painelDelegacias.abrir());
-  el.abrirDelegacias2.addEventListener("click", () => {
-    if (document.body.classList.contains("contexto-aberto")) fecharContexto();
-    painelDelegacias.abrir();
+  // Botão Delegacias do topo (e qualquer outro com data-abrir-delegacias).
+  document.addEventListener("click", (evento) => {
+    if (evento.target.closest("[data-abrir-delegacias]")) painelDelegacias.abrir();
   });
 
-  preencherExemplos();
+  criarPermissaoLocalizacao({
+    estado: document.getElementById("localizacao-estado"),
+    botao: document.getElementById("localizacao-pedir"),
+    nota: document.getElementById("localizacao-nota"),
+    dialogo: el.dialogoPrivacidade,
+  });
+
+  pastaSegura = criarPastaSegura({
+    dialogo: document.getElementById("dialogo-cofre"),
+    abrirDialogo,
+    fecharDialogo,
+    obterConversa: () => ({ mensagens: estado.mensagens, fatos: fatosAtuais() }),
+    anunciar,
+  });
+  el.abrirCofre.addEventListener("click", () => {
+    if (document.body.classList.contains("contexto-aberto")) fecharContexto({ devolverFoco: false });
+    pastaSegura.abrir();
+  });
+
+  const painelPanico = criarPainelPanico({
+    dialogo: document.getElementById("dialogo-panico"),
+    slot: document.getElementById("panico-audios"),
+    sair: document.getElementById("panico-sair"),
+    microfone: document.getElementById("panico-mic"),
+    microfoneTexto: document.getElementById("panico-mic-texto"),
+    aviso: document.getElementById("panico-mic-aviso"),
+    abrirDialogo,
+    fecharDialogo,
+    anunciar,
+    emitir: (nome, detail) => document.dispatchEvent(new CustomEvent(nome, { detail })),
+  });
+  el.abrirPanico.addEventListener("click", () => {
+    if (document.body.classList.contains("contexto-aberto")) fecharContexto();
+    painelPanico.abrir();
+  });
+
   sincronizarPrivacidade();
   definirData("");
   ligarEventos();

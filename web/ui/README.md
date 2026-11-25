@@ -111,3 +111,72 @@ distância, telefone, horário e "Como chegar".
 - As fontes são locais (licença SIL Open Font License 1.1), então a interface não
   faz requisição a terceiros.
 - Não há dependências de build nem `node_modules`. Editar e recarregar.
+
+## Menu e botão de pânico
+
+- Barra do topo (ícones): **SOS**, Privacidade e Fontes. Delegacias fica só na tela principal
+  (cartão da lateral; no celular, também um atalho na abertura).
+- **SOS** abre `#dialogo-panico`: "Ligar 190" (`tel:190`), "Sair rápido" (fecha e vai para uma
+  página neutra) e o espaço `#panico-audios` para os áudios de apoio.
+- Os áudios são de outra equipe. Para plugar, escute dois eventos no `document`:
+  - `zelia:panico:abrir` (`detail.slot`): monte os controles dentro de `slot`;
+  - `zelia:panico:fechar`: pare o áudio e solte os recursos.
+  O `slot` fica escondido enquanto vazio e é esvaziado ao fechar. O módulo é `scripts/panico.js`.
+- Cor de alerta própria: `--cor-panico` (só no SOS).
+- Pasta segura: ainda não implementada (próximo patch); o lugar previsto é a barra do topo.
+
+## Mapa 3D (opcional)
+
+- No painel de delegacias, depois de abrir o mapa, o botão **Ver em 3D** troca o Leaflet por
+  MapLibre GL (mapa inclinado, prédios em 3D) com colunas do deck.gl sobre cada delegacia
+  (DEAM mais alta e azul). **Voltar ao mapa 2D** desfaz.
+- `scripts/mapa3d.js` tem a mesma interface de `scripts/mapa.js` (`destruir`, `marcarVoce`, `focar`)
+  e só é importado quando a usuária toca no botão. Sem WebGL, o botão nem aparece.
+- Bibliotecas no próprio servidor: `vendor/maplibre/` (MapLibre GL 5.x, BSD) e `vendor/deckgl/`
+  (deck.gl 9.x, MIT; bundle enxuto com `MapboxOverlay`, `ColumnLayer` e `ScatterplotLayer`).
+  Para regenerar o bundle: `npm i deck.gl@9 esbuild` e, em uma pasta com `entrada.js`,
+  `npx esbuild entrada.js --bundle --minify --format=iife --target=es2020 --outfile=deckgl.min.js`.
+- Único terceiro: os blocos vetoriais da OpenFreeMap (`tiles.openfreemap.org`, dados do OpenStreetMap).
+  A tela avisa e a posição da usuária não é enviada. Para trocar de provedor, mude `ESTILO_URL`.
+
+## Menu e microfone do SOS (atualização)
+
+- Topo: logo, **SOS** e **menu (☰)**, em qualquer largura. O menu é uma gaveta com **Privacidade**
+  e **Fontes e transparência**; não tem Delegacias nem Data do fato. Delegacias fica na tela
+  principal (botão na abertura da conversa); a data do fato continua no chip junto ao campo de texto.
+- **Privacidade** inclui a **permissão de localização** (`scripts/localizacao.js`): mostra o estado
+  (permitida, bloqueada, a perguntar), deixa pedir a permissão e explica que, para desativar, é
+  nas configurações do navegador. A posição lida para disparar o pedido é descartada.
+- O SOS tem um botão de **microfone** (`#panico-mic`) para reproduzir o áudio de apoio. Contrato com a
+  equipe dos áudios, evento no `document`:
+
+  ```js
+  document.addEventListener("zelia:panico:audio", (e) => {
+    const { acao, assumir, aoTerminar } = e.detail; // acao: "tocar" | "parar"
+    if (acao === "tocar") {
+      assumir();            // obrigatório, síncrono: "eu cuido deste áudio"
+      tocarAudio().then(aoTerminar); // ao acabar, o botão volta ao estado inicial
+    } else {
+      pararAudio();
+    }
+  });
+  ```
+
+  Sem ninguém chamando `assumir()`, a tela mostra que os áudios ainda não estão disponíveis e
+  lembra do 190. Fechar a tela do SOS também dispara `acao: "parar"` se houver áudio tocando.
+
+## Pasta segura (`#dialogo-cofre`)
+
+Guarda conversas trancadas por PIN, só neste aparelho (IndexedDB), com dia e hora, e gera um
+relatório (HTML para imprimir/salvar em PDF).
+
+- `cofre-cripto.js`: WebCrypto. PIN → PBKDF2-SHA-256 (600 mil voltas) → AES-256-GCM protege a chave
+  privada ECDH P-256. A chave pública fica em claro, então **guardar não pede PIN**; **ler pede**.
+- `cofre.js`: lógica sem DOM (criar, arquivar, desbloquear, espera após 5 PINs errados, trocar PIN).
+- `armazem-idb.js`: persistência; `relatorio.js`: relatório com hash SHA-256 e texto escapado.
+- `pasta-segura.js`: tela. Tranca ao fechar o diálogo e após 5 min sem uso.
+- Em **Apagar conversa**, se a Pasta existe a conversa é guardada antes de apagar; se guardar falhar,
+  **não apaga**. Nada é enviado à rede.
+
+Limites: não recupera PIN esquecido; PIN curto é mais fraco que frase longa contra quem copiar o
+banco do aparelho; o relatório é registro pessoal, não prova autenticada.

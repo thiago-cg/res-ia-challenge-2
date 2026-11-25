@@ -32,6 +32,9 @@
       <symbol id="i-documento" viewBox="0 0 24 24">
         <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
       </symbol>
+      <symbol id="i-pasta" viewBox="0 0 24 24">
+        <rect width="8" height="5" x="14" y="17" rx="1"/><path d="M10 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v2.5"/><path d="M20 17v-2a2 2 0 1 0-4 0v2"/>
+      </symbol>
       <symbol id="i-seta" viewBox="0 0 24 24">
         <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
       </symbol>
@@ -113,19 +116,19 @@
         <span class="selo__ponto" aria-hidden="true"></span>
         <span id="selo-texto">Verificando base…</span>
       </span>
-      <button class="botao botao--fantasma" type="button" id="abrir-delegacias">
+      <button class="botao botao--panico" type="button" id="abrir-panico" aria-haspopup="dialog" aria-label="Botão de pânico">
+        <svg class="i" aria-hidden="true"><use href="#i-alerta"/></svg>
+        <span>SOS</span>
+      </button>
+      <button class="botao botao--delegacias" type="button" id="abrir-delegacias" data-abrir-delegacias aria-haspopup="dialog" aria-label="Delegacias perto de você">
         <svg class="i" aria-hidden="true"><use href="#i-mapa"/></svg>
-        <span class="botao__texto">Delegacias</span>
+        <span class="botao__texto">Delegacias perto de você</span>
       </button>
-      <button class="botao botao--fantasma" type="button" id="abrir-privacidade">
-        <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
-        <span class="botao__texto">Privacidade</span>
+      <button class="botao botao--cofre" type="button" id="abrir-cofre" aria-haspopup="dialog" aria-label="Pasta segura" title="Pasta segura">
+        <svg class="i" aria-hidden="true"><use href="#i-pasta"/></svg>
+        <span class="botao__texto">Pasta segura</span>
       </button>
-      <button class="botao botao--fantasma" type="button" id="abrir-fontes">
-        <svg class="i" aria-hidden="true"><use href="#i-documento"/></svg>
-        <span class="botao__texto">Fontes</span>
-      </button>
-      <button class="botao botao--icone apenas-mobile" type="button" id="abrir-contexto" aria-label="Abrir contexto" aria-expanded="false" aria-controls="contexto">
+      <button class="botao botao--icone" type="button" id="abrir-contexto" aria-label="Abrir menu" aria-expanded="false" aria-controls="contexto">
         <svg class="i" aria-hidden="true"><use href="#i-menu"/></svg>
       </button>
     </div>
@@ -149,7 +152,7 @@
       <div class="composer-area">
         <form class="composer" id="form-composer" autocomplete="off">
           <label class="sr-only" for="campo">Sua pergunta</label>
-          <textarea id="campo" name="mensagem" rows="1" maxlength="8000" placeholder="Escreva no seu tempo…" enterkeyhint="send" aria-describedby="dica-pii"></textarea>
+          <textarea id="campo" name="mensagem" rows="1" maxlength="8000" placeholder="Conte o que aconteceu…" enterkeyhint="send" aria-describedby="dica-pii"></textarea>
           <div class="composer__acoes">
             <button class="botao-icone" type="button" id="microfone" disabled title="Em breve" aria-label="Ditado por voz (em breve)">
               <svg class="i" aria-hidden="true"><use href="#i-microfone"/></svg>
@@ -172,58 +175,39 @@
       </div>
     </section>
 
-    <aside class="contexto" id="contexto" aria-label="Sobre esta orientação">
+    <aside class="contexto" id="contexto" aria-label="Menu">
       <div class="contexto__topo">
-        <strong>Contexto</strong>
-        <button class="botao botao--icone" type="button" id="fechar-contexto" aria-label="Fechar contexto">
+        <strong>Menu</strong>
+        <button class="botao botao--icone" type="button" id="fechar-contexto" aria-label="Fechar menu">
           <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
         </button>
       </div>
-      <section class="contexto__cartao">
-        <h2 class="contexto__titulo">Sobre esta orientação</h2>
-        <p class="contexto__texto">Orientação informativa. Não substitui atendimento jurídico individual.</p>
+      <nav class="menu" aria-label="Menu">
+        <button class="menu__item" type="button" id="abrir-privacidade" aria-haspopup="dialog">
+          <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
+          <span class="menu__texto">
+            <span class="menu__titulo">Privacidade</span>
+            <span class="menu__descricao">Seus dados, histórico e localização</span>
+          </span>
+          <svg class="i menu__seta" aria-hidden="true"><use href="#i-seta"/></svg>
+        </button>
+        <button class="menu__item" type="button" id="abrir-fontes" aria-haspopup="dialog">
+          <svg class="i" aria-hidden="true"><use href="#i-documento"/></svg>
+          <span class="menu__texto">
+            <span class="menu__titulo">Fontes e transparência</span>
+            <span class="menu__descricao">De onde vem cada resposta</span>
+          </span>
+          <svg class="i menu__seta" aria-hidden="true"><use href="#i-seta"/></svg>
+        </button>
+      </nav>
+
+      <footer class="contexto__rodape">
         <div class="status" id="status-servico">
           <span class="status__ponto" aria-hidden="true"></span>
           <span class="status__texto" id="status-texto">Consultando os serviços…</span>
         </div>
         <p class="contexto__nota" id="nota-base">Base atualizada em —</p>
-      </section>
-
-      <section class="contexto__cartao">
-        <h2 class="contexto__titulo">Data do fato <span class="contexto__opcional">opcional</span></h2>
-        <p class="contexto__texto contexto__texto--fraco">Ela define a versão da lei aplicável à sua pergunta.</p>
-        <div class="campo-data">
-          <input type="date" id="data-fato" aria-label="Data do fato">
-          <button class="botao botao--secundario botao--compacto" type="button" id="limpar-data" hidden>Limpar</button>
-        </div>
-      </section>
-
-      <section class="contexto__cartao">
-        <h2 class="contexto__titulo">Perguntas de exemplo</h2>
-        <div class="exemplos-lista" id="exemplos-lista"></div>
-      </section>
-
-      <section class="contexto__cartao">
-        <h2 class="contexto__titulo">Delegacias perto de você</h2>
-        <p class="contexto__texto contexto__texto--fraco">Telefone, horário e a Delegacia da Mulher mais próxima.</p>
-        <button class="botao botao--secundario botao--largo" type="button" id="abrir-delegacias-2">
-          <svg class="i" aria-hidden="true"><use href="#i-mapa"/></svg>
-          Encontrar delegacias
-        </button>
-      </section>
-
-      <section class="contexto__cartao">
-        <h2 class="contexto__titulo">Privacidade</h2>
-        <div class="linha-privacidade">
-          <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
-          <span id="resumo-privacidade">Histórico desligado · a conversa fica protegida no servidor</span>
-        </div>
-        <button class="botao botao--secundario botao--largo" type="button" id="abrir-privacidade-2">Ajustar privacidade</button>
-      </section>
-
-      <footer class="contexto__rodape">
         <p>Zelia · Organização e informação</p>
-        <button class="link" type="button" id="abrir-fontes-2">Fontes e transparência</button>
       </footer>
     </aside>
   </main>
@@ -247,27 +231,27 @@
       </div>
       <button class="interruptor" type="button" role="switch" aria-checked="false" id="switch-historico" aria-label="Salvar histórico neste aparelho"><span class="interruptor__bolinha"></span></button>
     </div>
+
+    <h3 class="dialogo__secao">Localização</h3>
     <div class="config">
       <div class="config__texto">
-        <p class="config__titulo">Prévia em notificações</p>
-        <p class="config__descricao">Conteúdo sempre oculto</p>
+        <p class="config__titulo">Permissão de localização</p>
+        <p class="config__descricao" id="localizacao-estado" role="status">Verificando…</p>
       </div>
-      <button class="interruptor" type="button" role="switch" aria-checked="false" disabled aria-label="Prévia em notificações: sempre oculta"><span class="interruptor__bolinha"></span></button>
+      <button class="botao botao--secundario botao--compacto" type="button" id="localizacao-pedir" hidden>Permitir</button>
     </div>
-    <div class="config">
-      <div class="config__texto">
-        <p class="config__titulo">Acesso por voz</p>
-        <p class="config__descricao">Só quando você toca · em breve</p>
-      </div>
-      <button class="interruptor" type="button" role="switch" aria-checked="false" disabled aria-label="Acesso por voz: em breve"><span class="interruptor__bolinha"></span></button>
-    </div>
+    <p class="dialogo__nota" id="localizacao-nota">Usada só para achar as delegacias perto de você. Fica no aparelho: não é guardada nem compartilhada.</p>
 
     <h3 class="dialogo__secao">Seus dados</h3>
     <button class="botao botao--secundario botao--largo botao--destrutivo" type="button" id="apagar-conversa">
       <svg class="i" aria-hidden="true"><use href="#i-lixeira"/></svg>
       Apagar conversa deste aparelho
     </button>
-    <p class="dialogo__nota dialogo__nota--alerta" id="nota-apagar" hidden>Toque novamente para confirmar. A conversa será apagada deste aparelho.</p>
+    <p class="dialogo__nota dialogo__nota--alerta" id="nota-apagar" role="status" hidden>Toque novamente para confirmar. A conversa será apagada deste aparelho.</p>
+    <button class="botao botao--secundario botao--largo" type="button" id="apagar-criar-pasta" hidden>
+      <svg class="i" aria-hidden="true"><use href="#i-pasta"/></svg>
+      Criar a Pasta segura para guardar uma cópia
+    </button>
     <p class="dialogo__nota">A conversa não aparece em notificações nem no título da aba. Nada é enviado a serviços de terceiros, exceto o mapa de ruas das delegacias, se você abri-lo: as imagens do mapa vêm do OpenStreetMap, que pode ver a região mostrada e o endereço de rede do aparelho. Sua posição exata não é enviada.</p>
   </dialog>
 
@@ -342,6 +326,82 @@
         <svg class="i" aria-hidden="true"><use href="#i-olho-oculto"/></svg>
         Sair rápido
       </button>
+    </div>
+  </dialog>
+
+  <dialog class="dialogo dialogo--cofre" id="dialogo-cofre" tabindex="-1" aria-labelledby="titulo-cofre">
+    <div class="dialogo__cabecalho">
+      <h2 class="dialogo__titulo" id="titulo-cofre">Pasta segura</h2>
+      <button class="botao botao--icone" type="button" data-fechar aria-label="Fechar">
+        <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+      </button>
+    </div>
+
+    <div data-cofre="indisponivel" hidden>
+      <p class="dialogo__texto">Este navegador não deixa guardar dados com segurança agora (isso acontece em janelas privadas). Abra o Zelia numa janela normal para usar a Pasta segura.</p>
+    </div>
+
+    <form data-cofre="novo" id="cofre-form-novo" autocomplete="off" hidden>
+      <p class="dialogo__texto">Guarde suas conversas com dia e hora, trancadas por um PIN, só neste aparelho. Depois, gere um relatório para levar à delegacia, se um dia você quiser denunciar.</p>
+      <label class="rotulo-campo" for="cofre-novo-pin">Crie um PIN (6 a 12 números)</label>
+      <input class="campo" type="password" id="cofre-novo-pin" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
+      <label class="rotulo-campo" for="cofre-novo-pin2">Repita o PIN</label>
+      <input class="campo" type="password" id="cofre-novo-pin2" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
+      <p class="dialogo__nota dialogo__nota--alerta" id="cofre-erro-novo" role="alert" hidden></p>
+      <button class="botao botao--primario botao--largo" type="submit">Criar Pasta segura</button>
+      <p class="dialogo__nota">Se você esquecer o PIN, ninguém consegue recuperar o que está guardado, nem a Zelia. Escolha um PIN que só você saiba e que não seja uma data conhecida.</p>
+    </form>
+
+    <form data-cofre="trancado" id="cofre-form-abrir" autocomplete="off" hidden>
+      <label class="rotulo-campo" for="cofre-abrir-pin">PIN da Pasta segura</label>
+      <input class="campo" type="password" id="cofre-abrir-pin" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
+      <p class="dialogo__nota dialogo__nota--alerta" id="cofre-erro-abrir" role="alert" hidden></p>
+      <button class="botao botao--primario botao--largo" type="submit">Abrir</button>
+    </form>
+
+    <div data-cofre="aberto" hidden>
+      <div class="dialogo__acoes cofre__topo">
+        <button class="botao botao--secundario botao--compacto" type="button" id="cofre-guardar-atual">Guardar a conversa atual</button>
+        <button class="botao botao--secundario botao--compacto" type="button" id="cofre-bloquear">Bloquear</button>
+      </div>
+      <p class="dialogo__nota dialogo__nota--alerta" id="cofre-aviso" role="alert" hidden></p>
+      <p class="dialogo__texto" id="cofre-vazio" hidden>Nenhuma conversa guardada ainda. Ao apagar uma conversa em Privacidade, ela fica aqui.</p>
+      <ul class="cofre__lista" id="cofre-lista"></ul>
+      <p class="dialogo__nota">Os relatórios são um registro seu, com dia e hora. Eles não provam sozinhos o que aconteceu; a delegacia, a Defensoria ou um advogado dirão como usá-los. A pasta tranca sozinha depois de 5 minutos sem uso.</p>
+      <button class="botao botao--secundario botao--largo botao--destrutivo" type="button" id="cofre-apagar-tudo">Apagar a Pasta segura</button>
+    </div>
+  </dialog>
+
+  <dialog class="dialogo dialogo--panico" id="dialogo-panico" tabindex="-1" aria-labelledby="titulo-panico">
+    <div class="dialogo__cabecalho">
+      <h2 class="dialogo__titulo" id="titulo-panico">Botão de pânico</h2>
+      <button class="botao botao--icone" type="button" data-fechar aria-label="Fechar">
+        <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+      </button>
+    </div>
+    <p class="dialogo__texto">Se você corre perigo agora, ligue para a polícia.</p>
+
+    <a class="botao botao--panico botao--grande botao--largo" id="panico-ligar" href="tel:190" autofocus>
+      <svg class="i" aria-hidden="true"><use href="#i-telefone"/></svg>
+      Ligar 190
+    </a>
+
+    <div class="panico__audio">
+      <button class="botao botao--secundario botao--grande botao--largo panico__mic" type="button" id="panico-mic" aria-pressed="false">
+        <svg class="i" aria-hidden="true"><use href="#i-microfone"/></svg>
+        <span id="panico-mic-texto">Reproduzir áudio de apoio</span>
+      </button>
+      <p class="panico__nota panico__nota--aviso" id="panico-mic-aviso" role="status" hidden></p>
+    </div>
+
+    <section class="panico__audios" id="panico-audios" aria-label="Áudios de apoio" hidden></section>
+
+    <div class="panico__rodape">
+      <button class="botao botao--secundario botao--largo" type="button" id="panico-sair">
+        <svg class="i" aria-hidden="true"><use href="#i-olho-oculto"/></svg>
+        Sair rápido
+      </button>
+      <p class="panico__nota">Fecha esta tela e abre uma página neutra.</p>
     </div>
   </dialog>
 
