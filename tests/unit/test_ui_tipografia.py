@@ -45,13 +45,11 @@ def test_sem_peso_700_ou_bold():
     assert re.search(r"strong,\s*b\s*\{\s*font-weight:\s*var\(--peso-semi\)", CSS)
 
 
-def test_lateral_tem_so_os_tres_cartoes_essenciais():
-    lateral = HTML.split('<aside class="contexto"')[1].split("</aside>")[0]
-    titulos = re.findall(r'<h2 class="contexto__titulo">([^<]+)', lateral)
-    assert [t.strip() for t in titulos] == [
-        "Data do fato",
-        "Delegacias perto de você",
-    ]
+def test_menu_nao_tem_cartoes_de_data_nem_delegacias():
+    menu = HTML.split('<aside class="contexto"')[1].split("</aside>")[0]
+    assert "contexto__titulo" not in menu
+    assert "Data do fato" not in menu
+    assert "Delegacias" not in menu
 
 
 def test_perguntas_de_exemplo_nao_se_repetem_na_lateral():

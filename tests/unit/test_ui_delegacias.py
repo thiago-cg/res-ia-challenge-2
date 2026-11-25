@@ -19,12 +19,13 @@ HTML = (UI / "index.html").read_text(encoding="utf-8")
 def test_painel_esta_ligado_no_html():
     for ident in (
         "dialogo-delegacias",
-        "abrir-delegacias-2",
         "deleg-usar-local",
         "deleg-form-cidade",
         "deleg-sair",
     ):
         assert f'id="{ident}"' in HTML
+    # o atalho fica na tela principal (abertura da conversa), não no menu
+    assert "data-abrir-delegacias" in (UI / "scripts" / "app.js").read_text(encoding="utf-8")
 
 
 def test_sem_mapa_de_terceiros():

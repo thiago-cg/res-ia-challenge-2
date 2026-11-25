@@ -10,6 +10,7 @@ import { criarCliente } from "./api.js";
 import { escapar, markdown } from "./markdown.js";
 import { criarPainelDelegacias } from "./delegacias.js";
 import { criarPainelPanico } from "./panico.js";
+import { criarPermissaoLocalizacao } from "./localizacao.js";
 import { EXEMPLOS, EXEMPLO_EMERGENCIA, RESPOSTAS_DEMO, respostaDemo } from "./demo.js";
 import { criarClienteDuravel, novoIdMensagem } from "./durable.js";
 
@@ -192,7 +193,7 @@ function htmlAbertura() {
       <h1 class="abertura__titulo">Entenda o que a lei diz, <em>no seu tempo.</em></h1>
       <p class="abertura__texto">Informação confiável, em linguagem simples, com a fonte na mão. Você decide o ritmo.</p>
       <span class="chip chip--privacidade">${icone("cadeado")} Conversa privada · nada aparece em notificações</span>
-      <button class="botao botao--secundario apenas-mobile abertura__delegacias" type="button" data-abrir-delegacias>${icone("mapa")} Delegacias perto de você</button>
+      <button class="botao botao--secundario abertura__delegacias" type="button" data-abrir-delegacias>${icone("mapa")} Delegacias perto de você</button>
 
       <div class="exemplos">
         <h2 class="exemplos__titulo">Comece por onde for mais fácil</h2>
@@ -722,9 +723,7 @@ function pedirConfirmacao() {
 
 function definirData(iso) {
   estado.dataFato = iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : "";
-  el.dataInput.value = estado.dataFato;
   el.dataDialogo.value = estado.dataFato;
-  el.limparData.hidden = !estado.dataFato;
   el.chipData.dataset.definida = String(Boolean(estado.dataFato));
   el.chipDataTexto.textContent = estado.dataFato
     ? `Data do fato: ${formatarData(estado.dataFato)}`
@@ -973,8 +972,14 @@ function ligarEventos() {
     });
   });
 
-  el.abrirPrivacidade.addEventListener("click", () => abrirDialogo(el.dialogoPrivacidade));
-  el.abrirFontes.addEventListener("click", () => abrirDialogo(el.dialogoFontes));
+  el.abrirPrivacidade.addEventListener("click", () => {
+    fecharContexto({ devolverFoco: false });
+    abrirDialogo(el.dialogoPrivacidade);
+  });
+  el.abrirFontes.addEventListener("click", () => {
+    fecharContexto({ devolverFoco: false });
+    abrirDialogo(el.dialogoFontes);
+  });
 
   el.switchHistorico.addEventListener("click", alternarHistorico);
 
@@ -988,8 +993,6 @@ function ligarEventos() {
     fecharDialogo(el.dialogoPrivacidade);
   });
 
-  el.dataInput.addEventListener("change", () => definirData(el.dataInput.value));
-  el.limparData.addEventListener("click", () => definirData(""));
   el.chipData.addEventListener("click", () => {
     el.dataDialogo.value = estado.dataFato;
     abrirDialogo(el.dialogoData);
@@ -1022,11 +1025,11 @@ function abrirContexto() {
   if (foco) foco.focus();
 }
 
-function fecharContexto() {
+function fecharContexto({ devolverFoco = true } = {}) {
   document.body.classList.remove("contexto-aberto");
   el.veil.hidden = true;
   el.abrirContexto.setAttribute("aria-expanded", "false");
-  el.abrirContexto.focus();
+  if (devolverFoco) el.abrirContexto.focus();
 }
 
 /* --- inicialização ------------------------------------------------------- */
@@ -1095,8 +1098,6 @@ function iniciar() {
   el.faixaDemo = document.getElementById("faixa-demo");
   el.chipData = document.getElementById("chip-data");
   el.chipDataTexto = document.getElementById("chip-data-texto");
-  el.dataInput = document.getElementById("data-fato");
-  el.limparData = document.getElementById("limpar-data");
   el.dataDialogo = document.getElementById("data-dialogo");
   el.dataAplicar = document.getElementById("data-aplicar");
   el.dataLimpar = document.getElementById("data-limpar");
@@ -1104,7 +1105,6 @@ function iniciar() {
   el.dialogoPrivacidade = document.getElementById("dialogo-privacidade");
   el.dialogoFontes = document.getElementById("dialogo-fontes");
   el.abrirPrivacidade = document.getElementById("abrir-privacidade");
-  el.abrirDelegacias2 = document.getElementById("abrir-delegacias-2");
   el.abrirPanico = document.getElementById("abrir-panico");
   el.abrirFontes = document.getElementById("abrir-fontes");
   el.switchHistorico = document.getElementById("switch-historico");
@@ -1130,19 +1130,25 @@ function iniciar() {
     fecharDialogo,
     anunciar,
   });
-  el.abrirDelegacias2.addEventListener("click", () => {
-    if (document.body.classList.contains("contexto-aberto")) fecharContexto();
-    painelDelegacias.abrir();
-  });
-  // Atalho da abertura (celular): a abertura é redesenhada, então o clique é delegado.
+  // Atalho da abertura: a abertura é redesenhada, então o clique é delegado.
   document.addEventListener("click", (evento) => {
     if (evento.target.closest("[data-abrir-delegacias]")) painelDelegacias.abrir();
+  });
+
+  criarPermissaoLocalizacao({
+    estado: document.getElementById("localizacao-estado"),
+    botao: document.getElementById("localizacao-pedir"),
+    nota: document.getElementById("localizacao-nota"),
+    dialogo: el.dialogoPrivacidade,
   });
 
   const painelPanico = criarPainelPanico({
     dialogo: document.getElementById("dialogo-panico"),
     slot: document.getElementById("panico-audios"),
     sair: document.getElementById("panico-sair"),
+    microfone: document.getElementById("panico-mic"),
+    microfoneTexto: document.getElementById("panico-mic-texto"),
+    aviso: document.getElementById("panico-mic-aviso"),
     abrirDialogo,
     fecharDialogo,
     anunciar,

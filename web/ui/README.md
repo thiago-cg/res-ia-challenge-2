@@ -138,3 +138,29 @@ distância, telefone, horário e "Como chegar".
   `npx esbuild entrada.js --bundle --minify --format=iife --target=es2020 --outfile=deckgl.min.js`.
 - Único terceiro: os blocos vetoriais da OpenFreeMap (`tiles.openfreemap.org`, dados do OpenStreetMap).
   A tela avisa e a posição da usuária não é enviada. Para trocar de provedor, mude `ESTILO_URL`.
+
+## Menu e microfone do SOS (atualização)
+
+- Topo: logo, **SOS** e **menu (☰)**, em qualquer largura. O menu é uma gaveta com **Privacidade**
+  e **Fontes e transparência**; não tem Delegacias nem Data do fato. Delegacias fica na tela
+  principal (botão na abertura da conversa); a data do fato continua no chip junto ao campo de texto.
+- **Privacidade** inclui a **permissão de localização** (`scripts/localizacao.js`): mostra o estado
+  (permitida, bloqueada, a perguntar), deixa pedir a permissão e explica que, para desativar, é
+  nas configurações do navegador. A posição lida para disparar o pedido é descartada.
+- O SOS tem um botão de **microfone** (`#panico-mic`) para reproduzir o áudio de apoio. Contrato com a
+  equipe dos áudios, evento no `document`:
+
+  ```js
+  document.addEventListener("zelia:panico:audio", (e) => {
+    const { acao, assumir, aoTerminar } = e.detail; // acao: "tocar" | "parar"
+    if (acao === "tocar") {
+      assumir();            // obrigatório, síncrono: "eu cuido deste áudio"
+      tocarAudio().then(aoTerminar); // ao acabar, o botão volta ao estado inicial
+    } else {
+      pararAudio();
+    }
+  });
+  ```
+
+  Sem ninguém chamando `assumir()`, a tela mostra que os áudios ainda não estão disponíveis e
+  lembra do 190. Fechar a tela do SOS também dispara `acao: "parar"` se houver áudio tocando.

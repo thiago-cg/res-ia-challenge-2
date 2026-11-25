@@ -117,15 +117,7 @@
         <svg class="i" aria-hidden="true"><use href="#i-alerta"/></svg>
         <span>SOS</span>
       </button>
-      <button class="botao botao--fantasma" type="button" id="abrir-privacidade">
-        <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
-        <span class="botao__texto">Privacidade</span>
-      </button>
-      <button class="botao botao--fantasma" type="button" id="abrir-fontes">
-        <svg class="i" aria-hidden="true"><use href="#i-documento"/></svg>
-        <span class="botao__texto">Fontes</span>
-      </button>
-      <button class="botao botao--icone apenas-mobile" type="button" id="abrir-contexto" aria-label="Abrir contexto" aria-expanded="false" aria-controls="contexto">
+      <button class="botao botao--icone" type="button" id="abrir-contexto" aria-label="Abrir menu" aria-expanded="false" aria-controls="contexto">
         <svg class="i" aria-hidden="true"><use href="#i-menu"/></svg>
       </button>
     </div>
@@ -172,30 +164,31 @@
       </div>
     </section>
 
-    <aside class="contexto" id="contexto" aria-label="Sobre esta orientação">
+    <aside class="contexto" id="contexto" aria-label="Menu">
       <div class="contexto__topo">
-        <strong>Contexto</strong>
-        <button class="botao botao--icone" type="button" id="fechar-contexto" aria-label="Fechar contexto">
+        <strong>Menu</strong>
+        <button class="botao botao--icone" type="button" id="fechar-contexto" aria-label="Fechar menu">
           <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
         </button>
       </div>
-      <section class="contexto__cartao">
-        <h2 class="contexto__titulo">Data do fato <span class="contexto__opcional">opcional</span></h2>
-        <p class="contexto__texto contexto__texto--fraco">Ela define a versão da lei aplicável à sua pergunta.</p>
-        <div class="campo-data">
-          <input type="date" id="data-fato" aria-label="Data do fato">
-          <button class="botao botao--secundario botao--compacto" type="button" id="limpar-data" hidden>Limpar</button>
-        </div>
-      </section>
-
-      <section class="contexto__cartao">
-        <h2 class="contexto__titulo">Delegacias perto de você</h2>
-        <p class="contexto__texto contexto__texto--fraco">Telefone, horário e a Delegacia da Mulher mais próxima.</p>
-        <button class="botao botao--secundario botao--largo" type="button" id="abrir-delegacias-2">
-          <svg class="i" aria-hidden="true"><use href="#i-mapa"/></svg>
-          Encontrar delegacias
+      <nav class="menu" aria-label="Menu">
+        <button class="menu__item" type="button" id="abrir-privacidade" aria-haspopup="dialog">
+          <svg class="i" aria-hidden="true"><use href="#i-cadeado"/></svg>
+          <span class="menu__texto">
+            <span class="menu__titulo">Privacidade</span>
+            <span class="menu__descricao">Seus dados, histórico e localização</span>
+          </span>
+          <svg class="i menu__seta" aria-hidden="true"><use href="#i-seta"/></svg>
         </button>
-      </section>
+        <button class="menu__item" type="button" id="abrir-fontes" aria-haspopup="dialog">
+          <svg class="i" aria-hidden="true"><use href="#i-documento"/></svg>
+          <span class="menu__texto">
+            <span class="menu__titulo">Fontes e transparência</span>
+            <span class="menu__descricao">De onde vem cada resposta</span>
+          </span>
+          <svg class="i menu__seta" aria-hidden="true"><use href="#i-seta"/></svg>
+        </button>
+      </nav>
 
       <footer class="contexto__rodape">
         <div class="status" id="status-servico">
@@ -241,6 +234,16 @@
       </div>
       <button class="interruptor" type="button" role="switch" aria-checked="false" disabled aria-label="Acesso por voz: em breve"><span class="interruptor__bolinha"></span></button>
     </div>
+
+    <h3 class="dialogo__secao">Localização</h3>
+    <div class="config">
+      <div class="config__texto">
+        <p class="config__titulo">Permissão de localização</p>
+        <p class="config__descricao" id="localizacao-estado" role="status">Verificando…</p>
+      </div>
+      <button class="botao botao--secundario botao--compacto" type="button" id="localizacao-pedir" hidden>Permitir</button>
+    </div>
+    <p class="dialogo__nota" id="localizacao-nota">Usada só para achar as delegacias perto de você. Fica no aparelho: não é guardada nem compartilhada.</p>
 
     <h3 class="dialogo__secao">Seus dados</h3>
     <button class="botao botao--secundario botao--largo botao--destrutivo" type="button" id="apagar-conversa">
@@ -338,6 +341,14 @@
       <svg class="i" aria-hidden="true"><use href="#i-telefone"/></svg>
       Ligar 190
     </a>
+
+    <div class="panico__audio">
+      <button class="botao botao--secundario botao--grande botao--largo panico__mic" type="button" id="panico-mic" aria-pressed="false">
+        <svg class="i" aria-hidden="true"><use href="#i-microfone"/></svg>
+        <span id="panico-mic-texto">Reproduzir áudio de apoio</span>
+      </button>
+      <p class="panico__nota panico__nota--aviso" id="panico-mic-aviso" role="status" hidden></p>
+    </div>
 
     <section class="panico__audios" id="panico-audios" aria-label="Áudios de apoio" hidden></section>
 

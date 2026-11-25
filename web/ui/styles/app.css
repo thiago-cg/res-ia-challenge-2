@@ -420,8 +420,8 @@ a {
   max-width: var(--largura-max);
   margin: 0 auto;
   padding: 0 var(--goteira) var(--goteira);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--largura-aside);
+  display: flex;
+  flex-direction: column;
   gap: var(--goteira);
   flex: 1;
   min-height: 0;
@@ -430,8 +430,8 @@ a {
 .janela {
   position: relative;
   width: 100%;
-  max-width: calc(var(--largura-conversa) + 64px);
-  margin-inline: 0 auto;
+  max-width: calc(var(--largura-conversa) + 120px);
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1611,18 +1611,105 @@ a {
 /* --- Coluna de contexto -------------------------------------------------- */
 
 .contexto {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: min(360px, 88vw);
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 2px var(--esp-2);
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  background: var(--cor-fundo);
+  box-shadow: var(--sombra-2);
+  transform: translateX(100%);
+  transition: transform var(--mov-lento) var(--curva-padrao);
+  visibility: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--cor-borda-forte) transparent;
 }
 
+body.contexto-aberto .contexto {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+body.contexto-aberto {
+  overflow: hidden;
+}
+
 .contexto__topo {
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 4px 8px;
+}
+
+.contexto__topo strong {
+  font-size: 11px;
+  font-weight: var(--peso-semi);
+  letter-spacing: var(--tracking-rotulo);
+  text-transform: uppercase;
+  color: var(--cor-acao);
+}
+
+/* Itens do menu */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu__item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 18px;
+  border: var(--borda-fina);
+  border-radius: var(--raio-xl);
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--mov-rapido) var(--curva-padrao),
+    background var(--mov-rapido) var(--curva-padrao);
+}
+
+.menu__item:hover {
+  border-color: var(--cor-borda-forte);
+  background: var(--cor-superficie-alt, var(--cor-superficie));
+}
+
+.menu__item:focus-visible {
+  outline: 3px solid var(--cor-foco);
+  outline-offset: 2px;
+}
+
+.menu__texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.menu__titulo {
+  font-weight: var(--peso-semi);
+}
+
+.menu__descricao {
+  font-size: var(--texto-pequeno);
+  color: var(--cor-texto-suave);
+}
+
+.menu__seta {
+  flex: none;
+  color: var(--cor-texto-suave);
 }
 
 .contexto__cartao {
@@ -2003,8 +2090,6 @@ a {
   }
 
   .layout {
-    display: flex;
-    flex-direction: column;
     padding-bottom: 8px;
   }
 
@@ -2013,46 +2098,6 @@ a {
     max-width: none;
     min-height: 0;
     border-radius: var(--raio-xl);
-  }
-
-  .contexto {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 60;
-    width: min(360px, 88vw);
-    padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
-    background: var(--cor-fundo);
-    box-shadow: var(--sombra-2);
-    transform: translateX(100%);
-    transition: transform var(--mov-lento) var(--curva-padrao);
-    visibility: hidden;
-  }
-
-  .contexto__topo {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 0 2px 4px 8px;
-  }
-
-  .contexto__topo strong {
-    font-size: 11px;
-    font-weight: var(--peso-semi);
-    letter-spacing: var(--tracking-rotulo);
-    text-transform: uppercase;
-    color: var(--cor-acao);
-  }
-
-  body.contexto-aberto .contexto {
-    transform: translateX(0);
-    visibility: visible;
-  }
-
-  body.contexto-aberto {
-    overflow: hidden;
   }
 
   .thread {
@@ -2687,4 +2732,21 @@ a {
 .deleg__mapa-caixa .mapa__pino:focus-visible {
   outline: 3px solid var(--cor-foco);
   outline-offset: 2px;
+}
+
+/* --- microfone do botão de pânico ---------------------------------------- */
+.panico__audio {
+  margin-top: 12px;
+}
+
+.panico__mic[aria-pressed="true"] {
+  border-color: var(--cor-panico);
+  background: rgba(179, 38, 30, 0.08);
+  color: var(--cor-panico);
+}
+
+.panico__nota--aviso {
+  margin-top: 8px;
+  text-align: left;
+  color: var(--cor-texto);
 }
