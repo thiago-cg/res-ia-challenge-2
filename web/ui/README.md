@@ -124,3 +124,17 @@ distância, telefone, horário e "Como chegar".
   O `slot` fica escondido enquanto vazio e é esvaziado ao fechar. O módulo é `scripts/panico.js`.
 - Cor de alerta própria: `--cor-panico` (só no SOS).
 - Pasta segura: ainda não implementada (próximo patch); o lugar previsto é a barra do topo.
+
+## Mapa 3D (opcional)
+
+- No painel de delegacias, depois de abrir o mapa, o botão **Ver em 3D** troca o Leaflet por
+  MapLibre GL (mapa inclinado, prédios em 3D) com colunas do deck.gl sobre cada delegacia
+  (DEAM mais alta e azul). **Voltar ao mapa 2D** desfaz.
+- `scripts/mapa3d.js` tem a mesma interface de `scripts/mapa.js` (`destruir`, `marcarVoce`, `focar`)
+  e só é importado quando a usuária toca no botão. Sem WebGL, o botão nem aparece.
+- Bibliotecas no próprio servidor: `vendor/maplibre/` (MapLibre GL 5.x, BSD) e `vendor/deckgl/`
+  (deck.gl 9.x, MIT; bundle enxuto com `MapboxOverlay`, `ColumnLayer` e `ScatterplotLayer`).
+  Para regenerar o bundle: `npm i deck.gl@9 esbuild` e, em uma pasta com `entrada.js`,
+  `npx esbuild entrada.js --bundle --minify --format=iife --target=es2020 --outfile=deckgl.min.js`.
+- Único terceiro: os blocos vetoriais da OpenFreeMap (`tiles.openfreemap.org`, dados do OpenStreetMap).
+  A tela avisa e a posição da usuária não é enviada. Para trocar de provedor, mude `ESTILO_URL`.

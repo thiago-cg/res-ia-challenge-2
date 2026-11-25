@@ -190,11 +190,13 @@ export async function mostrarMapa(alvo, { servicos, origem, aoSelecionar }) {
   // O mapa nasce dentro de um painel que acabou de aparecer: espera o tamanho real antes de
   // enquadrar, senão os pinos saem fora de lugar e as imagens só chegam depois.
   mapa.setView(pontos[0] || [-15.79, -47.88], 12, { animate: false });
+  let vivo = true;
   requestAnimationFrame(() => {
+    if (!vivo) return; // o mapa foi fechado (ou trocado pelo 3D) antes do primeiro quadro
     mapa.invalidateSize();
     enquadrar();
   });
-  const observador = new ResizeObserver(() => mapa.invalidateSize());
+  const observador = new ResizeObserver(() => vivo && mapa.invalidateSize());
   observador.observe(alvo);
 
   async function marcarVoce() {
@@ -234,7 +236,11 @@ export async function mostrarMapa(alvo, { servicos, origem, aoSelecionar }) {
 
   return {
     destruir: () => {
+      vivo = false;
       observador.disconnect();
+      // Zoom animado em andamento estoura 250 ms depois do remove(); o Leaflet não o cancela.
+      mapa.stop();
+      mapa._animatingZoom = false;
       mapa.remove();
     },
     marcarVoce,

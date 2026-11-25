@@ -2663,3 +2663,28 @@ a {
 .abertura__delegacias {
   margin-top: 12px;
 }
+
+/* --- mapa 3D (MapLibre + deck.gl) ---------------------------------------- */
+.deleg__mapa-3d {
+  margin-top: var(--esp-2);
+}
+.deleg__mapa-nota {
+  margin: var(--esp-2) 0 0;
+  font-size: var(--texto-pequeno);
+  color: var(--cor-texto-suave);
+}
+.deleg__mapa-caixa .maplibregl-popup-content {
+  font: var(--peso-regular) var(--texto-pequeno)/1.4 var(--fonte-texto);
+  color: var(--cor-texto);
+  border-radius: var(--raio-sm);
+}
+.deleg__mapa-caixa .maplibregl-marker.mapa__pino,
+.deleg__mapa-caixa .maplibregl-marker.mapa__voce,
+.deleg__mapa-caixa .maplibregl-marker.mapa__centro {
+  cursor: pointer;
+}
+.deleg__mapa-caixa .maplibregl-canvas:focus-visible,
+.deleg__mapa-caixa .mapa__pino:focus-visible {
+  outline: 3px solid var(--cor-foco);
+  outline-offset: 2px;
+}
