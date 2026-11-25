@@ -184,20 +184,22 @@ function infoEncaminhamento(item) {
 
 /* --- abertura ------------------------------------------------------------ */
 
+const ICONES_EXEMPLOS = ["escudo", "balanca", "livro"];
+
 function htmlAbertura() {
   const exemplos = EXEMPLOS.map(
-    (pergunta) => `
-      <button class="exemplo" type="button" data-enviar="${escapar(pergunta)}">
+    (pergunta, i) => `
+      <button class="exemplo${i === 0 ? " exemplo--destaque" : ""}" type="button" data-enviar="${escapar(pergunta)}">
+        ${icone(ICONES_EXEMPLOS[i % ICONES_EXEMPLOS.length], "exemplo__icone")}
         <span>${escapar(pergunta)}</span>
-        ${icone("seta")}
       </button>`,
   ).join("");
 
   return `
     <section class="abertura">
       <p class="abertura__rotulo">Orientação jurídica</p>
-      <h1 class="abertura__titulo">Entenda o que a lei diz, <em>no seu tempo.</em></h1>
-      <p class="abertura__texto">Informação confiável, em linguagem simples, com a fonte na mão. Você decide o ritmo.</p>
+      <h1 class="abertura__titulo">Você não está sozinha. Vamos entender seus direitos <em>juntas.</em></h1>
+      <p class="abertura__texto">Sou a Zelia. Explico a lei em linguagem simples, mostro de onde vem cada resposta e te levo até a ajuda certa. Você decide o ritmo.</p>
       <span class="chip chip--privacidade">${icone("cadeado")} Conversa privada · nada aparece em notificações</span>
 
       <div class="exemplos">
@@ -205,7 +207,13 @@ function htmlAbertura() {
         <div class="exemplos__lista">${exemplos}</div>
       </div>
 
-      <p class="abertura__nota">Conteúdo informativo com base na Lei 11.340/2006 e atos do CNJ. Não substitui atendimento jurídico individual. Em perigo, ligue 190.</p>
+      <div class="abertura__nota">
+        <p class="abertura__ajuda">
+          ${icone("telefone")}
+          <span>Em perigo agora: <a href="tel:190">190</a>. Violência contra a mulher: <a href="tel:180">180</a>.</span>
+        </p>
+        <p>Fontes: Lei 11.340/2006 (Maria da Penha) e atos do CNJ. Conteúdo informativo; não substitui atendimento jurídico individual.</p>
+      </div>
     </section>`;
 }
 
