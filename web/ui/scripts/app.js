@@ -198,8 +198,8 @@ function htmlAbertura() {
   return `
     <section class="abertura">
       <p class="abertura__rotulo">Orientação jurídica</p>
-      <h1 class="abertura__titulo">Você não está sozinha. Vamos entender seus direitos <em>juntas.</em></h1>
-      <p class="abertura__texto">Sou a Zelia. Explico a lei em linguagem simples, mostro de onde vem cada resposta e te levo até a ajuda certa. Você decide o ritmo.</p>
+      <h1 class="abertura__titulo">Entenda o que a lei diz, <em>no seu tempo.</em></h1>
+      <p class="abertura__texto">Informação confiável, em linguagem simples, com a fonte na mão. Você decide o ritmo.</p>
       <span class="chip chip--privacidade">${icone("cadeado")} Conversa privada · nada aparece em notificações</span>
 
       <div class="exemplos">
