@@ -1064,16 +1064,6 @@ function resolverBaseApi() {
   return "http://localhost:8000";
 }
 
-function preencherExemplos() {
-  el.exemplosLista.innerHTML = EXEMPLOS.map(
-    (pergunta) => `
-      <button class="exemplo-lateral" type="button" data-enviar="${escapar(pergunta)}">
-        <span>${escapar(pergunta)}</span>
-        ${icone("seta")}
-      </button>`,
-  ).join("");
-}
-
 function semearExemplo(nome) {
   const fabrica = RESPOSTAS_DEMO[nome];
   if (!fabrica) return;
@@ -1106,7 +1096,6 @@ function iniciar() {
   el.statusTexto = document.getElementById("status-texto");
   el.notaBase = document.getElementById("nota-base");
   el.faixaDemo = document.getElementById("faixa-demo");
-  el.exemplosLista = document.getElementById("exemplos-lista");
   el.chipData = document.getElementById("chip-data");
   el.chipDataTexto = document.getElementById("chip-data-texto");
   el.dataInput = document.getElementById("data-fato");
@@ -1153,7 +1142,6 @@ function iniciar() {
     painelDelegacias.abrir();
   });
 
-  preencherExemplos();
   sincronizarPrivacidade();
   definirData("");
   ligarEventos();
