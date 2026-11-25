@@ -2705,8 +2705,29 @@ body.contexto-aberto {
   color: var(--cor-texto-suave, inherit);
 }
 
-.abertura__delegacias {
-  margin-top: 12px;
+/* Delegacias no topo, ao lado do SOS */
+.botao--delegacias {
+  gap: 8px;
+  padding-inline: 14px;
+  border: var(--borda-fina);
+  border-radius: var(--raio-pill);
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  font-weight: var(--peso-medio);
+}
+
+.botao--delegacias:hover {
+  border-color: var(--cor-borda-forte);
+}
+
+@media (max-width: 799px) {
+  .botao--delegacias .botao__texto {
+    display: none;
+  }
+
+  .botao--delegacias {
+    padding-inline: 12px;
+  }
 }
 
 /* --- mapa 3D (MapLibre + deck.gl) ---------------------------------------- */

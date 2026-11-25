@@ -193,7 +193,6 @@ function htmlAbertura() {
       <h1 class="abertura__titulo">Entenda o que a lei diz, <em>no seu tempo.</em></h1>
       <p class="abertura__texto">Informação confiável, em linguagem simples, com a fonte na mão. Você decide o ritmo.</p>
       <span class="chip chip--privacidade">${icone("cadeado")} Conversa privada · nada aparece em notificações</span>
-      <button class="botao botao--secundario abertura__delegacias" type="button" data-abrir-delegacias>${icone("mapa")} Delegacias perto de você</button>
 
       <div class="exemplos">
         <h2 class="exemplos__titulo">Comece por onde for mais fácil</h2>
@@ -1130,7 +1129,7 @@ function iniciar() {
     fecharDialogo,
     anunciar,
   });
-  // Atalho da abertura: a abertura é redesenhada, então o clique é delegado.
+  // Botão Delegacias do topo (e qualquer outro com data-abrir-delegacias).
   document.addEventListener("click", (evento) => {
     if (evento.target.closest("[data-abrir-delegacias]")) painelDelegacias.abrir();
   });

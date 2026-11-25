@@ -18,12 +18,18 @@ def _menu() -> str:
     return HTML.split('id="contexto"', 1)[1].split("</aside>", 1)[0]
 
 
-def test_topo_so_tem_sos_e_menu():
+def test_topo_tem_sos_delegacias_e_menu():
     topo = _topo()
-    assert 'id="abrir-panico"' in topo
-    assert 'id="abrir-contexto"' in topo
-    for removido in ("abrir-privacidade", "abrir-fontes", "abrir-delegacias"):
+    for ident in ("abrir-panico", "abrir-delegacias", "abrir-contexto"):
+        assert f'id="{ident}"' in topo
+    for removido in ("abrir-privacidade", "abrir-fontes"):
         assert f'id="{removido}"' not in topo
+
+
+def test_delegacias_fica_logo_depois_do_sos():
+    topo = _topo()
+    assert topo.index('id="abrir-panico"') < topo.index('id="abrir-delegacias"')
+    assert topo.index('id="abrir-delegacias"') < topo.index('id="abrir-contexto"')
 
 
 def test_botao_do_menu_aparece_em_qualquer_largura():
@@ -43,10 +49,12 @@ def test_menu_nao_tem_delegacias_nem_data_do_fato():
         assert proibido.lower() not in menu.lower(), proibido
 
 
-def test_delegacias_ficam_na_tela_principal():
-    assert "data-abrir-delegacias" in APP_JS
-    atalho = re.search(r"<button[^>]*data-abrir-delegacias[^>]*>", APP_JS).group(0)
-    assert "apenas-mobile" not in atalho
+def test_delegacias_nao_se_repete_na_abertura():
+    assert (
+        "data-abrir-delegacias"
+        not in APP_JS.split("function htmlAbertura", 1)[1].split("\n}\n", 1)[0]
+    )
+    assert "[data-abrir-delegacias]" in APP_JS  # o clique do topo é tratado aqui
 
 
 def test_privacidade_tem_permissao_de_localizacao():

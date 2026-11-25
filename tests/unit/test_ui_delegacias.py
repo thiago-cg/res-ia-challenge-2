@@ -24,8 +24,8 @@ def test_painel_esta_ligado_no_html():
         "deleg-sair",
     ):
         assert f'id="{ident}"' in HTML
-    # o atalho fica na tela principal (abertura da conversa), não no menu
-    assert "data-abrir-delegacias" in (UI / "scripts" / "app.js").read_text(encoding="utf-8")
+    # o botão fica no topo, ao lado do SOS, e não no menu
+    assert 'id="abrir-delegacias"' in HTML
 
 
 def test_sem_mapa_de_terceiros():
