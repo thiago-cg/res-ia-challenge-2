@@ -7,10 +7,11 @@ UI = Path(__file__).resolve().parents[2] / "web" / "ui"
 HTML = (UI / "index.html").read_text(encoding="utf-8")
 
 
-def test_botao_da_pasta_fica_a_esquerda_do_sos():
+def test_botao_da_pasta_fica_a_direita_de_delegacias():
     topo = HTML.split('class="topo__acoes"', 1)[1].split("</header>", 1)[0]
-    assert topo.index('id="abrir-cofre"') < topo.index('id="abrir-panico"')
     assert topo.index('id="abrir-panico"') < topo.index('id="abrir-delegacias"')
+    assert topo.index('id="abrir-delegacias"') < topo.index('id="abrir-cofre"')
+    assert topo.index('id="abrir-cofre"') < topo.index('id="abrir-contexto"')
 
 
 def test_dialogo_tem_os_quatro_estados_e_campos_de_pin_numericos():
