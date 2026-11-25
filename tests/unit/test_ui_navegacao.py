@@ -102,3 +102,12 @@ def test_menu_e_gaveta_em_qualquer_largura():
 def test_panico_usa_cor_propria():
     tokens = (UI / "styles" / "tokens.css").read_text(encoding="utf-8")
     assert "--cor-panico:" in tokens
+
+
+def test_privacidade_nao_tem_interruptores_que_nao_funcionam():
+    dlg = HTML.split('id="dialogo-privacidade"', 1)[1].split("</dialog>", 1)[0]
+    assert "Acesso por voz" not in dlg
+    assert "Prévia em notificações" not in dlg
+    # todo interruptor que sobra precisa estar ligado a alguma ação
+    for interruptor in re.findall(r"<button[^>]*role=\"switch\"[^>]*>", dlg):
+        assert "disabled" not in interruptor, interruptor
