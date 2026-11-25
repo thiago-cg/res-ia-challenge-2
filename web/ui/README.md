@@ -164,3 +164,19 @@ distância, telefone, horário e "Como chegar".
 
   Sem ninguém chamando `assumir()`, a tela mostra que os áudios ainda não estão disponíveis e
   lembra do 190. Fechar a tela do SOS também dispara `acao: "parar"` se houver áudio tocando.
+
+## Pasta segura (`#dialogo-cofre`)
+
+Guarda conversas trancadas por PIN, só neste aparelho (IndexedDB), com dia e hora, e gera um
+relatório (HTML para imprimir/salvar em PDF).
+
+- `cofre-cripto.js`: WebCrypto. PIN → PBKDF2-SHA-256 (600 mil voltas) → AES-256-GCM protege a chave
+  privada ECDH P-256. A chave pública fica em claro, então **guardar não pede PIN**; **ler pede**.
+- `cofre.js`: lógica sem DOM (criar, arquivar, desbloquear, espera após 5 PINs errados, trocar PIN).
+- `armazem-idb.js`: persistência; `relatorio.js`: relatório com hash SHA-256 e texto escapado.
+- `pasta-segura.js`: tela. Tranca ao fechar o diálogo e após 5 min sem uso.
+- Em **Apagar conversa**, se a Pasta existe a conversa é guardada antes de apagar; se guardar falhar,
+  **não apaga**. Nada é enviado à rede.
+
+Limites: não recupera PIN esquecido; PIN curto é mais fraco que frase longa contra quem copiar o
+banco do aparelho; o relatório é registro pessoal, não prova autenticada.

@@ -11,6 +11,7 @@ import { escapar, markdown } from "./markdown.js";
 import { criarPainelDelegacias } from "./delegacias.js";
 import { criarPainelPanico } from "./panico.js";
 import { criarPermissaoLocalizacao } from "./localizacao.js";
+import { criarPastaSegura } from "./pasta-segura.js";
 import { EXEMPLOS, EXEMPLO_EMERGENCIA, RESPOSTAS_DEMO, respostaDemo } from "./demo.js";
 import { criarClienteDuravel, novoIdMensagem } from "./durable.js";
 
@@ -75,8 +76,13 @@ const el = {};
 let sequencia = 0;
 let confirmandoExclusao = false;
 let timerConfirmacao = 0;
+let pastaSegura = null;
 
 /* --- utilidades ---------------------------------------------------------- */
+
+function agoraIso() {
+  return new Date().toISOString();
+}
 
 function icone(nome, classeExtra = "") {
   return `<svg class="i ${classeExtra}" aria-hidden="true" focusable="false"><use href="#i-${nome}"></use></svg>`;
@@ -525,7 +531,7 @@ async function enviar(texto) {
   estado.ocupado = true;
   atualizarEnviar();
 
-  estado.mensagens.push({ papel: "usuario", texto: limpo });
+  estado.mensagens.push({ papel: "usuario", texto: limpo, em: agoraIso() });
   el.thread.appendChild(renderUsuario(limpo));
   limparCampo();
   salvarHistorico();
@@ -547,7 +553,7 @@ async function enviar(texto) {
             });
 
     digitando.remove();
-    estado.mensagens.push({ papel: "assistente", resposta });
+    estado.mensagens.push({ papel: "assistente", resposta, em: agoraIso() });
     const acompanhando = estaNoFim();
     const no = renderResposta(resposta);
     el.thread.appendChild(no);
@@ -708,14 +714,59 @@ function resetarConfirmacao() {
   el.apagarConversa.dataset.confirmar = "false";
   el.apagarConversa.innerHTML = `${icone("lixeira")} Apagar conversa deste aparelho`;
   el.notaApagar.hidden = true;
+  el.apagarCriarPasta.hidden = true;
 }
 
-function pedirConfirmacao() {
+async function pedirConfirmacao() {
   confirmandoExclusao = true;
   el.apagarConversa.dataset.confirmar = "true";
   el.apagarConversa.innerHTML = `${icone("lixeira")} Toque de novo para confirmar`;
+  let situacao = "vazia";
+  if (estado.mensagens.length) {
+    try {
+      situacao = await pastaSegura.situacao();
+    } catch {
+      situacao = "indisponivel";
+    }
+  }
+  if (!confirmandoExclusao) return; // a confirmação expirou enquanto consultava
+  const textos = {
+    existe: "Toque novamente para confirmar. A conversa será guardada, trancada, na Pasta segura e apagada daqui.",
+    ausente:
+      "Toque novamente para apagar sem guardar. Ou crie a Pasta segura (protegida por PIN) para guardar uma cópia, com dia e hora.",
+  };
+  el.notaApagar.textContent =
+    textos[situacao] || "Toque novamente para confirmar. A conversa será apagada deste aparelho.";
   el.notaApagar.hidden = false;
-  timerConfirmacao = window.setTimeout(resetarConfirmacao, 7000);
+  el.apagarCriarPasta.hidden = situacao !== "ausente";
+  timerConfirmacao = window.setTimeout(resetarConfirmacao, situacao === "ausente" ? 15000 : 7000);
+}
+
+async function apagarGuardandoSePossivel() {
+  const conversa = { mensagens: estado.mensagens, fatos: fatosAtuais() };
+  let guardada = false;
+  if (conversa.mensagens.length) {
+    let situacao = "indisponivel";
+    try {
+      situacao = await pastaSegura.situacao();
+    } catch {
+      /* segue como indisponível */
+    }
+    if (situacao === "existe") {
+      try {
+        await pastaSegura.arquivarConversa(conversa, "apagar");
+        guardada = true;
+      } catch {
+        // Falhou ao guardar: não apaga, para a conversa não se perder.
+        el.notaApagar.textContent = "Não foi possível guardar na Pasta segura. A conversa NÃO foi apagada.";
+        el.notaApagar.hidden = false;
+        return false;
+      }
+    }
+  }
+  apagarConversa();
+  if (guardada) anunciar("Conversa guardada na Pasta segura e apagada deste aparelho.");
+  return true;
 }
 
 /* --- data do fato -------------------------------------------------------- */
@@ -837,8 +888,8 @@ async function ativarFluxoDuravel() {
       // Retomada: a resposta já publicada aparece ao reabrir, sem reenviar nada.
       if (atual.last_result && estado.mensagens.length === 0) {
         const ultima = (atual.messages || []).filter((m) => m.role === "user").pop();
-        if (ultima) estado.mensagens.push({ papel: "usuario", texto: ultima.content });
-        estado.mensagens.push({ papel: "assistente", resposta: atual.last_result });
+        if (ultima) estado.mensagens.push({ papel: "usuario", texto: ultima.content, em: null });
+        estado.mensagens.push({ papel: "assistente", resposta: atual.last_result, em: null });
         restaurou = estado.mensagens.length > 0;
       }
     } else {
@@ -982,14 +1033,18 @@ function ligarEventos() {
 
   el.switchHistorico.addEventListener("click", alternarHistorico);
 
-  el.apagarConversa.addEventListener("click", () => {
+  el.apagarConversa.addEventListener("click", async () => {
     if (!confirmandoExclusao) {
       pedirConfirmacao();
       return;
     }
     resetarConfirmacao();
-    apagarConversa();
+    if (await apagarGuardandoSePossivel()) fecharDialogo(el.dialogoPrivacidade);
+  });
+  el.apagarCriarPasta.addEventListener("click", () => {
+    resetarConfirmacao();
     fecharDialogo(el.dialogoPrivacidade);
+    pastaSegura.abrir();
   });
 
   el.chipData.addEventListener("click", () => {
@@ -1109,6 +1164,8 @@ function iniciar() {
   el.switchHistorico = document.getElementById("switch-historico");
   el.apagarConversa = document.getElementById("apagar-conversa");
   el.notaApagar = document.getElementById("nota-apagar");
+  el.apagarCriarPasta = document.getElementById("apagar-criar-pasta");
+  el.abrirCofre = document.getElementById("abrir-cofre");
   el.abrirContexto = document.getElementById("abrir-contexto");
   el.fecharContexto = document.getElementById("fechar-contexto");
   el.contexto = document.getElementById("contexto");
@@ -1139,6 +1196,18 @@ function iniciar() {
     botao: document.getElementById("localizacao-pedir"),
     nota: document.getElementById("localizacao-nota"),
     dialogo: el.dialogoPrivacidade,
+  });
+
+  pastaSegura = criarPastaSegura({
+    dialogo: document.getElementById("dialogo-cofre"),
+    abrirDialogo,
+    fecharDialogo,
+    obterConversa: () => ({ mensagens: estado.mensagens, fatos: fatosAtuais() }),
+    anunciar,
+  });
+  el.abrirCofre.addEventListener("click", () => {
+    if (document.body.classList.contains("contexto-aberto")) fecharContexto({ devolverFoco: false });
+    pastaSegura.abrir();
   });
 
   const painelPanico = criarPainelPanico({

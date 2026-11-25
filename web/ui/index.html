@@ -32,6 +32,9 @@
       <symbol id="i-documento" viewBox="0 0 24 24">
         <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
       </symbol>
+      <symbol id="i-pasta" viewBox="0 0 24 24">
+        <rect width="8" height="5" x="14" y="17" rx="1"/><path d="M10 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v2.5"/><path d="M20 17v-2a2 2 0 1 0-4 0v2"/>
+      </symbol>
       <symbol id="i-seta" viewBox="0 0 24 24">
         <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
       </symbol>
@@ -116,6 +119,9 @@
       <button class="botao botao--panico" type="button" id="abrir-panico" aria-haspopup="dialog" aria-label="Botão de pânico">
         <svg class="i" aria-hidden="true"><use href="#i-alerta"/></svg>
         <span>SOS</span>
+      </button>
+      <button class="botao botao--icone botao--cofre" type="button" id="abrir-cofre" aria-haspopup="dialog" aria-label="Pasta segura" title="Pasta segura">
+        <svg class="i" aria-hidden="true"><use href="#i-pasta"/></svg>
       </button>
       <button class="botao botao--delegacias" type="button" id="abrir-delegacias" data-abrir-delegacias aria-haspopup="dialog" aria-label="Delegacias perto de você">
         <svg class="i" aria-hidden="true"><use href="#i-mapa"/></svg>
@@ -240,7 +246,11 @@
       <svg class="i" aria-hidden="true"><use href="#i-lixeira"/></svg>
       Apagar conversa deste aparelho
     </button>
-    <p class="dialogo__nota dialogo__nota--alerta" id="nota-apagar" hidden>Toque novamente para confirmar. A conversa será apagada deste aparelho.</p>
+    <p class="dialogo__nota dialogo__nota--alerta" id="nota-apagar" role="status" hidden>Toque novamente para confirmar. A conversa será apagada deste aparelho.</p>
+    <button class="botao botao--secundario botao--largo" type="button" id="apagar-criar-pasta" hidden>
+      <svg class="i" aria-hidden="true"><use href="#i-pasta"/></svg>
+      Criar a Pasta segura para guardar uma cópia
+    </button>
     <p class="dialogo__nota">A conversa não aparece em notificações nem no título da aba. Nada é enviado a serviços de terceiros, exceto o mapa de ruas das delegacias, se você abri-lo: as imagens do mapa vêm do OpenStreetMap, que pode ver a região mostrada e o endereço de rede do aparelho. Sua posição exata não é enviada.</p>
   </dialog>
 
@@ -315,6 +325,49 @@
         <svg class="i" aria-hidden="true"><use href="#i-olho-oculto"/></svg>
         Sair rápido
       </button>
+    </div>
+  </dialog>
+
+  <dialog class="dialogo dialogo--cofre" id="dialogo-cofre" tabindex="-1" aria-labelledby="titulo-cofre">
+    <div class="dialogo__cabecalho">
+      <h2 class="dialogo__titulo" id="titulo-cofre">Pasta segura</h2>
+      <button class="botao botao--icone" type="button" data-fechar aria-label="Fechar">
+        <svg class="i" aria-hidden="true"><use href="#i-fechar"/></svg>
+      </button>
+    </div>
+
+    <div data-cofre="indisponivel" hidden>
+      <p class="dialogo__texto">Este navegador não deixa guardar dados com segurança agora (isso acontece em janelas privadas). Abra o Zelia numa janela normal para usar a Pasta segura.</p>
+    </div>
+
+    <form data-cofre="novo" id="cofre-form-novo" autocomplete="off" hidden>
+      <p class="dialogo__texto">Guarde suas conversas com dia e hora, trancadas por um PIN, só neste aparelho. Depois, gere um relatório para levar à delegacia, se um dia você quiser denunciar.</p>
+      <label class="rotulo-campo" for="cofre-novo-pin">Crie um PIN (6 a 12 números)</label>
+      <input class="campo" type="password" id="cofre-novo-pin" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
+      <label class="rotulo-campo" for="cofre-novo-pin2">Repita o PIN</label>
+      <input class="campo" type="password" id="cofre-novo-pin2" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
+      <p class="dialogo__nota dialogo__nota--alerta" id="cofre-erro-novo" role="alert" hidden></p>
+      <button class="botao botao--primario botao--largo" type="submit">Criar Pasta segura</button>
+      <p class="dialogo__nota">Se você esquecer o PIN, ninguém consegue recuperar o que está guardado, nem a Zelia. Escolha um PIN que só você saiba e que não seja uma data conhecida.</p>
+    </form>
+
+    <form data-cofre="trancado" id="cofre-form-abrir" autocomplete="off" hidden>
+      <label class="rotulo-campo" for="cofre-abrir-pin">PIN da Pasta segura</label>
+      <input class="campo" type="password" id="cofre-abrir-pin" inputmode="numeric" autocomplete="off" maxlength="12" spellcheck="false">
+      <p class="dialogo__nota dialogo__nota--alerta" id="cofre-erro-abrir" role="alert" hidden></p>
+      <button class="botao botao--primario botao--largo" type="submit">Abrir</button>
+    </form>
+
+    <div data-cofre="aberto" hidden>
+      <div class="dialogo__acoes cofre__topo">
+        <button class="botao botao--secundario botao--compacto" type="button" id="cofre-guardar-atual">Guardar a conversa atual</button>
+        <button class="botao botao--secundario botao--compacto" type="button" id="cofre-bloquear">Bloquear</button>
+      </div>
+      <p class="dialogo__nota dialogo__nota--alerta" id="cofre-aviso" role="alert" hidden></p>
+      <p class="dialogo__texto" id="cofre-vazio" hidden>Nenhuma conversa guardada ainda. Ao apagar uma conversa em Privacidade, ela fica aqui.</p>
+      <ul class="cofre__lista" id="cofre-lista"></ul>
+      <p class="dialogo__nota">Os relatórios são um registro seu, com dia e hora. Eles não provam sozinhos o que aconteceu; a delegacia, a Defensoria ou um advogado dirão como usá-los. A pasta tranca sozinha depois de 5 minutos sem uso.</p>
+      <button class="botao botao--secundario botao--largo botao--destrutivo" type="button" id="cofre-apagar-tudo">Apagar a Pasta segura</button>
     </div>
   </dialog>
 
