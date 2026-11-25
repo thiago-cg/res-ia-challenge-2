@@ -207,13 +207,6 @@ function htmlAbertura() {
         <div class="exemplos__lista">${exemplos}</div>
       </div>
 
-      <div class="abertura__nota">
-        <p class="abertura__ajuda">
-          ${icone("telefone")}
-          <span>Em perigo agora: <a href="tel:190">190</a>. Violência contra a mulher: <a href="tel:180">180</a>.</span>
-        </p>
-        <p>Fontes: Lei 11.340/2006 (Maria da Penha) e atos do CNJ. Conteúdo informativo; não substitui atendimento jurídico individual.</p>
-      </div>
     </section>`;
 }
 

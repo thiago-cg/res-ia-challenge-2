@@ -668,46 +668,6 @@ a {
   color: var(--zelia-sol-texto);
 }
 
-.abertura__nota {
-  margin-top: var(--esp-6);
-  padding-top: var(--esp-3);
-  border-top: var(--borda-fina);
-  max-width: 58ch;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--cor-texto);
-}
-
-.abertura__nota p {
-  margin: 0;
-}
-
-.abertura__nota p + p {
-  margin-top: 6px;
-  color: #444e5a;
-}
-
-.abertura__ajuda {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: var(--peso-medio);
-}
-
-.abertura__ajuda .i {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  color: var(--cor-acao);
-}
-
-.abertura__ajuda a {
-  color: var(--cor-acao);
-  font-weight: var(--peso-semi);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
 /* --- Mensagens ----------------------------------------------------------- */
 
 .mensagem {
@@ -2223,12 +2183,6 @@ body.contexto-aberto {
     font-size: 14.5px;
   }
 
-  .abertura__nota {
-    margin-top: var(--esp-5);
-    padding-top: 10px;
-    font-size: 12px;
-    line-height: 1.5;
-  }
 
   .bolha {
     max-width: 88%;
