@@ -2845,3 +2845,12 @@ body.contexto-aberto {
   letter-spacing: 0.2em;
   margin-block-end: 0.75rem;
 }
+
+/* 180 no botão de pânico */
+.panico__central {
+  margin-top: var(--esp-2);
+}
+
+.panico__nota--180 {
+  margin-top: var(--esp-2);
+}

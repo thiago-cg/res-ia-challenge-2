@@ -81,6 +81,8 @@ def test_app_nao_referencia_elementos_removidos():
 def test_panico_tem_190_saida_microfone_e_espaco_para_audios():
     dlg = HTML.split('id="dialogo-panico"', 1)[1].split("</dialog>", 1)[0]
     assert 'href="tel:190"' in dlg
+    assert 'href="tel:180"' in dlg
+    assert dlg.index('href="tel:190"') < dlg.index('href="tel:180"')
     assert 'id="panico-sair"' in dlg
     assert 'id="panico-mic"' in dlg
     assert "aria-pressed" in dlg
